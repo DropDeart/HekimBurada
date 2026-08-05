@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+option csharp_namespace = "Marketplace.Grpc";
+
+package marketplace;
+
+// BaseForge.CodeGen tarafından üretildi — Category entity'sine diğer servislerin
+// salt-okunur gRPC erişimi. Servis adı (CategoryService), C# implementasyon sınıfıyla
+// (CategoryGrpcService) çakışmasın diye ayrı tutulur.
+service CategoryService {
+  rpc GetById (CategoryByIdRequest) returns (CategoryMessage);
+}
+
+message CategoryByIdRequest {
+  string id = 1;
+}
+
+message CategoryMessage {
+  string id = 1;
+  string name = 2;
+}

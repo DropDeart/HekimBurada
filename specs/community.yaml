@@ -1,0 +1,102 @@
+# HekimBurada — Community (topluluk/forum) servis spec'i.
+# Üret:  baseforge new-service --spec specs/community.yaml --output services/HekimBurada.Community --yes
+#
+# Membership, Identity'nin doğrulama olayına abone olunca otomatik oluşturulur (bkz. subscribes).
+# NOT 1: SubscribeSpec.Event sıkı doğrulanıyor — yalnızca 'servis/EntityCreated|Updated|Deleted'
+# biçimi kabul ediliyor (serbest metin olay adı yok). Bu yüzden Identity tarafında "doktor
+# onaylandı" olayı, kavramsal bir 'DoctorProfile' entity'sinin Update'i gibi modellenip
+# 'identity/DoctorProfileUpdated' adıyla (routing key: identity.DoctorProfileUpdated) elle
+# yayınlanacak — Identity'nin spec.yaml'ı olmadığından bu adlandırma tamamen elle senkronize edilir.
+# NOT 2: Identity'nin kendi spec.yaml'ı olmadığı için CodeGen burada "minimal" (yalnızca Id) bir
+# shadow event class'ı üretecek — SyncMembershipOnDoctorProfileUpdated.cs üretim SONRASI elle
+# Specialty/VerificationStatus alanları eklenip gövde yazılacak (bkz. plan Faz B "el işi").
+service: community
+database: hekimburada_community_db
+
+entities:
+  CommunityCategory:
+    props:
+      name:
+        type: string
+        maxLength: 100
+
+  Membership:
+    props:
+      autoJoined:
+        type: bool
+        default: "true"
+    relations:
+      category:
+        kind: many-to-one
+        target: CommunityCategory
+    externalRefs:
+      user:
+        target: identity/User
+        store: UserId
+        via: grpc
+
+  Topic:
+    props:
+      title:
+        type: string
+        maxLength: 200
+      body: text
+      viewCount:
+        type: int
+        default: "0"
+      isPinned:
+        type: bool
+        default: "false"
+      isLocked:
+        type: bool
+        default: "false"
+    relations:
+      category:
+        kind: many-to-one
+        target: CommunityCategory
+    externalRefs:
+      author:
+        target: identity/User
+        store: AuthorId
+        via: grpc
+    counters: [viewCount]
+
+  Comment:
+    props:
+      body: text
+    relations:
+      topic:
+        kind: many-to-one
+        target: Topic
+    externalRefs:
+      author:
+        target: identity/User
+        store: AuthorId
+        via: grpc
+
+  Like:
+    props: {}
+    relations:
+      topic:
+        kind: many-to-one
+        target: Topic
+    externalRefs:
+      author:
+        target: identity/User
+        store: AuthorId
+        via: grpc
+
+subscribes:
+  - event: identity/DoctorProfileUpdated
+    handler: SyncMembershipOnDoctorProfileUpdated
+
+auth:
+  authority: http://host.docker.internal:5090
+  audience: hekimburada-api
+  requireHttpsMetadata: false
+  protect: true
+
+dockerPorts:
+  rest: 5110
+  grpc: 5111
+  postgres: 5434

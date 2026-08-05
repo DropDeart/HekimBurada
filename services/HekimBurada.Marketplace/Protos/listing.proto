@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+option csharp_namespace = "Marketplace.Grpc";
+
+package marketplace;
+
+// BaseForge.CodeGen tarafından üretildi — Listing entity'sine diğer servislerin
+// salt-okunur gRPC erişimi. Servis adı (ListingService), C# implementasyon sınıfıyla
+// (ListingGrpcService) çakışmasın diye ayrı tutulur.
+service ListingService {
+  rpc GetById (ListingByIdRequest) returns (ListingMessage);
+}
+
+message ListingByIdRequest {
+  string id = 1;
+}
+
+message ListingMessage {
+  string id = 1;
+  string title = 2;
+  string description = 3;
+  string condition = 4;
+  string price = 5;
+  string original_price = 6;
+  string payment_method = 7;
+  string referans_url = 8;
+  string city = 9;
+  string images = 10;
+  string status = 11;
+  int32 duration_days = 12;
+  string published_at = 13;
+  string expires_at = 14;
+  int32 renew_count = 15;
+  bool is_featured = 16;
+  int32 view_count = 17;
+}

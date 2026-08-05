@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/services/">
+    <Project Path="services/HekimBurada.Identity/Identity.csproj" />
+    <Project Path="services/HekimBurada.Marketplace/Marketplace.csproj" />
+    <Project Path="services/HekimBurada.Community/Community.csproj" />
+    <Project Path="services/HekimBurada.Messaging/Messaging.csproj" />
+    <Project Path="services/HekimBurada.Gateway/Gateway.csproj" />
+  </Folder>
+</Solution>

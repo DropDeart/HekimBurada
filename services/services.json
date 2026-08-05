@@ -1,0 +1,56 @@
+{
+  "services": [
+    {
+      "name": "community",
+      "restPort": 5110,
+      "grpcPort": 5111,
+      "postgresPort": 5434,
+      "entityCount": 5,
+      "isIdentity": false,
+      "authority": "http://host.docker.internal:5090",
+      "audience": "hekimburada-api",
+      "protected": true
+    },
+    {
+      "name": "gateway",
+      "restPort": 5080,
+      "grpcPort": 5081,
+      "postgresPort": 5436,
+      "entityCount": 1,
+      "isIdentity": false,
+      "authority": "http://host.docker.internal:5090",
+      "audience": "hekimburada-api",
+      "protected": true
+    },
+    {
+      "name": "identity",
+      "restPort": 5090,
+      "grpcPort": 5091,
+      "postgresPort": 5432,
+      "isIdentity": true,
+      "protected": false
+    },
+    {
+      "name": "marketplace",
+      "restPort": 5100,
+      "grpcPort": 5101,
+      "postgresPort": 5433,
+      "entityCount": 5,
+      "isIdentity": false,
+      "authority": "http://host.docker.internal:5090",
+      "audience": "hekimburada-api",
+      "protected": true
+    },
+    {
+      "name": "messaging",
+      "restPort": 5120,
+      "grpcPort": 5121,
+      "postgresPort": 5435,
+      "entityCount": 1,
+      "isIdentity": false,
+      "authority": "http://host.docker.internal:5090",
+      "audience": "hekimburada-api",
+      "protected": true
+    }
+  ]
+}

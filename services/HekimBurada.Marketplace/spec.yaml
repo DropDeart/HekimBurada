@@ -1,0 +1,147 @@
+service: marketplace
+database: hekimburada_marketplace_db
+entities:
+  Category:
+    props:
+      name:
+        type: string
+        maxLength: 100
+    relations:
+      parent:
+        kind: many-to-one
+        target: Category
+    appendOnly: false
+    paginated: true
+    sortable: true
+    searchable: true
+  Listing:
+    props:
+      title:
+        type: string
+        maxLength: 200
+      description: text
+      condition:
+        type: string
+        maxLength: 50
+      price:
+        type: decimal
+        nullable: true
+      originalPrice:
+        type: decimal
+        nullable: true
+      paymentMethod:
+        type: string
+        maxLength: 20
+      referansUrl:
+        type: string
+        nullable: true
+        maxLength: 500
+      city:
+        type: string
+        maxLength: 100
+      images: json
+      status:
+        type: string
+        maxLength: 20
+        default: draft
+      durationDays: int
+      publishedAt:
+        type: datetime
+        nullable: true
+      expiresAt:
+        type: datetime
+        nullable: true
+      renewCount:
+        type: int
+        default: 0
+      isFeatured:
+        type: bool
+        default: false
+      viewCount:
+        type: int
+        default: 0
+    relations:
+      category:
+        kind: many-to-one
+        target: Category
+    externalRefs:
+      seller:
+        target: identity/User
+        store: SellerId
+        via: grpc
+    appendOnly: false
+    counters:
+    - viewCount
+    paginated: true
+    sortable: true
+    searchable: true
+  Offer:
+    props:
+      amount: decimal
+      status:
+        type: string
+        maxLength: 20
+        default: pending
+    relations:
+      listing:
+        kind: many-to-one
+        target: Listing
+    externalRefs:
+      buyer:
+        target: identity/User
+        store: BuyerId
+        via: grpc
+    appendOnly: false
+    paginated: true
+    sortable: true
+    searchable: true
+  Request:
+    props:
+      title:
+        type: string
+        maxLength: 200
+      description: text
+      budgetMax:
+        type: decimal
+        nullable: true
+      status:
+        type: string
+        maxLength: 20
+        default: open
+    relations:
+      category:
+        kind: many-to-one
+        target: Category
+    externalRefs:
+      requester:
+        target: identity/User
+        store: RequesterId
+        via: grpc
+    appendOnly: false
+    paginated: true
+    sortable: true
+    searchable: true
+  Favorite:
+    relations:
+      listing:
+        kind: many-to-one
+        target: Listing
+    externalRefs:
+      user:
+        target: identity/User
+        store: UserId
+        via: grpc
+    appendOnly: false
+    paginated: true
+    sortable: true
+    searchable: true
+auth:
+  authority: http://host.docker.internal:5090
+  audience: hekimburada-api
+  requireHttpsMetadata: false
+  protect: true
+dockerPorts:
+  rest: 5100
+  grpc: 5101
+  postgres: 5433
+multiTenant: false

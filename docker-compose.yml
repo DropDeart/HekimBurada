@@ -1,0 +1,22 @@
+# HekimBurada — paylaşılan altyapı (infra)
+# Her mikroservis kendi docker-compose.server.yml'ında kendi Postgres'iyle ayağa kalkar
+# (services/<Servis>/docker-compose.server.yml, `docker compose -f ... -f ...` ile bu dosyayla
+# birlikte çalıştırılır). Burada yalnızca TÜM servislerin paylaştığı tek RabbitMQ broker'ı var.
+
+services:
+  rabbitmq:
+    image: rabbitmq:4-management-alpine
+    container_name: hekimburada-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+    ports:
+      - "${RABBITMQ_PORT:-5672}:5672"
+      - "${RABBITMQ_MGMT_PORT:-15672}:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+
+  # Mikroservisler buraya (Faz D'de) eklenir.

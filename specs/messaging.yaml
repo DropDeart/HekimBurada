@@ -1,0 +1,37 @@
+# HekimBurada — Messaging (teklif/pazarlık sohbeti) servis spec'i.
+# Üret:  baseforge new-service --spec specs/messaging.yaml --output services/HekimBurada.Messaging --yes
+#
+# CodeGen yalnızca REST CRUD üretir. Gerçek zamanlı teslimat (SignalR hub, JWT query-string wiring)
+# üretim SONRASI elle eklenecek (bkz. plan Faz D) — BaseForge'da bugün SignalR desteği yok.
+service: messaging
+database: hekimburada_messaging_db
+
+entities:
+  Message:
+    props:
+      body:
+        type: string
+        maxLength: 2000
+    externalRefs:
+      offer:
+        target: marketplace/Offer
+        store: OfferId
+        via: grpc
+      sender:
+        target: identity/User
+        store: SenderId
+        via: grpc
+
+auth:
+  authority: http://host.docker.internal:5090
+  audience: hekimburada-api
+  requireHttpsMetadata: false
+  protect: true
+
+corsOrigins:
+  - http://localhost:3000
+
+dockerPorts:
+  rest: 5120
+  grpc: 5121
+  postgres: 5435

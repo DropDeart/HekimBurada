@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+option csharp_namespace = "Community.Grpc";
+
+package community;
+
+// BaseForge.CodeGen tarafından üretildi — CommunityCategory entity'sine diğer servislerin
+// salt-okunur gRPC erişimi. Servis adı (CommunityCategoryService), C# implementasyon sınıfıyla
+// (CommunityCategoryGrpcService) çakışmasın diye ayrı tutulur.
+service CommunityCategoryService {
+  rpc GetById (CommunityCategoryByIdRequest) returns (CommunityCategoryMessage);
+}
+
+message CommunityCategoryByIdRequest {
+  string id = 1;
+}
+
+message CommunityCategoryMessage {
+  string id = 1;
+  string name = 2;
+}

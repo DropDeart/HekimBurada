@@ -1,0 +1,45 @@
+# HekimBurada — merkez Identity (auth) spec'i.
+# Üret:  baseforge new-identity --spec specs/identity/auth.yaml --output services/HekimBurada.Identity
+#
+# NOT: BaseForge'un ProvidersSpec'i yalnızca google/github/microsoft/facebook destekliyor — prototipteki
+# "Apple" butonunun backend karşılığı yok (v1'de frontend'den kaldırılacak veya v2'ye ertelenecek).
+service: identity
+database: hekimburada_identity_db
+issuer: http://localhost:5090/
+
+signing:
+  certificatePath: ""
+  certificatePassword: ""
+
+scopes:
+  - name: api
+    resource: hekimburada-api
+
+clients:
+  - clientId: spa-client       # e-posta/şifre formu (Next.js'in doğrudan /connect/token çağrısı)
+    public: true
+    grants: [password, refresh_token]
+    scopes: [api]
+  - clientId: web               # sosyal login (authorization_code + PKCE)
+    public: true
+    grants: [authorization_code, refresh_token]
+    scopes: [api]
+    redirectUris:
+      - http://localhost:3000/callback
+
+seedAdmin:
+  email: admin@hekimburada.com
+  password: Admin!2345          # prod: .env'e taşı (Auth__SeedAdmin__Password)
+
+providers:
+  google:    { clientId: "", clientSecret: "" }
+  microsoft: { clientId: "", clientSecret: "" }
+  facebook:  { clientId: "", clientSecret: "" }
+
+corsOrigins:
+  - http://localhost:3000
+
+dockerPorts:
+  rest: 5090
+  grpc: 5091
+  postgres: 5432

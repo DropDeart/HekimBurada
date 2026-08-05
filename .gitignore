@@ -1,0 +1,43 @@
+# .NET build çıktıları
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+*.user
+*.suo
+.vs/
+
+# NuGet paket çıktıları
+*.nupkg
+*.snupkg
+artifacts/
+
+# Test sonuçları / coverage
+[Tt]est[Rr]esult*/
+coverage*.json
+coverage*.xml
+coverage*.info
+*.coverage
+
+# Rider / VS Code
+.idea/
+.vscode/
+
+# Ortam değişkenleri
+.env
+.env.*
+!.env.example
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node / Next.js (HekimBuradaUI) — ayrıca kendi .gitignore'u da var, bu satırlar yedek/genel
+node_modules/
+.next/
+*.tsbuildinfo
+
+# Doktor doğrulama belgeleri (local dev volume mount noktası)
+/uploads/

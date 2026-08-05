@@ -1,0 +1,41 @@
+# HekimBurada — Gateway (BFF, YARP reverse proxy) servis spec'i.
+# Üret:  baseforge new-service --spec specs/gateway.yaml --output services/HekimBurada.Gateway --yes
+#
+# CodeGen en az bir entity zorunlu kılıyor (saf routing-only servis üretilemiyor) — bu yüzden
+# Gateway, hiçbir işlevsel servise net oturmayan platform geneli "Duyuru Panosu" (Announcement)
+# içeriğini de barındırıyor. Diğer her şey /api/gateway/{servis}/... altında proxy'lenir.
+# Auth bilinçli olarak proxy tarafında YOK: YARP passthrough, downstream servisler zaten
+# kendi [Authorize]'ını uygular; Announcement kendi auth.protect'ini kullanır.
+service: gateway
+database: hekimburada_gateway_db
+
+entities:
+  Announcement:
+    props:
+      title:
+        type: string
+        maxLength: 200
+      body: text
+      publishedAt: datetime
+    externalRefs:
+      author:
+        target: identity/User
+        store: AuthorId
+        via: grpc
+
+gateway:
+  proxiedServices: [marketplace, community, messaging]
+
+auth:
+  authority: http://host.docker.internal:5090
+  audience: hekimburada-api
+  requireHttpsMetadata: false
+  protect: true
+
+corsOrigins:
+  - http://localhost:3000
+
+dockerPorts:
+  rest: 5080
+  grpc: 5081
+  postgres: 5436

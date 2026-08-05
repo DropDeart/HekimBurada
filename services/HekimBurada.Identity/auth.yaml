@@ -1,0 +1,37 @@
+service: identity
+database: hekimburada_identity_db
+issuer: http://localhost:5090/
+signing: {}
+scopes:
+- name: api
+  resource: hekimburada-api
+clients:
+- clientId: spa-client
+  public: true
+  grants:
+  - password
+  - refresh_token
+  scopes:
+  - api
+- clientId: web
+  public: true
+  grants:
+  - authorization_code
+  - refresh_token
+  scopes:
+  - api
+  redirectUris:
+  - http://localhost:3000/callback
+seedAdmin:
+  email: admin@hekimburada.com
+  password: Admin!2345
+providers:
+  google: {}
+  microsoft: {}
+  facebook: {}
+dockerPorts:
+  rest: 5090
+  grpc: 5091
+  postgres: 5432
+corsOrigins:
+- http://localhost:3000

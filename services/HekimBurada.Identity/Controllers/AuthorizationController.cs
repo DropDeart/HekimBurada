@@ -1,0 +1,203 @@
+using System.Security.Claims;
+using Identity.Data;
+using Identity.Entities;
+using Microsoft.AspNetCore;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
+using OpenIddict.Abstractions;
+using OpenIddict.Server.AspNetCore;
+using static OpenIddict.Abstractions.OpenIddictConstants;
+
+namespace Identity.Controllers;
+
+/// <summary>OpenIddict token endpoint'i: password, client_credentials, authorization_code ve refresh_token akışları.</summary>
+[ApiController]
+public sealed class AuthorizationController : ControllerBase
+{
+    private readonly UserManager<ApplicationUser> _userManager;
+    private readonly SignInManager<ApplicationUser> _signInManager;
+    private readonly IOpenIddictScopeManager _scopeManager;
+
+    public AuthorizationController(
+        UserManager<ApplicationUser> userManager,
+        SignInManager<ApplicationUser> signInManager,
+        IOpenIddictScopeManager scopeManager)
+    {
+        _userManager = userManager;
+        _signInManager = signInManager;
+        _scopeManager = scopeManager;
+    }
+
+    [HttpGet("~/connect/authorize")]
+    [HttpPost("~/connect/authorize")]
+    public async Task<IActionResult> Authorize()
+    {
+        var request = HttpContext.GetOpenIddictServerRequest()
+            ?? throw new InvalidOperationException("OpenIddict isteği çözümlenemedi.");
+
+        // Kullanıcı giriş yapmış mı? (interaktif cookie)
+        var result = await HttpContext.AuthenticateAsync(IdentityConstants.ApplicationScheme);
+        if (result?.Succeeded != true)
+        {
+            // Giriş yoksa login sayfasına 302 ile yönlendir (sonra buraya geri döner).
+            var returnUrl = Request.PathBase + Request.Path + QueryString.Create(
+                Request.HasFormContentType ? Request.Form.ToList() : Request.Query.ToList());
+            return Redirect($"/Account/Login?ReturnUrl={Uri.EscapeDataString(returnUrl)}");
+        }
+
+        var user = await _userManager.GetUserAsync(result.Principal!)
+            ?? throw new InvalidOperationException("Oturum açan kullanıcı bulunamadı.");
+
+        var principal = await CreateUserPrincipalAsync(user, request.GetScopes());
+        return SignIn(principal, OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
+    }
+
+    [HttpPost("~/connect/token")]
+    [Produces("application/json")]
+    public async Task<IActionResult> Exchange()
+    {
+        var request = HttpContext.GetOpenIddictServerRequest()
+            ?? throw new InvalidOperationException("OpenIddict isteği çözümlenemedi.");
+
+        if (request.IsPasswordGrantType())
+        {
+            return await HandlePasswordAsync(request);
+        }
+
+        if (request.IsClientCredentialsGrantType())
+        {
+            return await HandleClientCredentialsAsync(request);
+        }
+
+        if (request.IsRefreshTokenGrantType() || request.IsAuthorizationCodeGrantType())
+        {
+            // Her iki grant'ta da OpenIddict, kodun/refresh token'ın arkasındaki principal'ı
+            // AuthenticateAsync ile kendisi çözer (Authorize()'da SignIn edilen ticket'tan) — burada
+            // yalnızca aynı kullanıcı için yeniden SignIn yapılır, akışlar arasında fark yoktur.
+            return await HandleServerManagedGrantAsync();
+        }
+
+        return Forbidden("Desteklenmeyen grant türü.");
+    }
+
+    private async Task<IActionResult> HandlePasswordAsync(OpenIddictRequest request)
+    {
+        var user = await _userManager.FindByNameAsync(request.Username ?? string.Empty);
+        if (user is null)
+        {
+            return Forbidden("Kullanıcı adı veya parola hatalı.");
+        }
+
+        var check = await _signInManager.CheckPasswordSignInAsync(user, request.Password ?? string.Empty, lockoutOnFailure: true);
+        if (check.IsNotAllowed)
+        {
+            return Forbidden("E-posta adresiniz henüz doğrulanmadı.");
+        }
+
+        if (!check.Succeeded)
+        {
+            return Forbidden("Kullanıcı adı veya parola hatalı.");
+        }
+
+        var principal = await CreateUserPrincipalAsync(user, request.GetScopes());
+        return SignIn(principal, OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
+    }
+
+    private async Task<IActionResult> HandleClientCredentialsAsync(OpenIddictRequest request)
+    {
+        // İstemci (client_id/secret) OpenIddict tarafından zaten doğrulandı.
+        var identity = new ClaimsIdentity(
+            authenticationType: TokenValidationParameters_AuthType,
+            nameType: Claims.Name,
+            roleType: Claims.Role);
+
+        identity.AddClaim(Claims.Subject, request.ClientId ?? string.Empty);
+        identity.AddClaim(Claims.Name, request.ClientId ?? string.Empty);
+
+        var principal = new ClaimsPrincipal(identity);
+        principal.SetScopes(request.GetScopes());
+        principal.SetResources(await ResolveResourcesAsync(principal.GetScopes()));
+        SetDestinations(principal);
+
+        return SignIn(principal, OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
+    }
+
+    private async Task<IActionResult> HandleServerManagedGrantAsync()
+    {
+        var result = await HttpContext.AuthenticateAsync(OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
+        var user = result.Principal is null ? null : await _userManager.GetUserAsync(result.Principal);
+        if (user is null)
+        {
+            return Forbidden("Yetkilendirme kodu ya da refresh token geçersiz.");
+        }
+
+        var principal = await CreateUserPrincipalAsync(user, result.Principal!.GetScopes());
+        return SignIn(principal, OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
+    }
+
+    private async Task<ClaimsPrincipal> CreateUserPrincipalAsync(ApplicationUser user, IEnumerable<string> scopes)
+    {
+        var identity = new ClaimsIdentity(
+            authenticationType: TokenValidationParameters_AuthType,
+            nameType: Claims.Name,
+            roleType: Claims.Role);
+
+        identity.AddClaim(Claims.Subject, user.Id.ToString());
+        identity.AddClaim(Claims.Name, user.UserName ?? string.Empty);
+        identity.AddClaim(Claims.Email, user.Email ?? string.Empty);
+
+        foreach (var role in await _userManager.GetRolesAsync(user))
+        {
+            identity.AddClaim(Claims.Role, role);
+        }
+
+        var principal = new ClaimsPrincipal(identity);
+        principal.SetScopes(scopes);
+        principal.SetResources(await ResolveResourcesAsync(principal.GetScopes()));
+        SetDestinations(principal);
+        return principal;
+    }
+
+    /// <summary>İstenen scope'lara karşılık gelen kaynakları (audience) config'teki scope tanımlarından çözer.</summary>
+    private async Task<List<string>> ResolveResourcesAsync(IEnumerable<string> scopes)
+    {
+        var resources = new List<string>();
+        await foreach (var resource in _scopeManager.ListResourcesAsync([.. scopes]))
+        {
+            resources.Add(resource);
+        }
+
+        return resources;
+    }
+
+    /// <summary>Her claim'in hangi token'a (access/id) yazılacağını belirler.</summary>
+    private static void SetDestinations(ClaimsPrincipal principal)
+    {
+        foreach (var claim in principal.Claims)
+        {
+            var destinations = new List<string> { Destinations.AccessToken };
+
+            // Profil/email/rol claim'leri id_token'a da yazılsın (ilgili scope verildiyse).
+            if (claim.Type is Claims.Name or Claims.Email or Claims.Role)
+            {
+                destinations.Add(Destinations.IdentityToken);
+            }
+
+            claim.SetDestinations(destinations);
+        }
+    }
+
+    private const string TokenValidationParameters_AuthType = "BaseForgeIdentity";
+
+    private IActionResult Forbidden(string description)
+    {
+        var properties = new Microsoft.AspNetCore.Authentication.AuthenticationProperties(new Dictionary<string, string?>
+        {
+            [OpenIddictServerAspNetCoreConstants.Properties.Error] = Errors.InvalidGrant,
+            [OpenIddictServerAspNetCoreConstants.Properties.ErrorDescription] = description,
+        });
+
+        return Forbid(properties, OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
+    }
+}

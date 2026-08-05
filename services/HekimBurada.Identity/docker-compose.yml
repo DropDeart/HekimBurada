@@ -1,0 +1,62 @@
+# identity merkez auth — izole test (servis + kendi PostgreSQL'i).
+#   docker compose up --build -d   ·   discovery: http://localhost:5090/.well-known/openid-configuration
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: baseforge
+      POSTGRES_PASSWORD: change_me
+      POSTGRES_DB: hekimburada_identity_db
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U baseforge -d hekimburada_identity_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "5432:5432"   # yerelde 'dotnet run' + sadece bu postgres'i container'da çalıştırmak için (appsettings.json ile eşleşir)
+    volumes:
+      - identity-pgdata:/var/lib/postgresql/data
+
+  # Dev SMTP catcher — e-posta OTP doğrulama kodları gerçek bir sağlayıcıya değil buraya gider.
+  # Web UI: http://localhost:8025 (gönderilen mailleri görüntülemek için).
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8025/api/v1/info"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  identity:
+    build: .
+    env_file:
+      - .env   # gerçek secret'lar (Auth__Providers__*__ClientSecret, Auth__SeedAdmin__Password, ...)
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      Auth__Issuer: "http://localhost:5090/"
+      ConnectionStrings__Default: "Host=postgres;Port=5432;Database=hekimburada_identity_db;Username=baseforge;Password=change_me"
+    ports:
+      - "5090:8080"   # REST/OpenIddict (HTTP/1.1)
+      - "5091:8081"   # gRPC (h2c) — merkez User entity'sine erişim
+    volumes:
+      - identity-avatars:/app/wwwroot/uploads   # profil fotoğrafları — container recreate'te kaybolmasın
+      - identity-verification-docs:/app/uploads # doktorluk belgesi (JPEG/PNG) — bkz. DoctorVerificationController
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mailpit:
+        condition: service_healthy
+
+volumes:
+  identity-pgdata:
+  identity-avatars:
+  identity-verification-docs:

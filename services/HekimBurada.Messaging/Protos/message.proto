@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+option csharp_namespace = "Messaging.Grpc";
+
+package messaging;
+
+// BaseForge.CodeGen tarafından üretildi — Message entity'sine diğer servislerin
+// salt-okunur gRPC erişimi. Servis adı (MessageService), C# implementasyon sınıfıyla
+// (MessageGrpcService) çakışmasın diye ayrı tutulur.
+service MessageService {
+  rpc GetById (MessageByIdRequest) returns (MessageMessage);
+}
+
+message MessageByIdRequest {
+  string id = 1;
+}
+
+message MessageMessage {
+  string id = 1;
+  string body = 2;
+}

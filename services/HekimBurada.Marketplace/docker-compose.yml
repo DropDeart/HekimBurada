@@ -1,0 +1,47 @@
+# marketplace — izole test ortamı: servis + kendi PostgreSQL'i (mevcut DB'ye dokunmaz).
+# Ayağa kaldır:  docker compose up --build -d
+# API arayüzü:   http://localhost:5100/scalar/v1
+# Durdur+temizle: docker compose down -v
+# Merkezi log toplama (Grafana Loki) da kökteki docker-compose.yml'da paylaşılan bir
+# container'dır ('docker compose up -d loki grafana') — appsettings.json'daki Serilog:LokiUrl
+# boşsa/erişilemezse servis sadece konsola loglamaya devam eder, bu bir ön koşul değildir.
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: baseforge
+      POSTGRES_PASSWORD: change_me
+      POSTGRES_DB: hekimburada_marketplace_db
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U baseforge -d hekimburada_marketplace_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "5433:5432"   # yerelde 'dotnet run' + sadece bu postgres'i container'da çalıştırmak için (appsettings.json ile eşleşir)
+    volumes:
+      - marketplace-pgdata:/var/lib/postgresql/data
+
+  marketplace:
+    build: .
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__Default: "Host=postgres;Port=5432;Database=hekimburada_marketplace_db;Username=baseforge;Password=change_me"
+    ports:
+      - "5100:8080"   # REST (HTTP/1.1) — appsettings.json Kestrel:Endpoints:Http
+      - "5101:8081"   # gRPC (h2c, TLS'siz HTTP/2)  — Kestrel:Endpoints:Grpc
+    volumes:
+      - marketplace-uploads:/app/wwwroot/uploads   # MediaController'ın kaydettiği dosyalar — container recreate'te kaybolmasın
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  marketplace-pgdata:
+  marketplace-uploads:

@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+option csharp_namespace = "Community.Grpc";
+
+package community;
+
+// BaseForge.CodeGen tarafından üretildi — Like entity'sine diğer servislerin
+// salt-okunur gRPC erişimi. Servis adı (LikeService), C# implementasyon sınıfıyla
+// (LikeGrpcService) çakışmasın diye ayrı tutulur.
+service LikeService {
+  rpc GetById (LikeByIdRequest) returns (LikeMessage);
+}
+
+message LikeByIdRequest {
+  string id = 1;
+}
+
+message LikeMessage {
+  string id = 1;
+}

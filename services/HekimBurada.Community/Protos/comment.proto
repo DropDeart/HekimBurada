@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+option csharp_namespace = "Community.Grpc";
+
+package community;
+
+// BaseForge.CodeGen tarafından üretildi — Comment entity'sine diğer servislerin
+// salt-okunur gRPC erişimi. Servis adı (CommentService), C# implementasyon sınıfıyla
+// (CommentGrpcService) çakışmasın diye ayrı tutulur.
+service CommentService {
+  rpc GetById (CommentByIdRequest) returns (CommentMessage);
+}
+
+message CommentByIdRequest {
+  string id = 1;
+}
+
+message CommentMessage {
+  string id = 1;
+  string body = 2;
+}

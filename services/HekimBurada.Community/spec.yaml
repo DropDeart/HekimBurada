@@ -1,0 +1,103 @@
+service: community
+database: hekimburada_community_db
+entities:
+  CommunityCategory:
+    props:
+      name:
+        type: string
+        maxLength: 100
+    appendOnly: false
+    paginated: true
+    sortable: true
+    searchable: true
+  Membership:
+    props:
+      autoJoined:
+        type: bool
+        default: true
+    relations:
+      category:
+        kind: many-to-one
+        target: CommunityCategory
+    externalRefs:
+      user:
+        target: identity/User
+        store: UserId
+        via: grpc
+    appendOnly: false
+    paginated: true
+    sortable: true
+    searchable: true
+  Topic:
+    props:
+      title:
+        type: string
+        maxLength: 200
+      body: text
+      viewCount:
+        type: int
+        default: 0
+      isPinned:
+        type: bool
+        default: false
+      isLocked:
+        type: bool
+        default: false
+    relations:
+      category:
+        kind: many-to-one
+        target: CommunityCategory
+    externalRefs:
+      author:
+        target: identity/User
+        store: AuthorId
+        via: grpc
+    appendOnly: false
+    counters:
+    - viewCount
+    paginated: true
+    sortable: true
+    searchable: true
+  Comment:
+    props:
+      body: text
+    relations:
+      topic:
+        kind: many-to-one
+        target: Topic
+    externalRefs:
+      author:
+        target: identity/User
+        store: AuthorId
+        via: grpc
+    appendOnly: false
+    paginated: true
+    sortable: true
+    searchable: true
+  Like:
+    relations:
+      topic:
+        kind: many-to-one
+        target: Topic
+    externalRefs:
+      author:
+        target: identity/User
+        store: AuthorId
+        via: grpc
+    appendOnly: false
+    paginated: true
+    sortable: true
+    searchable: true
+auth:
+  authority: http://host.docker.internal:5090
+  audience: hekimburada-api
+  requireHttpsMetadata: false
+  protect: true
+dockerPorts:
+  rest: 5110
+  grpc: 5111
+  postgres: 5434
+multiTenant: false
+subscribes:
+- event: identity/DoctorProfileUpdated
+  handler: SyncMembershipOnDoctorProfileUpdated

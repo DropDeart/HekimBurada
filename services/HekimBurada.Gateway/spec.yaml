@@ -1,0 +1,36 @@
+service: gateway
+database: hekimburada_gateway_db
+entities:
+  Announcement:
+    props:
+      title:
+        type: string
+        maxLength: 200
+      body: text
+      publishedAt: datetime
+    externalRefs:
+      author:
+        target: identity/User
+        store: AuthorId
+        via: grpc
+    appendOnly: false
+    paginated: true
+    sortable: true
+    searchable: true
+auth:
+  authority: http://host.docker.internal:5090
+  audience: hekimburada-api
+  requireHttpsMetadata: false
+  protect: true
+dockerPorts:
+  rest: 5080
+  grpc: 5081
+  postgres: 5436
+multiTenant: false
+corsOrigins:
+- http://localhost:3000
+gateway:
+  proxiedServices:
+  - marketplace
+  - community
+  - messaging

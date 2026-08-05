@@ -1,0 +1,55 @@
+<mxfile host="BaseForge.CodeGen">
+  <diagram name="ER - marketplace" id="er">
+    <mxGraphModel dx="1000" dy="700" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="826" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="n_Category" value="&lt;b&gt;Category&lt;/b&gt;&lt;hr size=&quot;1&quot;/&gt;Id : uuid (PK)&lt;br/&gt;name : text(100)&lt;br/&gt;CategoryId : uuid (FK -&amp;gt; Category)&lt;br/&gt;CreatedAt : timestamptz&lt;br/&gt;IsDeleted : boolean" style="rounded=0;whiteSpace=wrap;html=1;verticalAlign=top;align=left;spacingLeft=8;spacingRight=8;spacingTop=6;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="40" y="40" width="230" height="124" as="geometry" />
+        </mxCell>
+        <mxCell id="n_Listing" value="&lt;b&gt;Listing&lt;/b&gt;&lt;hr size=&quot;1&quot;/&gt;Id : uuid (PK)&lt;br/&gt;title : text(200)&lt;br/&gt;description : text&lt;br/&gt;condition : text(50)&lt;br/&gt;price : numeric?&lt;br/&gt;originalPrice : numeric?&lt;br/&gt;paymentMethod : text(20)&lt;br/&gt;referansUrl : text(500)?&lt;br/&gt;city : text(100)&lt;br/&gt;images : jsonb&lt;br/&gt;status : text(20)&lt;br/&gt;durationDays : integer&lt;br/&gt;publishedAt : timestamptz?&lt;br/&gt;expiresAt : timestamptz?&lt;br/&gt;renewCount : integer&lt;br/&gt;isFeatured : boolean&lt;br/&gt;viewCount : integer&lt;br/&gt;CategoryId : uuid (FK -&amp;gt; Category)&lt;br/&gt;SellerId : uuid (ext -&amp;gt; identity/User)&lt;br/&gt;CreatedAt : timestamptz&lt;br/&gt;IsDeleted : boolean" style="rounded=0;whiteSpace=wrap;html=1;verticalAlign=top;align=left;spacingLeft=8;spacingRight=8;spacingTop=6;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="340" y="40" width="230" height="412" as="geometry" />
+        </mxCell>
+        <mxCell id="n_Offer" value="&lt;b&gt;Offer&lt;/b&gt;&lt;hr size=&quot;1&quot;/&gt;Id : uuid (PK)&lt;br/&gt;amount : numeric&lt;br/&gt;status : text(20)&lt;br/&gt;ListingId : uuid (FK -&amp;gt; Listing)&lt;br/&gt;BuyerId : uuid (ext -&amp;gt; identity/User)&lt;br/&gt;CreatedAt : timestamptz&lt;br/&gt;IsDeleted : boolean" style="rounded=0;whiteSpace=wrap;html=1;verticalAlign=top;align=left;spacingLeft=8;spacingRight=8;spacingTop=6;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="640" y="40" width="230" height="160" as="geometry" />
+        </mxCell>
+        <mxCell id="n_Request" value="&lt;b&gt;Request&lt;/b&gt;&lt;hr size=&quot;1&quot;/&gt;Id : uuid (PK)&lt;br/&gt;title : text(200)&lt;br/&gt;description : text&lt;br/&gt;budgetMax : numeric?&lt;br/&gt;status : text(20)&lt;br/&gt;CategoryId : uuid (FK -&amp;gt; Category)&lt;br/&gt;RequesterId : uuid (ext -&amp;gt; identity/User)&lt;br/&gt;CreatedAt : timestamptz&lt;br/&gt;IsDeleted : boolean" style="rounded=0;whiteSpace=wrap;html=1;verticalAlign=top;align=left;spacingLeft=8;spacingRight=8;spacingTop=6;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="40" y="300" width="230" height="196" as="geometry" />
+        </mxCell>
+        <mxCell id="n_Favorite" value="&lt;b&gt;Favorite&lt;/b&gt;&lt;hr size=&quot;1&quot;/&gt;Id : uuid (PK)&lt;br/&gt;ListingId : uuid (FK -&amp;gt; Listing)&lt;br/&gt;UserId : uuid (ext -&amp;gt; identity/User)&lt;br/&gt;CreatedAt : timestamptz&lt;br/&gt;IsDeleted : boolean" style="rounded=0;whiteSpace=wrap;html=1;verticalAlign=top;align=left;spacingLeft=8;spacingRight=8;spacingTop=6;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="340" y="300" width="230" height="124" as="geometry" />
+        </mxCell>
+        <mxCell id="x_identity_User" value="&lt;b&gt;identity/User&lt;/b&gt;&lt;br/&gt;&lt;i&gt;(dış servis)&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;dashed=1;fillColor=#f5f5f5;strokeColor=#999999;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="40" y="560" width="230" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="e0" style="endArrow=block;html=1;strokeColor=#6c8ebf;" edge="1" parent="1" source="n_Category" target="n_Category">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e1" style="endArrow=block;html=1;strokeColor=#6c8ebf;" edge="1" parent="1" source="n_Listing" target="n_Category">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" style="endArrow=block;html=1;strokeColor=#6c8ebf;" edge="1" parent="1" source="n_Offer" target="n_Listing">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" style="endArrow=block;html=1;strokeColor=#6c8ebf;" edge="1" parent="1" source="n_Request" target="n_Category">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" style="endArrow=block;html=1;strokeColor=#6c8ebf;" edge="1" parent="1" source="n_Favorite" target="n_Listing">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" style="endArrow=open;html=1;dashed=1;strokeColor=#999999;" edge="1" parent="1" source="n_Listing" target="x_identity_User">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e6" style="endArrow=open;html=1;dashed=1;strokeColor=#999999;" edge="1" parent="1" source="n_Offer" target="x_identity_User">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e7" style="endArrow=open;html=1;dashed=1;strokeColor=#999999;" edge="1" parent="1" source="n_Request" target="x_identity_User">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e8" style="endArrow=open;html=1;dashed=1;strokeColor=#999999;" edge="1" parent="1" source="n_Favorite" target="x_identity_User">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

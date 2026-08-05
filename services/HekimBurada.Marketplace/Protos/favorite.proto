@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+option csharp_namespace = "Marketplace.Grpc";
+
+package marketplace;
+
+// BaseForge.CodeGen tarafından üretildi — Favorite entity'sine diğer servislerin
+// salt-okunur gRPC erişimi. Servis adı (FavoriteService), C# implementasyon sınıfıyla
+// (FavoriteGrpcService) çakışmasın diye ayrı tutulur.
+service FavoriteService {
+  rpc GetById (FavoriteByIdRequest) returns (FavoriteMessage);
+}
+
+message FavoriteByIdRequest {
+  string id = 1;
+}
+
+message FavoriteMessage {
+  string id = 1;
+}

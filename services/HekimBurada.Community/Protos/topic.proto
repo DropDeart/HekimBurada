@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+option csharp_namespace = "Community.Grpc";
+
+package community;
+
+// BaseForge.CodeGen tarafından üretildi — Topic entity'sine diğer servislerin
+// salt-okunur gRPC erişimi. Servis adı (TopicService), C# implementasyon sınıfıyla
+// (TopicGrpcService) çakışmasın diye ayrı tutulur.
+service TopicService {
+  rpc GetById (TopicByIdRequest) returns (TopicMessage);
+}
+
+message TopicByIdRequest {
+  string id = 1;
+}
+
+message TopicMessage {
+  string id = 1;
+  string title = 2;
+  string body = 3;
+  int32 view_count = 4;
+  bool is_pinned = 5;
+  bool is_locked = 6;
+}

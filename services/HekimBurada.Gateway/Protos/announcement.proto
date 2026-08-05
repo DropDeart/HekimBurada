@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+option csharp_namespace = "Gateway.Grpc";
+
+package gateway;
+
+// BaseForge.CodeGen tarafından üretildi — Announcement entity'sine diğer servislerin
+// salt-okunur gRPC erişimi. Servis adı (AnnouncementService), C# implementasyon sınıfıyla
+// (AnnouncementGrpcService) çakışmasın diye ayrı tutulur.
+service AnnouncementService {
+  rpc GetById (AnnouncementByIdRequest) returns (AnnouncementMessage);
+}
+
+message AnnouncementByIdRequest {
+  string id = 1;
+}
+
+message AnnouncementMessage {
+  string id = 1;
+  string title = 2;
+  string body = 3;
+  string published_at = 4;
+}

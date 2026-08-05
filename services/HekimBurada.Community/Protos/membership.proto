@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+option csharp_namespace = "Community.Grpc";
+
+package community;
+
+// BaseForge.CodeGen tarafından üretildi — Membership entity'sine diğer servislerin
+// salt-okunur gRPC erişimi. Servis adı (MembershipService), C# implementasyon sınıfıyla
+// (MembershipGrpcService) çakışmasın diye ayrı tutulur.
+service MembershipService {
+  rpc GetById (MembershipByIdRequest) returns (MembershipMessage);
+}
+
+message MembershipByIdRequest {
+  string id = 1;
+}
+
+message MembershipMessage {
+  string id = 1;
+  bool auto_joined = 2;
+}

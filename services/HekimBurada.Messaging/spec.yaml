@@ -1,0 +1,33 @@
+service: messaging
+database: hekimburada_messaging_db
+entities:
+  Message:
+    props:
+      body:
+        type: string
+        maxLength: 2000
+    externalRefs:
+      offer:
+        target: marketplace/Offer
+        store: OfferId
+        via: grpc
+      sender:
+        target: identity/User
+        store: SenderId
+        via: grpc
+    appendOnly: false
+    paginated: true
+    sortable: true
+    searchable: true
+auth:
+  authority: http://host.docker.internal:5090
+  audience: hekimburada-api
+  requireHttpsMetadata: false
+  protect: true
+dockerPorts:
+  rest: 5120
+  grpc: 5121
+  postgres: 5435
+multiTenant: false
+corsOrigins:
+- http://localhost:3000
