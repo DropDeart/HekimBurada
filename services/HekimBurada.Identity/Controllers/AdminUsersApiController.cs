@@ -9,9 +9,16 @@ namespace Identity.Controllers;
 /// <summary>Ortak Giriş SPA'sının admin panelindeki kullanıcı/rol yönetimi uçları. Sadece Admin rolüne açık.</summary>
 [ApiController]
 [Route("api/admin")]
-[Authorize(Roles = SeedData.AdminRole)]
+[Authorize(AuthenticationSchemes = ProfileAuthSchemes, Roles = SeedData.AdminRole)]
 public sealed class AdminUsersApiController : ControllerBase
 {
+    /// <summary>
+    /// Bağımsız SPA'ların ROPC ile aldığı Bearer access token'ı da kabul eder — yalnızca
+    /// "Identity.Application" (cookie) verilirse Bearer'lı çağrılar hep 401 alır (bkz.
+    /// AccountApiController/DoctorVerificationController'daki aynı desen).
+    /// </summary>
+    private const string ProfileAuthSchemes = "Identity.Application,OpenIddict.Validation.AspNetCore";
+
     private static readonly string[] KnownRoles =
         [SeedData.AdminRole, SeedData.UserRole, SeedData.SuperAdminRole, SeedData.RegionAdminRole];
 

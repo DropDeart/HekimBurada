@@ -21,6 +21,9 @@ public sealed class IdentityServiceDbContext : IdentityDbContext<ApplicationUser
     /// <summary>E-posta doğrulama kodları — CodeGen üretimi dışında, elle eklendi (bkz. <see cref="EmailOtp"/>).</summary>
     public DbSet<EmailOtp> EmailOtps => Set<EmailOtp>();
 
+    /// <summary>Kayıt formunun uzmanlık alanı seçim listesi — CodeGen üretimi dışında, elle eklendi (bkz. <see cref="Specialty"/>).</summary>
+    public DbSet<Specialty> Specialties => Set<Specialty>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -41,6 +44,12 @@ public sealed class IdentityServiceDbContext : IdentityDbContext<ApplicationUser
         {
             entity.HasIndex(o => new { o.UserId, o.CreatedAt });
             entity.Property(o => o.CodeHash).HasMaxLength(64).IsRequired();
+        });
+
+        builder.Entity<Specialty>(entity =>
+        {
+            entity.HasIndex(s => s.Name).IsUnique();
+            entity.Property(s => s.Name).HasMaxLength(150).IsRequired();
         });
     }
 }

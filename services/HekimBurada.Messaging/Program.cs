@@ -25,7 +25,11 @@ builder.Services.AddCors(cors =>
     {
         if (allowedOrigins.Length > 0)
         {
-            policy.WithOrigins(allowedOrigins).AllowAnyHeader().AllowAnyMethod();
+            // AllowCredentials: SignalR'ın /hubs/messages negotiate isteği tarayıcıda
+            // credentials:'include' ile gönderiliyor (bkz. Hubs/MessageHub.cs) — bu olmadan
+            // preflight "Access-Control-Allow-Credentials" eksik hatasıyla reddedilir.
+            // WithOrigins ile spesifik origin verildiğinden (wildcard değil) güvenli.
+            policy.WithOrigins(allowedOrigins).AllowAnyHeader().AllowAnyMethod().AllowCredentials();
         }
     });
 });

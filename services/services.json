@@ -2,6 +2,7 @@
   "services": [
     {
       "name": "community",
+      "folderName": "HekimBurada.Community",
       "restPort": 5110,
       "grpcPort": 5111,
       "postgresPort": 5434,
@@ -13,6 +14,7 @@
     },
     {
       "name": "gateway",
+      "folderName": "HekimBurada.Gateway",
       "restPort": 5080,
       "grpcPort": 5081,
       "postgresPort": 5436,
@@ -24,6 +26,7 @@
     },
     {
       "name": "identity",
+      "folderName": "HekimBurada.Identity",
       "restPort": 5090,
       "grpcPort": 5091,
       "postgresPort": 5432,
@@ -32,6 +35,7 @@
     },
     {
       "name": "marketplace",
+      "folderName": "HekimBurada.Marketplace",
       "restPort": 5100,
       "grpcPort": 5101,
       "postgresPort": 5433,
@@ -43,6 +47,7 @@
     },
     {
       "name": "messaging",
+      "folderName": "HekimBurada.Messaging",
       "restPort": 5120,
       "grpcPort": 5121,
       "postgresPort": 5435,

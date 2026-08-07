@@ -2,18 +2,21 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { identityApi } from "@/lib/api";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { identityApi, specialtiesApi, type Specialty } from "@/lib/api";
 
 export default function KayitOlPage() {
   const router = useRouter();
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [specialty, setSpecialty] = useState("");
+  const [specialties, setSpecialties] = useState<Specialty[]>([]);
+  const [specialtiesLoading, setSpecialtiesLoading] = useState(true);
   const [diplomaNo, setDiplomaNo] = useState("");
   const [region, setRegion] = useState("");
   const [password, setPassword] = useState("");
@@ -22,10 +25,22 @@ export default function KayitOlPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    specialtiesApi
+      .list()
+      .then(setSpecialties)
+      .catch(() => setError("Uzmanlık alanları yüklenemedi, sayfayı yenileyin."))
+      .finally(() => setSpecialtiesLoading(false));
+  }, []);
+
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
 
+    if (!specialty) {
+      setError("Uzmanlık alanı seçmelisiniz.");
+      return;
+    }
     if (password !== password2) {
       setError("Şifreler eşleşmiyor.");
       return;
@@ -103,20 +118,29 @@ export default function KayitOlPage() {
         <div className="grid grid-cols-2 gap-3.5">
           <div className="grid gap-1.5">
             <Label htmlFor="specialty">Uzmanlık Alanı</Label>
-            <Input
-              id="specialty"
-              placeholder="Örn. Kardiyoloji"
-              value={specialty}
-              onChange={(e) => setSpecialty(e.target.value)}
-              required
-            />
+            <Select value={specialty} onValueChange={setSpecialty} required disabled={specialtiesLoading}>
+              <SelectTrigger id="specialty">
+                <SelectValue
+                  placeholder={specialtiesLoading ? "Yükleniyor…" : "Seçiniz"}
+                />
+              </SelectTrigger>
+              <SelectContent>
+                {specialties.map((s) => (
+                  <SelectItem key={s.id} value={s.name}>
+                    {s.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="diplomaNo">Diploma / Tescil No</Label>
             <Input
               id="diplomaNo"
+              inputMode="numeric"
+              maxLength={16}
               value={diplomaNo}
-              onChange={(e) => setDiplomaNo(e.target.value)}
+              onChange={(e) => setDiplomaNo(e.target.value.replace(/\D/g, "").slice(0, 16))}
               required
             />
           </div>
@@ -162,7 +186,8 @@ export default function KayitOlPage() {
           </div>
           <div className="text-xs text-muted-foreground">
             E-postanızı doğruladıktan ve giriş yaptıktan sonra, hesabınızın admin onayına
-            gönderilmesi için doktorluk belgenizi (JPEG/PNG) profilinizden yükleyeceksiniz.
+            gönderilmesi için doktorluk belgenizi (JPEG, PNG veya PDF) profilinizden
+            yükleyeceksiniz.
           </div>
         </div>
 

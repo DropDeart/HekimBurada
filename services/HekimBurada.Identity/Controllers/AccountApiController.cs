@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace Identity.Controllers;
 
@@ -210,6 +211,16 @@ public sealed class AccountApiController : ControllerBase
             return BadRequest(new ErrorResponse("Uzmanlık alanı, diploma/tescil no ve bölge gerekli."));
         }
 
+        // Uzmanlık alanı yönetilen listeden seçilmeli — serbest metin, Community'nin topluluk
+        // kategorisi eşleşmesini (birebir string karşılaştırması) bozar (bkz. SpecialtiesApiController).
+        var specialty = request.Specialty.Trim();
+        var validSpecialty = await _db.Specialties.AnyAsync(
+            s => s.Name.ToLower() == specialty.ToLower(), HttpContext.RequestAborted);
+        if (!validSpecialty)
+        {
+            return BadRequest(new ErrorResponse("Geçersiz uzmanlık alanı."));
+        }
+
         var user = new ApplicationUser
         {
             UserName = request.Email,
@@ -231,7 +242,7 @@ public sealed class AccountApiController : ControllerBase
         {
             Id = Guid.NewGuid(),
             UserId = user.Id,
-            Specialty = request.Specialty.Trim(),
+            Specialty = specialty,
             DiplomaNo = request.DiplomaNo.Trim(),
             Region = request.Region.Trim(),
             VerificationStatus = DoctorVerificationStatus.Pending,

@@ -1,6 +1,7 @@
 using Identity.Configuration;
 using Identity.Entities;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using OpenIddict.Abstractions;
 using static OpenIddict.Abstractions.OpenIddictConstants;
 
@@ -15,6 +16,43 @@ public static class SeedData
         await SeedScopesAsync(services, auth, cancellationToken);
         await SeedClientsAsync(services, auth, cancellationToken);
         await SeedAdminAsync(services, auth);
+        await SeedSpecialtiesAsync(services, cancellationToken);
+    }
+
+    /// <summary>
+    /// Kayıt formunun uzmanlık alanı listesini yaygın Türkçe branşlarla doldurur (tablo boşsa).
+    /// Bilinçli olarak bir "Diğer" seçeneği eklenmez — listede olmayan bir alanla kayıt olunamaz,
+    /// SuperAdmin gerektiğinde ekler (bkz. SpecialtiesApiController).
+    /// </summary>
+    private static async Task SeedSpecialtiesAsync(IServiceProvider services, CancellationToken ct)
+    {
+        var db = services.GetRequiredService<IdentityServiceDbContext>();
+        if (await db.Specialties.AnyAsync(ct))
+        {
+            return;
+        }
+
+        string[] defaults =
+        [
+            "Aile Hekimliği",
+            "Anesteziyoloji ve Reanimasyon",
+            "Çocuk Sağlığı ve Hastalıkları",
+            "Dahiliye",
+            "Dermatoloji",
+            "Genel Cerrahi",
+            "Göz Hastalıkları",
+            "Kadın Hastalıkları ve Doğum",
+            "Kardiyoloji",
+            "Kulak Burun Boğaz",
+            "Nöroloji",
+            "Ortopedi ve Travmatoloji",
+            "Psikiyatri",
+            "Radyoloji",
+            "Üroloji",
+        ];
+
+        db.Specialties.AddRange(defaults.Select(name => new Specialty { Id = Guid.NewGuid(), Name = name }));
+        await db.SaveChangesAsync(ct);
     }
 
     private static async Task SeedScopesAsync(IServiceProvider services, AuthOptions auth, CancellationToken ct)

@@ -37,6 +37,7 @@ export default function BelgeYuklePage() {
       router.push("/giris-yap");
       return;
     }
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- mount'ta veri çekme (React'in "Fetching data" deseni); projede henüz data-fetching kütüphanesi yok
     void loadProfile();
   }, [router, loadProfile]);
 
