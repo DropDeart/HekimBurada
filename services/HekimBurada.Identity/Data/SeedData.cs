@@ -75,15 +75,23 @@ public static class SeedData
         }
     }
 
+    /// <summary>
+    /// Client'ları appsettings'ten oluşturur/günceller — var olan bir client artık sadece atlanmıyor,
+    /// izinleri (grant/scope/redirect) her açılışta appsettings'teki güncel haliyle senkronize ediliyor.
+    /// Önceden "zaten varsa dokunma" mantığı vardı: appsettings'e sonradan eklenen bir scope/grant
+    /// (örn. offline_access) DB'deki client zaten seed edilmiş olduğu için sessizce hiç uygulanmıyordu.
+    /// </summary>
     private static async Task SeedClientsAsync(IServiceProvider services, AuthOptions auth, CancellationToken ct)
     {
         var manager = services.GetRequiredService<IOpenIddictApplicationManager>();
         foreach (var client in auth.Clients)
         {
-            if (string.IsNullOrWhiteSpace(client.ClientId) || await manager.FindByClientIdAsync(client.ClientId, ct) is not null)
+            if (string.IsNullOrWhiteSpace(client.ClientId))
             {
                 continue;
             }
+
+            var existing = await manager.FindByClientIdAsync(client.ClientId, ct);
 
             var descriptor = new OpenIddictApplicationDescriptor
             {
@@ -132,7 +140,14 @@ public static class SeedData
                 descriptor.RedirectUris.Add(new Uri(uri));
             }
 
-            await manager.CreateAsync(descriptor, ct);
+            if (existing is null)
+            {
+                await manager.CreateAsync(descriptor, ct);
+            }
+            else
+            {
+                await manager.UpdateAsync(existing, descriptor, ct);
+            }
         }
     }
 

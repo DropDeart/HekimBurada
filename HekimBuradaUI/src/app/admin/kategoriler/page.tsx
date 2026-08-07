@@ -81,6 +81,12 @@ export default function AdminKategorilerPage() {
 
   const topCategories = categories.filter((c) => !c.parentId);
 
+  const orderedCategories = topCategories.flatMap((top) => [
+    top,
+    ...categories.filter((c) => c.parentId === top.id),
+  ]);
+  const orphanCategories = categories.filter((c) => !orderedCategories.includes(c));
+
   return (
     <div>
       <div className="mb-5 flex items-center justify-between">
@@ -144,7 +150,7 @@ export default function AdminKategorilerPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              categories.map((c) => (
+              [...orderedCategories, ...orphanCategories].map((c) => (
                 <TableRow key={c.id}>
                   <TableCell className={c.parentId ? "pl-8" : "font-semibold"}>{c.name}</TableCell>
                   <TableCell>{categories.find((p) => p.id === c.parentId)?.name ?? "—"}</TableCell>

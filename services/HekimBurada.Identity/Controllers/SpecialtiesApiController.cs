@@ -64,8 +64,60 @@ public sealed class SpecialtiesApiController : ControllerBase
 
         return Ok(new SpecialtyRow(specialty.Id, specialty.Name));
     }
+
+    [HttpPut("admin/specialties/{id:guid}")]
+    [Authorize(AuthenticationSchemes = ProfileAuthSchemes, Roles = SeedData.SuperAdminRole)]
+    public async Task<IActionResult> Update(Guid id, UpdateSpecialtyRequest request)
+    {
+        var name = request.Name?.Trim();
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return BadRequest(new ErrorResponse("Uzmanlık alanı adı gerekli."));
+        }
+
+        if (name.Length > 150)
+        {
+            return BadRequest(new ErrorResponse("Uzmanlık alanı adı en fazla 150 karakter olabilir."));
+        }
+
+        var specialty = await _db.Specialties.FirstOrDefaultAsync(s => s.Id == id, HttpContext.RequestAborted);
+        if (specialty is null)
+        {
+            return NotFound();
+        }
+
+        var exists = await _db.Specialties.AnyAsync(
+            s => s.Id != id && s.Name.ToLower() == name.ToLower(), HttpContext.RequestAborted);
+        if (exists)
+        {
+            return BadRequest(new ErrorResponse("Bu uzmanlık alanı zaten kayıtlı."));
+        }
+
+        specialty.Name = name;
+        await _db.SaveChangesAsync(HttpContext.RequestAborted);
+
+        return Ok(new SpecialtyRow(specialty.Id, specialty.Name));
+    }
+
+    [HttpDelete("admin/specialties/{id:guid}")]
+    [Authorize(AuthenticationSchemes = ProfileAuthSchemes, Roles = SeedData.SuperAdminRole)]
+    public async Task<IActionResult> Delete(Guid id)
+    {
+        var specialty = await _db.Specialties.FirstOrDefaultAsync(s => s.Id == id, HttpContext.RequestAborted);
+        if (specialty is null)
+        {
+            return NotFound();
+        }
+
+        _db.Specialties.Remove(specialty);
+        await _db.SaveChangesAsync(HttpContext.RequestAborted);
+
+        return NoContent();
+    }
 }
 
 public sealed record SpecialtyRow(Guid Id, string Name);
 
 public sealed record AddSpecialtyRequest(string? Name);
+
+public sealed record UpdateSpecialtyRequest(string? Name);

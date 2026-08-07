@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -93,19 +94,28 @@ export default function AdminUrunlerPage() {
             ) : (
               listings.map((l) => (
                 <TableRow key={l.id}>
-                  <TableCell>{l.title}</TableCell>
+                  <TableCell>
+                    <Link href={`/admin/urunler/${l.id}`} className="text-brand hover:underline">
+                      {l.title}
+                    </Link>
+                  </TableCell>
                   <TableCell>{l.price ? currency(l.price) : "—"}</TableCell>
                   <TableCell>{l.city}</TableCell>
                   <TableCell>{STATUS_LABEL[l.status]}</TableCell>
                   <TableCell>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      disabled={busyId === l.id}
-                      onClick={() => remove(l.id)}
-                    >
-                      Kaldır
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" asChild>
+                        <Link href={`/admin/urunler/${l.id}`}>Detay</Link>
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        disabled={busyId === l.id}
+                        onClick={() => remove(l.id)}
+                      >
+                        Kaldır
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))

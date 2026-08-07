@@ -51,17 +51,65 @@ async function reqAt<T>(baseUrl: string, path: string, init?: RequestInit): Prom
   return (text ? JSON.parse(text) : undefined) as T;
 }
 
-/** Bearer token gerektiren istekler için — token yoksa/401 dönerse anlamlı bir hata fırlatır. */
+/** Aynı anda birden fazla istek 401 alırsa hepsi tek bir refresh çağrısını paylaşır. */
+let refreshInFlight: Promise<string> | null = null;
+
+/** Access token süresi dolduğunda saklanan refresh token'la sessizce yeni bir çift alır. */
+async function refreshAccessToken(): Promise<string> {
+  const refreshToken = auth.getRefreshToken();
+  if (!refreshToken) {
+    auth.clearToken();
+    throw new Error("Oturum süresi doldu, lütfen tekrar giriş yapın.");
+  }
+
+  const remember = auth.isRemembered();
+  const res = await fetch(`${IDENTITY_URL}/connect/token`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "refresh_token",
+      client_id: "spa-client",
+      refresh_token: refreshToken,
+    }),
+  });
+
+  if (!res.ok) {
+    auth.clearToken();
+    throw new Error("Oturum süresi doldu, lütfen tekrar giriş yapın.");
+  }
+
+  const token = (await res.json()) as TokenResult;
+  auth.setToken(token.access_token, remember, token.refresh_token ?? null);
+  return token.access_token;
+}
+
+/** Bearer token gerektiren istekler için — token yoksa anlamlı bir hata fırlatır, 401 alırsa refresh token'la bir kez yeniden dener. */
 async function authedReqAt<T>(baseUrl: string, path: string, init?: RequestInit): Promise<T> {
   const token = auth.getToken();
   if (!token) {
     throw new Error("Oturum bulunamadı, lütfen tekrar giriş yapın.");
   }
 
-  return reqAt<T>(baseUrl, path, {
-    ...init,
-    headers: { Authorization: `Bearer ${token}`, ...(init?.headers ?? {}) },
-  });
+  try {
+    return await reqAt<T>(baseUrl, path, {
+      ...init,
+      headers: { Authorization: `Bearer ${token}`, ...(init?.headers ?? {}) },
+    });
+  } catch (err) {
+    if (!(err instanceof ApiError) || err.status !== 401) {
+      throw err;
+    }
+
+    refreshInFlight ??= refreshAccessToken().finally(() => {
+      refreshInFlight = null;
+    });
+    const newToken = await refreshInFlight;
+
+    return reqAt<T>(baseUrl, path, {
+      ...init,
+      headers: { Authorization: `Bearer ${newToken}`, ...(init?.headers ?? {}) },
+    });
+  }
 }
 
 const req = <T>(path: string, init?: RequestInit) => reqAt<T>(IDENTITY_URL, path, init);
@@ -91,6 +139,7 @@ export interface RegisterResult {
 
 export interface TokenResult {
   access_token: string;
+  refresh_token?: string;
   token_type: string;
   expires_in: number;
 }
@@ -150,7 +199,7 @@ export const identityApi = {
       body: new URLSearchParams({
         grant_type: "password",
         client_id: "spa-client",
-        scope: "api",
+        scope: "api offline_access",
         username: email,
         password,
       }),
@@ -281,6 +330,15 @@ export const adminApi = {
       method: "POST",
       body: JSON.stringify({ name }),
     }),
+
+  updateSpecialty: (id: string, name: string) =>
+    authedReq<Specialty>(`/api/admin/specialties/${id}`, {
+      method: "PUT",
+      body: JSON.stringify({ name }),
+    }),
+
+  deleteSpecialty: (id: string) =>
+    authedReq<void>(`/api/admin/specialties/${id}`, { method: "DELETE" }),
 };
 
 export interface AdminUserRow {

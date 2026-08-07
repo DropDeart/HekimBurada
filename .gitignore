@@ -41,3 +41,6 @@ node_modules/
 
 # Doktor doğrulama belgeleri (local dev volume mount noktası)
 /uploads/
+
+# scripts/backup.ps1 çıktısı — DB dump'ları ve dosya arşivleri, repo'ya girmez
+/backups/

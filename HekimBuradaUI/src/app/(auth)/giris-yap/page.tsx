@@ -28,7 +28,7 @@ export default function GirisYapPage() {
     setLoading(true);
     try {
       const token = await identityApi.login(email, password);
-      auth.setToken(token.access_token, rememberMe);
+      auth.setToken(token.access_token, rememberMe, token.refresh_token ?? null);
       toast.success("Giriş başarılı.");
 
       if (auth.isAdmin()) {

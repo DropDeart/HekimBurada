@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from "react";
 
 const TOKEN_KEY = "hekimburada_access_token";
+const REFRESH_TOKEN_KEY = "hekimburada_refresh_token";
 const AUTH_CHANGE_EVENT = "hekimburada:auth-changed";
 
 export const ADMIN_ROLES = ["Admin", "SuperAdmin", "RegionAdmin"] as const;
@@ -24,29 +25,47 @@ function decodeToken(token: string): TokenClaims | null {
 }
 
 /**
- * v1: localStorage'da düz bearer token. Refresh-token akışı ve daha güvenli saklama
- * (örn. httpOnly cookie + BFF) sonraki bir adımda ele alınacak — şimdilik login/register
- * akışını uçtan uca çalıştırmak öncelikli.
+ * localStorage/sessionStorage'da düz bearer token + refresh token. Daha güvenli saklama
+ * (örn. httpOnly cookie + BFF) ileride ele alınabilir — şimdilik access token süresi dolduğunda
+ * api.ts'in authedReqAt'ı burada saklanan refresh token'la sessizce yeniliyor (bkz. api.ts).
  */
 export const auth = {
   getToken: (): string | null => {
     if (typeof window === "undefined") return null;
     return window.localStorage.getItem(TOKEN_KEY) ?? window.sessionStorage.getItem(TOKEN_KEY);
   },
+  getRefreshToken: (): string | null => {
+    if (typeof window === "undefined") return null;
+    return window.localStorage.getItem(REFRESH_TOKEN_KEY) ?? window.sessionStorage.getItem(REFRESH_TOKEN_KEY);
+  },
+  /** Access token localStorage'da mı (remember=true) yoksa sessionStorage'da mı (remember=false) saklı — token yenilenince aynı yere yazmak için. */
+  isRemembered: (): boolean => {
+    if (typeof window === "undefined") return true;
+    return window.localStorage.getItem(TOKEN_KEY) !== null;
+  },
   /** remember=true (varsayılan): tarayıcı kapansa da oturum kalıcı olur (localStorage). false ("Beni Hatırla" işaretsiz): yalnızca bu sekme/oturum boyunca (sessionStorage). */
-  setToken: (token: string, remember = true) => {
-    if (remember) {
-      window.localStorage.setItem(TOKEN_KEY, token);
-      window.sessionStorage.removeItem(TOKEN_KEY);
+  setToken: (token: string, remember = true, refreshToken: string | null = null) => {
+    const [store, other] = remember
+      ? [window.localStorage, window.sessionStorage]
+      : [window.sessionStorage, window.localStorage];
+
+    store.setItem(TOKEN_KEY, token);
+    other.removeItem(TOKEN_KEY);
+
+    if (refreshToken) {
+      store.setItem(REFRESH_TOKEN_KEY, refreshToken);
     } else {
-      window.sessionStorage.setItem(TOKEN_KEY, token);
-      window.localStorage.removeItem(TOKEN_KEY);
+      store.removeItem(REFRESH_TOKEN_KEY);
     }
+    other.removeItem(REFRESH_TOKEN_KEY);
+
     window.dispatchEvent(new Event(AUTH_CHANGE_EVENT));
   },
   clearToken: () => {
     window.localStorage.removeItem(TOKEN_KEY);
     window.sessionStorage.removeItem(TOKEN_KEY);
+    window.localStorage.removeItem(REFRESH_TOKEN_KEY);
+    window.sessionStorage.removeItem(REFRESH_TOKEN_KEY);
     window.dispatchEvent(new Event(AUTH_CHANGE_EVENT));
   },
   getRoles: (): string[] => {
