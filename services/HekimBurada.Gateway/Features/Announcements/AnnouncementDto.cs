@@ -11,6 +11,8 @@ public sealed class AnnouncementDto
     public string Title { get; set; } = string.Empty;
     /// <summary>Body.</summary>
     public string Body { get; set; } = string.Empty;
+    /// <summary>Duyuru görseli — CodeGen dışı, elle eklendi.</summary>
+    public string? ImageUrl { get; set; }
     /// <summary>PublishedAt.</summary>
     public DateTimeOffset PublishedAt { get; set; }
     /// <summary>AuthorId.</summary>
@@ -25,6 +27,7 @@ public sealed class AnnouncementDto
             Id = entity.Id,
             Title = entity.Title,
             Body = entity.Body,
+            ImageUrl = entity.ImageUrl,
             PublishedAt = entity.PublishedAt,
             AuthorId = entity.AuthorId,
         };

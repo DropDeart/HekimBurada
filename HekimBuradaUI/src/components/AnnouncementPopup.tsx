@@ -10,7 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { gatewayApi, type Announcement } from "@/lib/api";
+import { GATEWAY_URL, gatewayApi, type Announcement } from "@/lib/api";
 
 /** En son görülen duyuru ID'si — bir sonraki ziyarette aynı duyuru tekrar popup olarak çıkmasın diye. */
 const LAST_SEEN_KEY = "hekimburada_last_seen_announcement_id";
@@ -59,6 +59,14 @@ export function AnnouncementPopup() {
           <DialogTitle>{announcement.title}</DialogTitle>
           <DialogDescription>{formatDate(announcement.publishedAt)}</DialogDescription>
         </DialogHeader>
+        {announcement.imageUrl && (
+          // eslint-disable-next-line @next/next/no-img-element -- admin panelden yüklenen keyfi harici görsel
+          <img
+            src={`${GATEWAY_URL}${announcement.imageUrl}`}
+            alt={announcement.title}
+            className="h-[160px] w-full rounded-lg object-cover"
+          />
+        )}
         <p className="text-sm whitespace-pre-wrap text-foreground">{announcement.body}</p>
         <DialogFooter>
           <Button onClick={dismiss}>Kapat</Button>

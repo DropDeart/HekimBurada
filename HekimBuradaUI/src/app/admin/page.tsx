@@ -1,8 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { adminApi, gatewayApi, marketplaceApi, type Announcement, type VerificationRow } from "@/lib/api";
+import { adminApi, gatewayApi, marketplaceApi, type Announcement, type Listing, type VerificationRow } from "@/lib/api";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("tr-TR");
@@ -14,6 +15,8 @@ export default function AdminDashboardPage() {
   // ikisi de aynı (3'e kırpılmış) diziden okunduğu için 3'ten fazla bekleyen varsa kart hep "3" gösterirdi.
   const [pendingTotal, setPendingTotal] = useState<number | null>(null);
   const [activeListingCount, setActiveListingCount] = useState<number | null>(null);
+  const [pendingListings, setPendingListings] = useState<Listing[]>([]);
+  const [pendingListingTotal, setPendingListingTotal] = useState<number | null>(null);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [announcementTotal, setAnnouncementTotal] = useState<number | null>(null);
 
@@ -29,6 +32,13 @@ export default function AdminDashboardPage() {
       .listListings({ pageSize: 1 })
       .then((r) => setActiveListingCount(r.totalCount))
       .catch((err) => toast.error(err instanceof Error ? err.message : "İlan sayısı alınamadı."));
+    marketplaceApi
+      .listListings({ pageSize: 3, status: "pending" })
+      .then((r) => {
+        setPendingListingTotal(r.totalCount);
+        setPendingListings(r.items);
+      })
+      .catch((err) => toast.error(err instanceof Error ? err.message : "Bekleyen ilanlar alınamadı."));
     gatewayApi
       .listAnnouncements({ pageSize: 100 })
       .then((r) => {
@@ -40,6 +50,7 @@ export default function AdminDashboardPage() {
 
   const stats = [
     { label: "Bekleyen Doğrulama", value: pendingTotal === null ? "—" : String(pendingTotal) },
+    { label: "Bekleyen İlan Onayı", value: pendingListingTotal === null ? "—" : String(pendingListingTotal) },
     { label: "Toplam İlan", value: activeListingCount === null ? "—" : String(activeListingCount) },
     { label: "Duyuru Sayısı", value: announcementTotal === null ? "—" : String(announcementTotal) },
   ];
@@ -51,7 +62,7 @@ export default function AdminDashboardPage() {
         Platform özet durumu ve bekleyen işlemler.
       </p>
 
-      <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((s) => (
           <div key={s.label} className="rounded-[10px] border border-border bg-white p-4.5">
             <div className="mb-2 text-[13px] text-muted-foreground">{s.label}</div>
@@ -60,7 +71,7 @@ export default function AdminDashboardPage() {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
         <div className="rounded-[10px] border border-border bg-white p-5">
           <h3 className="mb-3.5 text-base font-bold text-foreground">
             Bekleyen Doktor Doğrulamaları
@@ -74,6 +85,27 @@ export default function AdminDashboardPage() {
                 <div className="text-xs text-muted-foreground">
                   {d.specialty} · Tescil {d.diplomaNo}
                 </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        <div className="rounded-[10px] border border-border bg-white p-5">
+          <div className="mb-3.5 flex items-center justify-between">
+            <h3 className="text-base font-bold text-foreground">Bekleyen İlan Onayları</h3>
+            {pendingListingTotal !== null && pendingListingTotal > 0 && (
+              <Link href="/admin/urunler" className="text-xs font-semibold text-brand">
+                Tümünü gör
+              </Link>
+            )}
+          </div>
+          {pendingListings.length === 0 ? (
+            <p className="text-xs text-muted-foreground">Bekleyen ilan yok.</p>
+          ) : (
+            pendingListings.map((l) => (
+              <div key={l.id} className="border-t border-[#F0F2F3] py-3 first:border-t-0">
+                <div className="text-sm font-semibold text-foreground">{l.title}</div>
+                <div className="text-xs text-muted-foreground">{l.city}</div>
               </div>
             ))
           )}

@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ListingImage } from "@/components/ListingImage";
 import {
   communityApi,
   identityApi,
@@ -18,6 +19,7 @@ import {
   type Me,
   type Membership,
   type MarketplaceRequest,
+  type Order,
 } from "@/lib/api";
 import { auth, useHasToken } from "@/lib/auth";
 import { cn } from "@/lib/utils";
@@ -37,6 +39,20 @@ const NAV_ITEMS = [
 function currency(n: number) {
   return `${n.toLocaleString("tr-TR")} ₺`;
 }
+
+const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  bagis: "Bağış ile Ödeme",
+  bedelsiz: "Bedelsiz Ürün",
+  referans: "Referans Linkli %50+ İndirim",
+  kart: "Kredi Kartı",
+  elden: "Elden Teslim",
+};
+
+const ORDER_STATUS_LABELS: Record<string, string> = {
+  pending: "Beklemede",
+  completed: "Tamamlandı",
+  cancelled: "İptal Edildi",
+};
 
 /** Backend'de karşılığı olmayan bölümler için ortak "yakında" notu — kullanıcıyı yanıltmamak için. */
 function StaticNotice() {
@@ -59,6 +75,7 @@ function ProfilContent() {
   const [communityCategories, setCommunityCategories] = useState<CommunityCategory[]>([]);
   const [favorites, setFavorites] = useState<{ favorite: Favorite; listing: Listing }[]>([]);
   const [myRequests, setMyRequests] = useState<MarketplaceRequest[]>([]);
+  const [orders, setOrders] = useState<{ order: Order; listing: Listing | null }[]>([]);
 
   const [fullName, setFullName] = useState("");
   const [savingProfile, setSavingProfile] = useState(false);
@@ -95,8 +112,9 @@ function ProfilContent() {
     Promise.all([
       marketplaceApi.listFavorites({ pageSize: 200 }),
       marketplaceApi.listListings({ pageSize: 200 }),
+      marketplaceApi.listOrders({ pageSize: 200 }),
     ])
-      .then(([favRes, listingsRes]) => {
+      .then(([favRes, listingsRes, ordersRes]) => {
         const mine = favRes.items.filter((f) => f.userId === myId);
         setFavorites(
           mine
@@ -105,6 +123,14 @@ function ProfilContent() {
               return listing ? { favorite: f, listing } : null;
             })
             .filter((r): r is { favorite: Favorite; listing: Listing } => r !== null)
+        );
+        setOrders(
+          [...ordersRes.items]
+            .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+            .map((order) => ({
+              order,
+              listing: listingsRes.items.find((l) => l.id === order.listingId) ?? null,
+            }))
         );
       })
       .catch(() => {});
@@ -366,7 +392,7 @@ function ProfilContent() {
                     href={`/ilanlar/${listing.id}`}
                     className="overflow-hidden rounded-[10px] border border-border"
                   >
-                    <div className="h-[110px] bg-[repeating-linear-gradient(135deg,#EEF1F2,#EEF1F2_12px,#E4E8EA_12px,#E4E8EA_24px)]" />
+                    <ListingImage images={listing.images} alt={listing.title} className="h-[110px] w-full" placeholderText="" />
                     <div className="p-3">
                       <div className="text-[13px] font-bold text-foreground">{listing.title}</div>
                       <div className="text-[13px] font-bold text-brand">
@@ -403,8 +429,34 @@ function ProfilContent() {
         {activeTab === "siparis" && (
           <div>
             <h3 className="mb-4 text-lg font-bold text-foreground">Sipariş ve Kargo Bilgilerim</h3>
-            <StaticNotice />
-            <p className="text-sm text-muted-foreground">Henüz sipariş kaydınız yok.</p>
+            {orders.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Henüz sipariş kaydınız yok.</p>
+            ) : (
+              <div className="flex flex-col">
+                {orders.map(({ order, listing }) => (
+                  <div key={order.id} className="border-t border-[#F0F2F3] py-3.5 first:border-t-0">
+                    <div className="flex items-center justify-between">
+                      <Link
+                        href={listing ? `/ilanlar/${listing.id}` : "#"}
+                        className="text-[13px] font-bold text-foreground hover:text-brand"
+                      >
+                        {listing?.title ?? "İlan bulunamadı"}
+                      </Link>
+                      <span className="rounded-md bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
+                        {ORDER_STATUS_LABELS[order.status] ?? order.status}
+                      </span>
+                    </div>
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      {PAYMENT_METHOD_LABELS[order.paymentMethod] ?? order.paymentMethod} · {currency(order.amount)} ·{" "}
+                      {new Date(order.createdAt).toLocaleDateString("tr-TR")}
+                    </div>
+                    {order.deliveryNote && (
+                      <div className="mt-1 text-xs text-muted-foreground">Teslim notu: {order.deliveryNote}</div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

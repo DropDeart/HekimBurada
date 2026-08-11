@@ -80,9 +80,10 @@ internal sealed class CreateListingHandler : ICommandHandler<CreateListingComman
 
         await VerificationGate.EnsureApprovedAsync(_userClient, request.SellerId, cancellationToken);
 
-        // Moderasyon yok — kayıt anında direkt yayına girer (bkz. plan "İlan moderasyonu" kararı).
+        // İlan moderasyonu: kayıt anında 'pending' durumuna düşer, admin "Onayla" demeden yayına
+        // girmez (bkz. ApproveListingHandler/RejectListingHandler). PublishedAt/ExpiresAt bilerek null
+        // bırakılıyor — yayın süresi saati ancak gerçekten yayına girdiğinde (onay anında) başlamalı.
         // Status/PublishedAt/ExpiresAt/RenewCount/ViewCount istemciden GELMEZ, sunucu hesaplar.
-        var publishedAt = DateTimeOffset.UtcNow;
         var entity = new Listing
         {
             Title = request.Title,
@@ -94,10 +95,10 @@ internal sealed class CreateListingHandler : ICommandHandler<CreateListingComman
             ReferansUrl = request.ReferansUrl,
             City = request.City,
             Images = request.Images,
-            Status = "active",
+            Status = "pending",
             DurationDays = request.DurationDays,
-            PublishedAt = publishedAt,
-            ExpiresAt = publishedAt.AddDays(request.DurationDays),
+            PublishedAt = null,
+            ExpiresAt = null,
             RenewCount = 0,
             IsFeatured = request.IsFeatured,
             ViewCount = 0,
@@ -331,6 +332,80 @@ internal sealed class RepublishListingHandler : ICommandHandler<RepublishListing
         entity.Status = "active";
         entity.PublishedAt = publishedAt;
         entity.ExpiresAt = publishedAt.AddDays(entity.DurationDays);
+        await _repository.UpdateAsync(entity, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+    }
+}
+
+/// <summary>
+/// Admin bir 'pending' ilanı onaylar — yayın süresi saati (PublishedAt/ExpiresAt) bu anda başlar,
+/// başvuru anında değil (bkz. CreateListingHandler'daki moderasyon notu).
+/// </summary>
+public sealed class ApproveListingCommand : ICommand
+{
+    /// <summary>Onaylanacak ilanın kimliği.</summary>
+    public Guid Id { get; set; }
+}
+
+internal sealed class ApproveListingHandler : ICommandHandler<ApproveListingCommand>
+{
+    private readonly IRepository<Listing> _repository;
+    private readonly IUnitOfWork _unitOfWork;
+    public ApproveListingHandler(IRepository<Listing> repository, IUnitOfWork unitOfWork)
+    {
+        _repository = repository;
+        _unitOfWork = unitOfWork;
+    }
+
+    public async Task Handle(ApproveListingCommand request, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var entity = await _repository.GetByIdAsync(request.Id, cancellationToken)
+            ?? throw new NotFoundException("Listing", request.Id);
+
+        if (entity.Status != "pending")
+        {
+            throw new BaseForge.Core.Exceptions.ValidationException("Status", "Yalnızca 'pending' durumundaki ilanlar onaylanabilir.");
+        }
+
+        var publishedAt = DateTimeOffset.UtcNow;
+        entity.Status = "active";
+        entity.PublishedAt = publishedAt;
+        entity.ExpiresAt = publishedAt.AddDays(entity.DurationDays);
+        await _repository.UpdateAsync(entity, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+    }
+}
+
+/// <summary>Admin bir 'pending' ilanı reddeder — 'rejected' durumuna geçer, hiç yayına girmez.</summary>
+public sealed class RejectListingCommand : ICommand
+{
+    /// <summary>Reddedilecek ilanın kimliği.</summary>
+    public Guid Id { get; set; }
+}
+
+internal sealed class RejectListingHandler : ICommandHandler<RejectListingCommand>
+{
+    private readonly IRepository<Listing> _repository;
+    private readonly IUnitOfWork _unitOfWork;
+    public RejectListingHandler(IRepository<Listing> repository, IUnitOfWork unitOfWork)
+    {
+        _repository = repository;
+        _unitOfWork = unitOfWork;
+    }
+
+    public async Task Handle(RejectListingCommand request, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var entity = await _repository.GetByIdAsync(request.Id, cancellationToken)
+            ?? throw new NotFoundException("Listing", request.Id);
+
+        if (entity.Status != "pending")
+        {
+            throw new BaseForge.Core.Exceptions.ValidationException("Status", "Yalnızca 'pending' durumundaki ilanlar reddedilebilir.");
+        }
+
+        entity.Status = "rejected";
         await _repository.UpdateAsync(entity, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
     }

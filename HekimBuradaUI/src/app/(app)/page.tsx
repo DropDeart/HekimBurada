@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { ListingImage } from "@/components/ListingImage";
 import { GATEWAY_URL, gatewayApi, marketplaceApi, type CarouselSlide, type Listing, type MarketplaceCategory, type MarketplaceRequest } from "@/lib/api";
 import { useHasToken } from "@/lib/auth";
 
@@ -226,9 +227,7 @@ export default function Home() {
               href={`/ilanlar/${featured.id}`}
               className="col-span-1 flex flex-wrap overflow-hidden rounded-[10px] border border-border bg-white sm:col-span-2"
             >
-              <div className="flex min-h-[200px] flex-1 basis-[260px] items-center justify-center bg-[repeating-linear-gradient(135deg,#EEF1F2,#EEF1F2_12px,#E4E8EA_12px,#E4E8EA_24px)] font-mono text-[11px] text-[#9AA1A5]">
-                İLAN GÖRSELİ
-              </div>
+              <ListingImage images={featured.images} alt={featured.title} className="min-h-[200px] flex-1 basis-[260px]" />
               <div className="flex flex-1 basis-[260px] flex-col justify-center p-5.5">
                 <div className="mb-2.5 inline-block w-fit rounded-md bg-brand-soft px-2 py-0.5 text-[11px] font-bold text-brand">
                   ÖNE ÇIKAN
@@ -247,9 +246,7 @@ export default function Home() {
                 href={`/ilanlar/${l.id}`}
                 className="overflow-hidden rounded-[10px] border border-border bg-white"
               >
-                <div className="flex h-[150px] items-center justify-center bg-[repeating-linear-gradient(135deg,#EEF1F2,#EEF1F2_12px,#E4E8EA_12px,#E4E8EA_24px)] font-mono text-[11px] text-[#9AA1A5]">
-                  İLAN GÖRSELİ
-                </div>
+                <ListingImage images={l.images} alt={l.title} className="h-[150px] w-full" />
                 <div className="p-3.5">
                   <div className="mb-1 text-sm font-bold text-foreground">{l.title}</div>
                   <div className="text-[15px] font-bold text-brand">

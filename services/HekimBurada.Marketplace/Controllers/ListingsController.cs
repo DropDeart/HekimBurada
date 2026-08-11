@@ -120,6 +120,32 @@ public sealed class ListingsController : BaseController
         return NoContent();
     }
 
+    /// <summary>'pending' bir ilanı onaylar (yayına alır) — yalnızca Admin/SuperAdmin, CodeGen dışı elle eklendi.</summary>
+    [HttpPost("{id:guid}/approve")]
+    public async Task<IActionResult> Approve(Guid id, CancellationToken cancellationToken)
+    {
+        if (!AdminAuth.IsStaffAdmin(User))
+        {
+            return Forbid();
+        }
+
+        await Mediator.Send(new ApproveListingCommand { Id = id }, cancellationToken);
+        return NoContent();
+    }
+
+    /// <summary>'pending' bir ilanı reddeder (hiç yayına girmez) — yalnızca Admin/SuperAdmin, CodeGen dışı elle eklendi.</summary>
+    [HttpPost("{id:guid}/reject")]
+    public async Task<IActionResult> Reject(Guid id, CancellationToken cancellationToken)
+    {
+        if (!AdminAuth.IsStaffAdmin(User))
+        {
+            return Forbid();
+        }
+
+        await Mediator.Send(new RejectListingCommand { Id = id }, cancellationToken);
+        return NoContent();
+    }
+
     /// <summary>
     /// Çağıran, ilanın sahibi mi (SellerId) yoksa Admin/SuperAdmin mi? — CodeGen dışı, elle eklendi.
     /// İlan yoksa null döner (asıl komut kendi NotFoundException'ını fırlatsın diye 404 burada taklit

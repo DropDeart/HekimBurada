@@ -2,9 +2,10 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { identityApi, marketplaceApi, type MarketplaceCategory } from "@/lib/api";
+import { identityApi, MARKETPLACE_URL, marketplaceApi, type MarketplaceCategory } from "@/lib/api";
 import { auth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 
@@ -256,11 +257,17 @@ export default function IlanVerPage() {
                 {imageUrls.length > 0 && (
                   <div className="mb-3 flex flex-wrap justify-center gap-2">
                     {imageUrls.map((url) => (
-                      <div
-                        key={url}
-                        className="flex h-14 w-20 items-center justify-center rounded-md bg-white text-[9px] text-muted-foreground"
-                      >
-                        Görsel
+                      <div key={url} className="relative h-14 w-20 overflow-hidden rounded-md bg-white">
+                        {/* eslint-disable-next-line @next/next/no-img-element -- kullanıcı tarafından yüklenen keyfi harici görsel */}
+                        <img src={`${MARKETPLACE_URL}${url}`} alt="" className="h-full w-full object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => setImageUrls((prev) => prev.filter((u) => u !== url))}
+                          aria-label="Görseli kaldır"
+                          className="absolute -top-1 -right-1 flex size-4 items-center justify-center rounded-full bg-destructive text-white"
+                        >
+                          <X className="size-3" />
+                        </button>
                       </div>
                     ))}
                   </div>
@@ -402,9 +409,14 @@ export default function IlanVerPage() {
             CANLI ÖNİZLEME
           </div>
           <div className="overflow-hidden rounded-[10px] border border-border bg-white">
-            <div className="flex h-[140px] items-center justify-center bg-[repeating-linear-gradient(135deg,#EEF1F2,#EEF1F2_12px,#E4E8EA_12px,#E4E8EA_24px)] font-mono text-[11px] text-[#9AA1A5]">
-              İLAN GÖRSELİ
-            </div>
+            {imageUrls.length > 0 ? (
+              // eslint-disable-next-line @next/next/no-img-element -- kullanıcı tarafından yüklenen keyfi harici görsel
+              <img src={`${MARKETPLACE_URL}${imageUrls[0]}`} alt="" className="h-[140px] w-full object-cover" />
+            ) : (
+              <div className="flex h-[140px] items-center justify-center bg-[repeating-linear-gradient(135deg,#EEF1F2,#EEF1F2_12px,#E4E8EA_12px,#E4E8EA_24px)] font-mono text-[11px] text-[#9AA1A5]">
+                İLAN GÖRSELİ
+              </div>
+            )}
             <div className="p-3.5">
               <div className="mb-1 text-[11px] font-bold text-brand">
                 {selectedCategory?.name ?? "Kategori seçilmedi"}

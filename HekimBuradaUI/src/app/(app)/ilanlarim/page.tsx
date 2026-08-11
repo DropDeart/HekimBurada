@@ -18,7 +18,9 @@ import { cn } from "@/lib/utils";
 
 const STATUS_LABEL: Record<ListingStatus, string> = {
   draft: "Taslak",
+  pending: "Onay Bekliyor",
   active: "Aktif",
+  rejected: "Reddedildi",
   sold: "Satıldı",
   removed: "Kaldırıldı",
   expired: "Süresi Doldu",
@@ -26,7 +28,9 @@ const STATUS_LABEL: Record<ListingStatus, string> = {
 
 const STATUS_BADGE: Record<ListingStatus, string> = {
   draft: "bg-muted text-muted-foreground",
+  pending: "bg-amber-50 text-amber-700",
   active: "bg-brand-soft text-brand",
+  rejected: "bg-red-50 text-red-700",
   sold: "bg-blue-50 text-blue-700",
   removed: "bg-red-50 text-red-700",
   expired: "bg-amber-50 text-amber-700",

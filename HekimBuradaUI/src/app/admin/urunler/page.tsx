@@ -3,6 +3,16 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { PaginationBar } from "@/components/ui/pagination-bar";
 import {
@@ -14,14 +24,34 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { marketplaceApi, type Listing, type ListingStatus } from "@/lib/api";
+import { cn } from "@/lib/utils";
 
 const STATUS_LABEL: Record<ListingStatus, string> = {
   draft: "Taslak",
+  pending: "Onay Bekliyor",
   active: "Aktif",
+  rejected: "Reddedildi",
   sold: "Satıldı",
   removed: "Kaldırıldı",
   expired: "Süresi Doldu",
 };
+
+const STATUS_BADGE: Record<ListingStatus, string> = {
+  draft: "bg-muted text-muted-foreground",
+  pending: "bg-amber-50 text-amber-700",
+  active: "bg-brand-soft text-brand",
+  rejected: "bg-red-50 text-red-700",
+  sold: "bg-blue-50 text-blue-700",
+  removed: "bg-red-50 text-red-700",
+  expired: "bg-muted text-muted-foreground",
+};
+
+const STATUS_TABS: { label: string; value: ListingStatus | "all" }[] = [
+  { label: "Onay Bekleyen", value: "pending" },
+  { label: "Aktif", value: "active" },
+  { label: "Reddedilen", value: "rejected" },
+  { label: "Tümü", value: "all" },
+];
 
 const PAGE_SIZE = 20;
 
@@ -30,16 +60,23 @@ function currency(n: number) {
 }
 
 export default function AdminUrunlerPage() {
+  const [status, setStatus] = useState<ListingStatus | "all">("pending");
   const [listings, setListings] = useState<Listing[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [rejectTarget, setRejectTarget] = useState<Listing | null>(null);
+  const [removeTarget, setRemoveTarget] = useState<Listing | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await marketplaceApi.listListings({ page, pageSize: PAGE_SIZE });
+      const res = await marketplaceApi.listListings({
+        page,
+        pageSize: PAGE_SIZE,
+        status: status === "all" ? undefined : status,
+      });
       setListings(res.items);
       setTotalCount(res.totalCount);
     } catch (err) {
@@ -47,17 +84,47 @@ export default function AdminUrunlerPage() {
     } finally {
       setLoading(false);
     }
-  }, [page]);
+  }, [page, status]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- mount'ta/sayfa değişince veri çekme (React'in "Fetching data" deseni)
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- mount'ta/sayfa-filtre değişince veri çekme (React'in "Fetching data" deseni)
     void load();
   }, [load]);
 
-  const remove = async (id: string) => {
+  const approve = async (id: string) => {
     setBusyId(id);
     try {
-      await marketplaceApi.deleteListing(id);
+      await marketplaceApi.approveListing(id);
+      toast.success("İlan onaylandı.");
+      await load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Onaylanamadı.");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const reject = async () => {
+    if (!rejectTarget) return;
+    setBusyId(rejectTarget.id);
+    try {
+      await marketplaceApi.rejectListing(rejectTarget.id);
+      toast.success("İlan reddedildi.");
+      setRejectTarget(null);
+      await load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Reddedilemedi.");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const remove = async () => {
+    if (!removeTarget) return;
+    setBusyId(removeTarget.id);
+    try {
+      await marketplaceApi.deleteListing(removeTarget.id);
+      setRemoveTarget(null);
       if (listings.length === 1 && page > 1) {
         setPage((p) => p - 1);
       } else {
@@ -74,8 +141,24 @@ export default function AdminUrunlerPage() {
     <div>
       <h1 className="mb-1 text-xl font-bold text-foreground">Ürün Yönetimi</h1>
       <p className="mb-5 text-sm text-muted-foreground">
-        Yayınlanan tüm ilanları görüntüleyin veya kaldırın.
+        Yayınlanan ilanları görüntüleyin, onay bekleyen yeni ilanları onaylayın/reddedin.
       </p>
+
+      <div className="mb-4 flex gap-2">
+        {STATUS_TABS.map((tab) => (
+          <Button
+            key={tab.value}
+            size="sm"
+            variant={status === tab.value ? "default" : "outline"}
+            onClick={() => {
+              setStatus(tab.value);
+              setPage(1);
+            }}
+          >
+            {tab.label}
+          </Button>
+        ))}
+      </div>
 
       <div className="rounded-lg border border-border bg-white">
         <Table>
@@ -111,9 +194,28 @@ export default function AdminUrunlerPage() {
                   </TableCell>
                   <TableCell>{l.price ? currency(l.price) : "—"}</TableCell>
                   <TableCell>{l.city}</TableCell>
-                  <TableCell>{STATUS_LABEL[l.status]}</TableCell>
+                  <TableCell>
+                    <span className={cn("rounded-md px-2 py-1 text-xs font-semibold", STATUS_BADGE[l.status])}>
+                      {STATUS_LABEL[l.status]}
+                    </span>
+                  </TableCell>
                   <TableCell>
                     <div className="flex gap-2">
+                      {l.status === "pending" && (
+                        <>
+                          <Button size="sm" disabled={busyId === l.id} onClick={() => approve(l.id)}>
+                            Onayla
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            disabled={busyId === l.id}
+                            onClick={() => setRejectTarget(l)}
+                          >
+                            Reddet
+                          </Button>
+                        </>
+                      )}
                       <Button size="sm" variant="outline" asChild>
                         <Link href={`/admin/urunler/${l.id}`}>Detay</Link>
                       </Button>
@@ -121,7 +223,7 @@ export default function AdminUrunlerPage() {
                         size="sm"
                         variant="destructive"
                         disabled={busyId === l.id}
-                        onClick={() => remove(l.id)}
+                        onClick={() => setRemoveTarget(l)}
                       >
                         Kaldır
                       </Button>
@@ -142,6 +244,36 @@ export default function AdminUrunlerPage() {
         onPageChange={setPage}
         disabled={loading}
       />
+
+      <AlertDialog open={rejectTarget !== null} onOpenChange={(next) => !next && setRejectTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>İlan reddedilsin mi?</AlertDialogTitle>
+            <AlertDialogDescription>
+              &quot;{rejectTarget?.title}&quot; hiç yayına girmeyecek.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Vazgeç</AlertDialogCancel>
+            <AlertDialogAction onClick={reject}>Reddet</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={removeTarget !== null} onOpenChange={(next) => !next && setRemoveTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>İlan kaldırılsın mı?</AlertDialogTitle>
+            <AlertDialogDescription>
+              &quot;{removeTarget?.title}&quot; kalıcı olarak silinecek.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Vazgeç</AlertDialogCancel>
+            <AlertDialogAction onClick={remove}>Kaldır</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

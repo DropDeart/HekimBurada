@@ -14,6 +14,8 @@ public sealed class CreateAnnouncementCommand : ICommand<Guid>
     public string Title { get; set; } = string.Empty;
     /// <summary>Body.</summary>
     public string Body { get; set; } = string.Empty;
+    /// <summary>Duyuru görseli — CodeGen dışı, elle eklendi.</summary>
+    public string? ImageUrl { get; set; }
     /// <summary>PublishedAt.</summary>
     public DateTimeOffset PublishedAt { get; set; }
     /// <summary>AuthorId.</summary>
@@ -37,6 +39,7 @@ internal sealed class CreateAnnouncementHandler : ICommandHandler<CreateAnnounce
         {
             Title = request.Title,
             Body = request.Body,
+            ImageUrl = request.ImageUrl,
             PublishedAt = request.PublishedAt,
             AuthorId = request.AuthorId,
         };
@@ -56,6 +59,8 @@ public sealed class UpdateAnnouncementCommand : ICommand
     public string Title { get; set; } = string.Empty;
     /// <summary>Body.</summary>
     public string Body { get; set; } = string.Empty;
+    /// <summary>Duyuru görseli — CodeGen dışı, elle eklendi.</summary>
+    public string? ImageUrl { get; set; }
     /// <summary>PublishedAt.</summary>
     public DateTimeOffset PublishedAt { get; set; }
     /// <summary>AuthorId.</summary>
@@ -79,6 +84,7 @@ internal sealed class UpdateAnnouncementHandler : ICommandHandler<UpdateAnnounce
             ?? throw new NotFoundException("Announcement", request.Id);
         entity.Title = request.Title;
         entity.Body = request.Body;
+        entity.ImageUrl = request.ImageUrl;
         entity.PublishedAt = request.PublishedAt;
         entity.AuthorId = request.AuthorId;
         await _repository.UpdateAsync(entity, cancellationToken);

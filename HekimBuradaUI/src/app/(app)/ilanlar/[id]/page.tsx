@@ -3,17 +3,24 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { Heart } from "lucide-react";
+import { Heart, Star } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import {
+  identityApi,
+  MARKETPLACE_URL,
   marketplaceApi,
   messagingApi,
+  parseListingImages,
   type Favorite,
   type Listing,
+  type ListingReview,
   type MarketplaceCategory,
   type Message,
   type Offer,
+  type OrderPaymentMethod,
+  type UserLookupRow,
 } from "@/lib/api";
 import { auth, useHasToken } from "@/lib/auth";
 import { connectToOfferChat } from "@/lib/messageHub";
@@ -45,8 +52,49 @@ export default function ListingDetailPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [messageDraft, setMessageDraft] = useState("");
   const [offerAmountDraft, setOfferAmountDraft] = useState("");
-  const [paymentSubmitted, setPaymentSubmitted] = useState(false);
+  const [orderCreated, setOrderCreated] = useState(false);
+  const [orderSubmitting, setOrderSubmitting] = useState(false);
+  const [donationOrganization, setDonationOrganization] = useState("");
+  const [donationReceiptUrl, setDonationReceiptUrl] = useState("");
+  const [donationUploading, setDonationUploading] = useState(false);
+  const [buyerReferansUrl, setBuyerReferansUrl] = useState("");
+  const [deliveryNote, setDeliveryNote] = useState("");
+  const [myRegion, setMyRegion] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [reviews, setReviews] = useState<ListingReview[]>([]);
+  const [reviewAuthors, setReviewAuthors] = useState<Map<string, UserLookupRow>>(new Map());
+  const [newReviewRating, setNewReviewRating] = useState(5);
+  const [newReviewBody, setNewReviewBody] = useState("");
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+
+  const loadReviews = useCallback(async () => {
+    try {
+      const res = await marketplaceApi.listListingReviews({ listingId, pageSize: 100 });
+      setReviews([...res.items].sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
+      const authorIds = [...new Set(res.items.map((r) => r.authorId))];
+      if (authorIds.length > 0) {
+        const rows = await identityApi.lookupUsers(authorIds);
+        setReviewAuthors(new Map(rows.map((r) => [r.id, r])));
+      }
+    } catch {
+      // Yorumlar opsiyonel bir bölüm — sessizce boş bırakılıyor.
+    }
+  }, [listingId]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- mount'ta/ilan değişince veri çekme (React'in "Fetching data" deseni)
+    void loadReviews();
+  }, [loadReviews]);
+
+  useEffect(() => {
+    // "Elden Teslim" aynı-şehir kontrolü için kendi bölgemizi çekiyoruz — belge onayı olmayan
+    // kullanıcılarda profil hiç yoksa sessizce boş kalır (kural o durumda uygulanamaz).
+    identityApi
+      .doctorProfile()
+      .then((p) => setMyRegion(p.region))
+      .catch(() => {});
+  }, []);
 
   const loadAll = useCallback(async () => {
     if (!hasToken) return;
@@ -102,14 +150,56 @@ export default function ListingDetailPage() {
   const category = categories.find((c) => c.id === listing?.categoryId);
   const isOwner = listing?.sellerId === myId;
   const selectedOffer = offers.find((o) => o.id === selectedOfferId) ?? null;
-  const images: string[] = (() => {
+  const images = parseListingImages(listing?.images);
+
+  const submitReview = async () => {
+    if (!newReviewBody.trim()) return;
+    setReviewSubmitting(true);
     try {
-      const parsed = JSON.parse(listing?.images ?? "[]");
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
+      await marketplaceApi.createListingReview({
+        listingId,
+        rating: newReviewRating,
+        body: newReviewBody.trim(),
+      });
+      setNewReviewBody("");
+      setNewReviewRating(5);
+      toast.success("Yorumunuz eklendi.");
+      await loadReviews();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Yorum eklenemedi.");
+    } finally {
+      setReviewSubmitting(false);
     }
-  })();
+  };
+
+  /** "region" backend'de "İlçe, İl" biçiminde geliyor — son parça il. */
+  const myProvince = myRegion?.split(",").pop()?.trim() ?? null;
+  const sellerCity = listing?.city.split(",")[0]?.trim() ?? "";
+  const sameCity = myProvince !== null && sellerCity.length > 0 && sellerCity.toLocaleLowerCase("tr") === myProvince.toLocaleLowerCase("tr");
+
+  const submitOrder = async (input: {
+    donationOrganization?: string | null;
+    donationReceiptUrl?: string | null;
+    buyerReferansUrl?: string | null;
+    deliveryNote?: string | null;
+  }) => {
+    if (!listing || !selectedOffer) return;
+    setOrderSubmitting(true);
+    try {
+      await marketplaceApi.createOrder({
+        listingId: listing.id,
+        paymentMethod: listing.paymentMethod as OrderPaymentMethod,
+        amount: selectedOffer.amount,
+        ...input,
+      });
+      setOrderCreated(true);
+      toast.success("Talebiniz iletildi.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Talep gönderilemedi.");
+    } finally {
+      setOrderSubmitting(false);
+    }
+  };
 
   const toggleFavorite = async () => {
     if (!myId) return;
@@ -199,19 +289,91 @@ export default function ListingDetailPage() {
 
       <div className="mx-auto grid max-w-5xl grid-cols-1 gap-10 px-6 py-6 sm:px-10 lg:grid-cols-2">
         <div>
-          <div className="flex h-[360px] items-center justify-center rounded-[10px] bg-[repeating-linear-gradient(135deg,#EEF1F2,#EEF1F2_14px,#E4E8EA_14px,#E4E8EA_28px)] font-mono text-xs text-[#9AA1A5]">
-            {images.length > 0 ? `${images.length} görsel` : "ÜRÜN GÖRSELİ"}
-          </div>
+          {images.length > 0 ? (
+            // eslint-disable-next-line @next/next/no-img-element -- kullanıcı tarafından yüklenen keyfi harici görsel
+            <img
+              src={`${MARKETPLACE_URL}${images[activeImageIndex] ?? images[0]}`}
+              alt={listing.title}
+              className="h-[360px] w-full rounded-[10px] object-cover"
+            />
+          ) : (
+            <div className="flex h-[360px] items-center justify-center rounded-[10px] bg-[repeating-linear-gradient(135deg,#EEF1F2,#EEF1F2_14px,#E4E8EA_14px,#E4E8EA_28px)] font-mono text-xs text-[#9AA1A5]">
+              ÜRÜN GÖRSELİ
+            </div>
+          )}
           {images.length > 1 && (
             <div className="mt-2.5 grid grid-cols-4 gap-2.5">
-              {images.slice(0, 4).map((url) => (
-                <div
+              {images.slice(0, 4).map((url, i) => (
+                <button
                   key={url}
-                  className="h-[70px] rounded-lg bg-[repeating-linear-gradient(135deg,#EEF1F2,#EEF1F2_10px,#E4E8EA_10px,#E4E8EA_20px)]"
-                />
+                  type="button"
+                  onClick={() => setActiveImageIndex(i)}
+                  className={cn(
+                    "h-[70px] overflow-hidden rounded-lg border-2",
+                    i === activeImageIndex ? "border-brand" : "border-transparent"
+                  )}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element -- kullanıcı tarafından yüklenen keyfi harici görsel */}
+                  <img src={`${MARKETPLACE_URL}${url}`} alt="" className="h-full w-full object-cover" />
+                </button>
               ))}
             </div>
           )}
+
+          <div className="mt-8">
+            <h2 className="mb-3 text-base font-bold text-foreground">Yorumlar</h2>
+            {reviews.length === 0 ? (
+              <p className="mb-4 text-sm text-muted-foreground">Henüz yorum yapılmamış.</p>
+            ) : (
+              <div className="mb-4 flex flex-col gap-3">
+                {reviews.map((r) => {
+                  const author = reviewAuthors.get(r.authorId);
+                  return (
+                    <div key={r.id} className="border-t border-border pt-3 first:border-t-0 first:pt-0">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-semibold text-foreground">
+                          {author ? (author.fullName ?? author.email) : "Kullanıcı"}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(r.createdAt).toLocaleDateString("tr-TR")}
+                        </span>
+                      </div>
+                      <div className="mt-0.5 flex gap-0.5">
+                        {[1, 2, 3, 4, 5].map((i) => (
+                          <Star
+                            key={i}
+                            className={cn("size-3.5", i <= r.rating ? "fill-amber-400 text-amber-400" : "text-muted-foreground")}
+                          />
+                        ))}
+                      </div>
+                      <p className="mt-1 text-sm text-foreground">{r.body}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {hasToken && (
+              <div className="rounded-lg border border-border bg-[#FAFBFB] p-3.5">
+                <div className="mb-2 flex gap-1">
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <button key={i} type="button" onClick={() => setNewReviewRating(i)} aria-label={`${i} yıldız`}>
+                      <Star className={cn("size-5", i <= newReviewRating ? "fill-amber-400 text-amber-400" : "text-muted-foreground")} />
+                    </button>
+                  ))}
+                </div>
+                <Textarea
+                  value={newReviewBody}
+                  onChange={(e) => setNewReviewBody(e.target.value)}
+                  placeholder="Yorumunuzu yazın..."
+                  className="mb-2 bg-white"
+                />
+                <Button size="sm" disabled={reviewSubmitting || !newReviewBody.trim()} onClick={submitReview}>
+                  {reviewSubmitting ? "Gönderiliyor…" : "Yorum Yap"}
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
 
         <div>
@@ -391,13 +553,137 @@ export default function ListingDetailPage() {
                     Ödeme Yöntemi: {PAYMENT_METHOD_LABELS[listing.paymentMethod] ?? listing.paymentMethod}
                   </h3>
                   <p className="mb-3 text-xs text-muted-foreground">
-                    Bu bölüm bir arayüz taslağıdır — gerçek bir ödeme/sipariş kaydı oluşturmaz
-                    (backend&apos;de henüz karşılığı yok).
+                    Ödenecek tutar: {currency(selectedOffer.amount)}
                   </p>
-                  {paymentSubmitted ? (
-                    <p className="text-sm font-semibold text-brand">Talebiniz iletildi.</p>
+
+                  {orderCreated ? (
+                    <p className="text-sm font-semibold text-brand">
+                      Talebiniz iletildi — Profilim &gt; Sipariş ve Kargo Bilgilerim&apos;den takip
+                      edebilirsiniz.
+                    </p>
+                  ) : listing.paymentMethod === "bagis" ? (
+                    <div className="flex flex-col gap-2.5">
+                      <div>
+                        <label className="mb-1 block text-xs text-muted-foreground">Bağış Yapılan Kuruluş</label>
+                        <input
+                          value={donationOrganization}
+                          onChange={(e) => setDonationOrganization(e.target.value)}
+                          placeholder="Örn. Türk Kızılay"
+                          className="w-full rounded-md border border-input px-3 py-2 text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs text-muted-foreground">Bağış Dekontu (görsel)</label>
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp,image/gif"
+                          disabled={donationUploading}
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            e.target.value = "";
+                            if (!file) return;
+                            setDonationUploading(true);
+                            try {
+                              const url = await marketplaceApi.uploadImage(file);
+                              setDonationReceiptUrl(url);
+                            } catch (err) {
+                              toast.error(err instanceof Error ? err.message : "Dekont yüklenemedi.");
+                            } finally {
+                              setDonationUploading(false);
+                            }
+                          }}
+                          className="text-xs"
+                        />
+                        {donationReceiptUrl && <p className="mt-1 text-xs text-brand">Dekont yüklendi.</p>}
+                      </div>
+                      <Button
+                        size="sm"
+                        disabled={orderSubmitting || !donationOrganization.trim()}
+                        onClick={() =>
+                          submitOrder({
+                            donationOrganization: donationOrganization.trim(),
+                            donationReceiptUrl: donationReceiptUrl || null,
+                          })
+                        }
+                      >
+                        {orderSubmitting ? "Gönderiliyor…" : "Talebi Gönder"}
+                      </Button>
+                    </div>
+                  ) : listing.paymentMethod === "bedelsiz" ? (
+                    <div className="flex flex-col gap-2.5">
+                      <p className="text-sm text-foreground">
+                        Bu ürün bedelsiz olarak paylaşılmaktadır. Talebinizi ilettiğinizde satıcı sizinle
+                        iletişime geçecektir.
+                      </p>
+                      <Button size="sm" disabled={orderSubmitting} onClick={() => submitOrder({})}>
+                        {orderSubmitting ? "Gönderiliyor…" : "Ücretsiz Talep Et"}
+                      </Button>
+                    </div>
+                  ) : listing.paymentMethod === "referans" ? (
+                    <div className="flex flex-col gap-2.5">
+                      {listing.originalPrice && (
+                        <div className="text-xs text-muted-foreground">
+                          Orijinal Bedel: <span className="line-through">{currency(listing.originalPrice)}</span>{" "}
+                          → İlan Bedeli: <span className="font-semibold text-foreground">{currency(selectedOffer.amount)}</span>
+                        </div>
+                      )}
+                      <div>
+                        <label className="mb-1 block text-xs text-muted-foreground">Referans / Satın Alma Linki</label>
+                        <input
+                          value={buyerReferansUrl}
+                          onChange={(e) => setBuyerReferansUrl(e.target.value)}
+                          placeholder="https://..."
+                          className="w-full rounded-md border border-input px-3 py-2 text-sm"
+                        />
+                      </div>
+                      <Button
+                        size="sm"
+                        disabled={orderSubmitting || !buyerReferansUrl.trim()}
+                        onClick={() => submitOrder({ buyerReferansUrl: buyerReferansUrl.trim() })}
+                      >
+                        {orderSubmitting ? "Gönderiliyor…" : "Talebi Gönder"}
+                      </Button>
+                    </div>
+                  ) : listing.paymentMethod === "elden" ? (
+                    !sameCity ? (
+                      <p className="text-sm text-muted-foreground">
+                        Farklı şehirlerde olduğunuz için bu seçenek kullanılamaz
+                        {myProvince ? ` (Siz: ${myProvince}, Satıcı: ${sellerCity})` : ""}.
+                      </p>
+                    ) : (
+                      <div className="flex flex-col gap-2.5">
+                        <p className="text-xs text-muted-foreground">
+                          Ödemeyi teslim sırasında satıcıya elden yaparsınız. Platform bu ödemeye aracılık
+                          etmez.
+                        </p>
+                        <div>
+                          <label className="mb-1 block text-xs text-muted-foreground">Teslim Yeri / Notu</label>
+                          <input
+                            value={deliveryNote}
+                            onChange={(e) => setDeliveryNote(e.target.value)}
+                            placeholder="Örn. Kliniğim, hafta içi 14:00-18:00"
+                            className="w-full rounded-md border border-input px-3 py-2 text-sm"
+                          />
+                        </div>
+                        <Button
+                          size="sm"
+                          disabled={orderSubmitting || !deliveryNote.trim()}
+                          onClick={() => submitOrder({ deliveryNote: deliveryNote.trim() })}
+                        >
+                          {orderSubmitting ? "Gönderiliyor…" : "Talebi Gönder"}
+                        </Button>
+                      </div>
+                    )
                   ) : (
-                    <Button onClick={() => setPaymentSubmitted(true)}>Talebi Gönder</Button>
+                    <div className="flex flex-col gap-2.5">
+                      <p className="text-xs text-muted-foreground">
+                        Bu işlem üzerinden ürün bedeline ek olarak platform hizmet bedeli tahsil edilir.
+                        Kart bilgisi bu ekranda toplanmaz — ödeme onayı simülasyonudur.
+                      </p>
+                      <Button size="sm" disabled={orderSubmitting} onClick={() => submitOrder({})}>
+                        {orderSubmitting ? "İşleniyor…" : "Ödemeyi Tamamla"}
+                      </Button>
+                    </div>
                   )}
                 </div>
               )}

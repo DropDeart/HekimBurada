@@ -12,6 +12,11 @@ public sealed class Announcement : BaseEntity
     public string Title { get; set; } = string.Empty;
     /// <summary>Body.</summary>
     public string Body { get; set; } = string.Empty;
+
+    /// <summary>Duyuru görseli — CodeGen dışı, elle eklendi. Boşsa duyuru panosu/navbar/popup görselsiz render eder.</summary>
+    [MaxLength(500)]
+    public string? ImageUrl { get; set; }
+
     /// <summary>PublishedAt.</summary>
     public DateTimeOffset PublishedAt { get; set; }
     /// <summary>AuthorId.</summary>

@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { X } from "lucide-react";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -33,7 +34,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
-import { gatewayApi, type Announcement } from "@/lib/api";
+import { GATEWAY_URL, gatewayApi, type Announcement } from "@/lib/api";
 
 const PAGE_SIZE = 100;
 
@@ -44,11 +45,12 @@ function formatDate(iso: string) {
 interface FormState {
   title: string;
   body: string;
+  imageUrl: string;
   publishedAt: Date | undefined;
 }
 
 function emptyForm(): FormState {
-  return { title: "", body: "", publishedAt: new Date() };
+  return { title: "", body: "", imageUrl: "", publishedAt: new Date() };
 }
 
 export default function AdminDuyurularPage() {
@@ -68,6 +70,18 @@ export default function AdminDuyurularPage() {
 
   const [deleteTarget, setDeleteTarget] = useState<Announcement | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+
+  const [createUploading, setCreateUploading] = useState(false);
+  const [editUploading, setEditUploading] = useState(false);
+  const createFileRef = useRef<HTMLInputElement>(null);
+  const editFileRef = useRef<HTMLInputElement>(null);
+  const [imageRemoveTarget, setImageRemoveTarget] = useState<"create" | "edit" | null>(null);
+
+  const confirmRemoveImage = () => {
+    if (imageRemoveTarget === "create") setCreateForm((f) => ({ ...f, imageUrl: "" }));
+    if (imageRemoveTarget === "edit") setEditForm((f) => ({ ...f, imageUrl: "" }));
+    setImageRemoveTarget(null);
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -99,6 +113,7 @@ export default function AdminDuyurularPage() {
       await gatewayApi.createAnnouncement({
         title: createForm.title.trim(),
         body: createForm.body.trim(),
+        imageUrl: createForm.imageUrl || null,
         publishedAt: createForm.publishedAt.toISOString(),
       });
       toast.success("Duyuru eklendi.");
@@ -114,7 +129,7 @@ export default function AdminDuyurularPage() {
 
   const startEdit = (a: Announcement) => {
     setEditing(a);
-    setEditForm({ title: a.title, body: a.body, publishedAt: new Date(a.publishedAt) });
+    setEditForm({ title: a.title, body: a.body, imageUrl: a.imageUrl ?? "", publishedAt: new Date(a.publishedAt) });
     setEditError(null);
   };
 
@@ -131,6 +146,7 @@ export default function AdminDuyurularPage() {
       await gatewayApi.updateAnnouncement(editing.id, {
         title: editForm.title.trim(),
         body: editForm.body.trim(),
+        imageUrl: editForm.imageUrl || null,
         publishedAt: editForm.publishedAt.toISOString(),
         authorId: editing.authorId,
       });
@@ -211,6 +227,52 @@ export default function AdminDuyurularPage() {
                 />
               </div>
               <div className="grid gap-1.5">
+                <Label>Görsel (opsiyonel)</Label>
+                <div className="flex items-center gap-3">
+                  {createForm.imageUrl ? (
+                    <div className="relative">
+                      {/* eslint-disable-next-line @next/next/no-img-element -- admin panelde yüklenen keyfi harici görsel */}
+                      <img src={`${GATEWAY_URL}${createForm.imageUrl}`} alt="" className="h-12 w-20 rounded border border-border object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => setImageRemoveTarget("create")}
+                        aria-label="Görseli kaldır"
+                        className="absolute -top-1.5 -right-1.5 flex size-4 items-center justify-center rounded-full bg-destructive text-white"
+                      >
+                        <X className="size-3" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex h-12 w-20 items-center justify-center rounded border border-dashed border-border text-[10px] text-muted-foreground">
+                      Yok
+                    </div>
+                  )}
+                  <input
+                    ref={createFileRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    className="hidden"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      e.target.value = "";
+                      if (!file) return;
+                      setCreateUploading(true);
+                      try {
+                        const url = await gatewayApi.uploadImage(file, "announcements");
+                        setCreateForm((f) => ({ ...f, imageUrl: url }));
+                      } catch (err) {
+                        toast.error(err instanceof Error ? err.message : "Görsel yüklenemedi.");
+                      } finally {
+                        setCreateUploading(false);
+                      }
+                    }}
+                  />
+                  <Button type="button" variant="outline" size="sm" disabled={createUploading} onClick={() => createFileRef.current?.click()}>
+                    {createUploading ? "Yükleniyor…" : "Görsel Seç"}
+                  </Button>
+                </div>
+              </div>
+              <div className="grid gap-1.5">
                 <Label>Yayın Tarihi</Label>
                 <DatePicker
                   value={createForm.publishedAt}
@@ -231,6 +293,7 @@ export default function AdminDuyurularPage() {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead>Görsel</TableHead>
               <TableHead>Başlık</TableHead>
               <TableHead>Yayın Tarihi</TableHead>
               <TableHead>İşlemler</TableHead>
@@ -239,19 +302,27 @@ export default function AdminDuyurularPage() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={3} className="h-24 text-center text-muted-foreground">
+                <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
                   Yükleniyor…
                 </TableCell>
               </TableRow>
             ) : announcements.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={3} className="h-24 text-center text-muted-foreground">
+                <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
                   Gösterilecek duyuru yok.
                 </TableCell>
               </TableRow>
             ) : (
               announcements.map((a) => (
                 <TableRow key={a.id}>
+                  <TableCell>
+                    {a.imageUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element -- admin panelde yüklenen keyfi harici görsel
+                      <img src={`${GATEWAY_URL}${a.imageUrl}`} alt="" className="h-10 w-16 rounded border border-border object-cover" />
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
                   <TableCell>{a.title}</TableCell>
                   <TableCell>{formatDate(a.publishedAt)}</TableCell>
                   <TableCell>
@@ -312,6 +383,52 @@ export default function AdminDuyurularPage() {
               />
             </div>
             <div className="grid gap-1.5">
+              <Label>Görsel (opsiyonel)</Label>
+              <div className="flex items-center gap-3">
+                {editForm.imageUrl ? (
+                  <div className="relative">
+                    {/* eslint-disable-next-line @next/next/no-img-element -- admin panelde yüklenen keyfi harici görsel */}
+                    <img src={`${GATEWAY_URL}${editForm.imageUrl}`} alt="" className="h-12 w-20 rounded border border-border object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => setImageRemoveTarget("edit")}
+                      aria-label="Görseli kaldır"
+                      className="absolute -top-1.5 -right-1.5 flex size-4 items-center justify-center rounded-full bg-destructive text-white"
+                    >
+                      <X className="size-3" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex h-12 w-20 items-center justify-center rounded border border-dashed border-border text-[10px] text-muted-foreground">
+                    Yok
+                  </div>
+                )}
+                <input
+                  ref={editFileRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    e.target.value = "";
+                    if (!file) return;
+                    setEditUploading(true);
+                    try {
+                      const url = await gatewayApi.uploadImage(file, "announcements");
+                      setEditForm((f) => ({ ...f, imageUrl: url }));
+                    } catch (err) {
+                      toast.error(err instanceof Error ? err.message : "Görsel yüklenemedi.");
+                    } finally {
+                      setEditUploading(false);
+                    }
+                  }}
+                />
+                <Button type="button" variant="outline" size="sm" disabled={editUploading} onClick={() => editFileRef.current?.click()}>
+                  {editUploading ? "Yükleniyor…" : "Değiştir"}
+                </Button>
+              </div>
+            </div>
+            <div className="grid gap-1.5">
               <Label>Yayın Tarihi</Label>
               <DatePicker
                 value={editForm.publishedAt}
@@ -339,6 +456,21 @@ export default function AdminDuyurularPage() {
           <AlertDialogFooter>
             <AlertDialogCancel>Vazgeç</AlertDialogCancel>
             <AlertDialogAction onClick={remove}>Sil</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={imageRemoveTarget !== null} onOpenChange={(next) => !next && setImageRemoveTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Görsel kaldırılsın mı?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Görsel formdan kaldırılacak — duyuruyu kaydetmeden önce yeni bir görsel seçebilirsiniz.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Vazgeç</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmRemoveImage}>Kaldır</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

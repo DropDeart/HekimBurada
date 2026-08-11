@@ -17,7 +17,9 @@ import {
 import { Button } from "@/components/ui/button";
 import {
   identityApi,
+  MARKETPLACE_URL,
   marketplaceApi,
+  parseListingImages,
   type Listing,
   type ListingStatus,
   type MarketplaceCategory,
@@ -26,7 +28,9 @@ import {
 
 const STATUS_LABEL: Record<ListingStatus, string> = {
   draft: "Taslak",
+  pending: "Onay Bekliyor",
   active: "Aktif",
+  rejected: "Reddedildi",
   sold: "Satıldı",
   removed: "Kaldırıldı",
   expired: "Süresi Doldu",
@@ -88,14 +92,7 @@ export default function AdminUrunDetayPage() {
     }
   };
 
-  const images: string[] = (() => {
-    try {
-      const parsed = JSON.parse(listing?.images ?? "[]");
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
-  })();
+  const images = parseListingImages(listing?.images);
 
   if (loading) {
     return <p className="text-sm text-muted-foreground">Yükleniyor…</p>;
@@ -133,9 +130,18 @@ export default function AdminUrunDetayPage() {
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <div className="rounded-lg border border-border bg-white p-5">
           <h2 className="mb-3 text-sm font-bold text-foreground">Görseller</h2>
-          <div className="flex h-[220px] items-center justify-center rounded-md bg-[repeating-linear-gradient(135deg,#EEF1F2,#EEF1F2_14px,#E4E8EA_14px,#E4E8EA_28px)] font-mono text-xs text-[#9AA1A5]">
-            {images.length > 0 ? `${images.length} görsel` : "GÖRSEL YOK"}
-          </div>
+          {images.length > 0 ? (
+            <div className="grid grid-cols-2 gap-2">
+              {images.map((url) => (
+                // eslint-disable-next-line @next/next/no-img-element -- kullanıcı tarafından yüklenen keyfi harici görsel
+                <img key={url} src={`${MARKETPLACE_URL}${url}`} alt="" className="h-[105px] w-full rounded-md object-cover" />
+              ))}
+            </div>
+          ) : (
+            <div className="flex h-[220px] items-center justify-center rounded-md bg-[repeating-linear-gradient(135deg,#EEF1F2,#EEF1F2_14px,#E4E8EA_14px,#E4E8EA_28px)] font-mono text-xs text-[#9AA1A5]">
+              GÖRSEL YOK
+            </div>
+          )}
 
           <h2 className="mb-3 mt-5 text-sm font-bold text-foreground">Açıklama</h2>
           <p className="text-sm leading-relaxed text-[#4A5053]">{listing.description || "—"}</p>

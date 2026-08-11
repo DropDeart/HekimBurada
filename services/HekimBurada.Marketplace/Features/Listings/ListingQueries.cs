@@ -27,7 +27,11 @@ internal sealed class GetListingByIdHandler : IQueryHandler<GetListingByIdQuery,
 }
 
 /// <summary>Listing kayıtlarını sayfalı, sıralı ve aranabilir biçimde listeler.</summary>
-public sealed class ListListingQuery : PagedRequest, IQuery<PagedResult<ListingDto>>;
+public sealed class ListListingQuery : PagedRequest, IQuery<PagedResult<ListingDto>>
+{
+    /// <summary>Duruma göre filtreler (ör. "pending") — CodeGen dışı, admin onay kuyruğu sekmeleri için elle eklendi.</summary>
+    public string? Status { get; set; }
+}
 
 internal sealed class ListListingHandler : IQueryHandler<ListListingQuery, PagedResult<ListingDto>>
 {
@@ -42,7 +46,11 @@ internal sealed class ListListingHandler : IQueryHandler<ListListingQuery, Paged
             request.Skip,
             request.PageSize,
             request.SortBy,
-            query => string.IsNullOrWhiteSpace(request.Search) ? query : query.Where(x => EF.Functions.ILike(x.Title, $"%{request.Search}%") || EF.Functions.ILike(x.Description, $"%{request.Search}%") || EF.Functions.ILike(x.Condition, $"%{request.Search}%") || EF.Functions.ILike(x.PaymentMethod, $"%{request.Search}%") || EF.Functions.ILike((x.ReferansUrl ?? string.Empty), $"%{request.Search}%") || EF.Functions.ILike(x.City, $"%{request.Search}%") || EF.Functions.ILike(x.Images, $"%{request.Search}%") || EF.Functions.ILike(x.Status, $"%{request.Search}%")),
+            query =>
+            {
+                var filtered = string.IsNullOrWhiteSpace(request.Search) ? query : query.Where(x => EF.Functions.ILike(x.Title, $"%{request.Search}%") || EF.Functions.ILike(x.Description, $"%{request.Search}%") || EF.Functions.ILike(x.Condition, $"%{request.Search}%") || EF.Functions.ILike(x.PaymentMethod, $"%{request.Search}%") || EF.Functions.ILike((x.ReferansUrl ?? string.Empty), $"%{request.Search}%") || EF.Functions.ILike(x.City, $"%{request.Search}%") || EF.Functions.ILike(x.Images, $"%{request.Search}%") || EF.Functions.ILike(x.Status, $"%{request.Search}%"));
+                return string.IsNullOrWhiteSpace(request.Status) ? filtered : filtered.Where(x => x.Status == request.Status);
+            },
             cancellationToken);
 
         return new PagedResult<ListingDto>

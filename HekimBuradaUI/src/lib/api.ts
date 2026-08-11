@@ -1,7 +1,8 @@
 import { auth } from "./auth";
 
 const IDENTITY_URL = process.env.NEXT_PUBLIC_IDENTITY_URL ?? "http://localhost:5090";
-const MARKETPLACE_URL = process.env.NEXT_PUBLIC_MARKETPLACE_URL ?? "http://localhost:5100";
+/** Diğer servislerin aksine dışa açık — yüklenen ilan görsellerinin (/uploads/...) src'ini oluşturmak için frontend bileşenlerinde doğrudan kullanılıyor. */
+export const MARKETPLACE_URL = process.env.NEXT_PUBLIC_MARKETPLACE_URL ?? "http://localhost:5100";
 const COMMUNITY_URL = process.env.NEXT_PUBLIC_COMMUNITY_URL ?? "http://localhost:5110";
 export const MESSAGING_URL = process.env.NEXT_PUBLIC_MESSAGING_URL ?? "http://localhost:5120";
 /** Diğer servislerin aksine dışa açık — yüklenen görsellerin (/uploads/...) src'ini oluşturmak için (ör. logo/favicon/carousel önizlemesi) frontend bileşenlerinde doğrudan kullanılıyor. */
@@ -424,7 +425,7 @@ export interface MarketplaceCategory {
   parentId: string | null;
 }
 
-export type ListingStatus = "draft" | "active" | "sold" | "removed" | "expired";
+export type ListingStatus = "draft" | "pending" | "active" | "rejected" | "sold" | "removed" | "expired";
 
 export interface Listing {
   id: string;
@@ -447,6 +448,16 @@ export interface Listing {
   viewCount: number;
   categoryId: string;
   sellerId: string;
+}
+
+/** `Listing.images`'ı (JSON-encoded string dizisi) güvenle diziye çevirir — bozuk/boş veride sessizce []. */
+export function parseListingImages(images: string | null | undefined): string[] {
+  try {
+    const parsed = JSON.parse(images ?? "[]");
+    return Array.isArray(parsed) ? parsed.filter((u): u is string => typeof u === "string") : [];
+  } catch {
+    return [];
+  }
 }
 
 export interface CreateListingInput {
@@ -493,6 +504,33 @@ export interface Favorite {
   userId: string;
 }
 
+export interface ListingReview {
+  id: string;
+  listingId: string;
+  authorId: string;
+  /** 1-5 arası. */
+  rating: number;
+  body: string;
+  createdAt: string;
+}
+
+export type OrderPaymentMethod = "bagis" | "bedelsiz" | "referans" | "kart" | "elden";
+
+export interface Order {
+  id: string;
+  listingId: string;
+  buyerId: string;
+  sellerId: string;
+  paymentMethod: OrderPaymentMethod;
+  amount: number;
+  status: string;
+  donationOrganization: string | null;
+  donationReceiptUrl: string | null;
+  buyerReferansUrl: string | null;
+  deliveryNote: string | null;
+  createdAt: string;
+}
+
 /** Görsel/dosya yükleme — Marketplace ve Community'de aynı şekilde (POST /api/media). */
 async function uploadMedia(baseUrl: string, file: File, category: string): Promise<string> {
   const token = auth.getToken();
@@ -528,7 +566,7 @@ export const marketplaceApi = {
 
   deleteCategory: (id: string) => mAuthedReq<void>(`/api/Categorys/${id}`, { method: "DELETE" }),
 
-  listListings: (params?: { page?: number; pageSize?: number; search?: string }) =>
+  listListings: (params?: { page?: number; pageSize?: number; search?: string; status?: ListingStatus }) =>
     mAuthedReq<PagedResult<Listing>>(`/api/Listings${toQuery(params)}`),
 
   getListing: (id: string) => mAuthedReq<Listing>(`/api/Listings/${id}`),
@@ -545,6 +583,12 @@ export const marketplaceApi = {
 
   republishListing: (id: string) =>
     mAuthedReq<void>(`/api/Listings/${id}/republish`, { method: "POST" }),
+
+  /** Yalnızca Admin/SuperAdmin — 'pending' bir ilanı yayına alır. */
+  approveListing: (id: string) => mAuthedReq<void>(`/api/Listings/${id}/approve`, { method: "POST" }),
+
+  /** Yalnızca Admin/SuperAdmin — 'pending' bir ilanı reddeder. */
+  rejectListing: (id: string) => mAuthedReq<void>(`/api/Listings/${id}/reject`, { method: "POST" }),
 
   /** Anonim — ilan detay sayfası girişsiz de görüntülenebildiğinden auth gerektirmez. */
   incrementListingViewCount: (id: string) =>
@@ -592,6 +636,29 @@ export const marketplaceApi = {
   removeFavorite: (id: string) => mAuthedReq<void>(`/api/Favorites/${id}`, { method: "DELETE" }),
 
   uploadImage: (file: File) => uploadMedia(MARKETPLACE_URL, file, "listings"),
+
+  /** Anonim — ilan detay sayfası girişsiz de görüntülenebildiğinden auth gerektirmez. */
+  listListingReviews: (params: { listingId: string; page?: number; pageSize?: number }) =>
+    mReq<PagedResult<ListingReview>>(`/api/listing-reviews${toQuery(params)}`),
+
+  createListingReview: (input: { listingId: string; rating: number; body: string }) =>
+    mAuthedReq<string>("/api/listing-reviews", { method: "POST", body: JSON.stringify(input) }),
+
+  deleteListingReview: (id: string) => mAuthedReq<void>(`/api/listing-reviews/${id}`, { method: "DELETE" }),
+
+  /** Yalnızca çağıranın kendi siparişleri döner (alıcı olarak) — özel/finansal veri. */
+  listOrders: (params?: { page?: number; pageSize?: number }) =>
+    mAuthedReq<PagedResult<Order>>(`/api/orders${toQuery(params)}`),
+
+  createOrder: (input: {
+    listingId: string;
+    paymentMethod: OrderPaymentMethod;
+    amount: number;
+    donationOrganization?: string | null;
+    donationReceiptUrl?: string | null;
+    buyerReferansUrl?: string | null;
+    deliveryNote?: string | null;
+  }) => mAuthedReq<string>("/api/orders", { method: "POST", body: JSON.stringify(input) }),
 };
 
 // ---- Community ----
@@ -735,6 +802,8 @@ export interface Announcement {
   id: string;
   title: string;
   body: string;
+  /** Duyuru görseli — boşsa duyuru panosu/navbar/popup görselsiz render eder. */
+  imageUrl: string | null;
   publishedAt: string;
   authorId: string;
 }
@@ -788,14 +857,16 @@ export const gatewayApi = {
   /** Yalnızca Admin/SuperAdmin — backend AuthorId'yi çağıranın kendi kimliğiyle dolduruyor, burada
    * gönderilmiyor (boş string geçerli bir Guid değil; gönderilirse JSON deserialize aşamasında
    * patlayıp "The command field is required" hatasına yol açıyordu). */
-  createAnnouncement: (input: { title: string; body: string; publishedAt: string }) =>
+  createAnnouncement: (input: { title: string; body: string; imageUrl: string | null; publishedAt: string }) =>
     gAuthedReq<string>("/api/Announcements", {
       method: "POST",
       body: JSON.stringify(input),
     }),
 
-  updateAnnouncement: (id: string, input: { title: string; body: string; publishedAt: string; authorId: string }) =>
-    gAuthedReq<void>(`/api/Announcements/${id}`, { method: "PUT", body: JSON.stringify(input) }),
+  updateAnnouncement: (
+    id: string,
+    input: { title: string; body: string; imageUrl: string | null; publishedAt: string; authorId: string }
+  ) => gAuthedReq<void>(`/api/Announcements/${id}`, { method: "PUT", body: JSON.stringify(input) }),
 
   deleteAnnouncement: (id: string) =>
     gAuthedReq<void>(`/api/Announcements/${id}`, { method: "DELETE" }),
@@ -832,5 +903,5 @@ export const gatewayApi = {
   deleteCarouselSlide: (id: string) => gAuthedReq<void>(`/api/carousel-slides/${id}`, { method: "DELETE" }),
 
   /** Logo/favicon/carousel görseli yükler — category "site" (logo/favicon) veya "carousel". */
-  uploadImage: (file: File, category: "site" | "carousel") => uploadMedia(GATEWAY_URL, file, category),
+  uploadImage: (file: File, category: "site" | "carousel" | "announcements") => uploadMedia(GATEWAY_URL, file, category),
 };

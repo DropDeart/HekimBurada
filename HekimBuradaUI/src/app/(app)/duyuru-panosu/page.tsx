@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { gatewayApi, type Announcement } from "@/lib/api";
+import { GATEWAY_URL, gatewayApi, type Announcement } from "@/lib/api";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("tr-TR");
@@ -31,6 +31,14 @@ export default function DuyuruPanosuPage() {
         ) : (
           announcements.map((a) => (
             <div key={a.id} className="border-t border-border py-4 first:border-t-0">
+              {a.imageUrl && (
+                // eslint-disable-next-line @next/next/no-img-element -- admin panelden yüklenen keyfi harici görsel
+                <img
+                  src={`${GATEWAY_URL}${a.imageUrl}`}
+                  alt={a.title}
+                  className="mb-3 h-[180px] w-full rounded-lg object-cover"
+                />
+              )}
               <div className="text-sm font-semibold text-foreground">{a.title}</div>
               <div className="text-xs text-muted-foreground">{formatDate(a.publishedAt)}</div>
               <p className="mt-2 text-sm text-foreground">{a.body}</p>

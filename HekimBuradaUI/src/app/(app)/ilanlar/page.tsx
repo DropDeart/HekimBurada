@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
+import { ListingImage } from "@/components/ListingImage";
 import { marketplaceApi, type Listing, type MarketplaceCategory } from "@/lib/api";
 import { useHasToken } from "@/lib/auth";
 import { cn } from "@/lib/utils";
@@ -196,9 +197,7 @@ function IlanlarContent() {
                   href={`/ilanlar/${l.id}`}
                   className="overflow-hidden rounded-[10px] border border-border bg-white"
                 >
-                  <div className="flex h-[140px] items-center justify-center bg-[repeating-linear-gradient(135deg,#EEF1F2,#EEF1F2_12px,#E4E8EA_12px,#E4E8EA_24px)] font-mono text-[11px] text-[#9AA1A5]">
-                    İLAN GÖRSELİ
-                  </div>
+                  <ListingImage images={l.images} alt={l.title} className="h-[140px] w-full" />
                   <div className="p-3.5">
                     <div className="mb-1 text-sm font-bold text-foreground">{l.title}</div>
                     <div className="mb-1.5 text-[15px] font-bold text-brand">
