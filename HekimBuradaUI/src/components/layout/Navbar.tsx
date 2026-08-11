@@ -14,6 +14,7 @@ import {
 import { ADMIN_ROLES, auth, useAuthRoles, useHasToken } from "@/lib/auth";
 import {
   communityApi,
+  GATEWAY_URL,
   gatewayApi,
   identityApi,
   marketplaceApi,
@@ -21,6 +22,7 @@ import {
   type CommunityCategory,
   type MarketplaceCategory,
   type MarketplaceRequest,
+  type MenuItem,
   type Membership,
   type Offer,
 } from "@/lib/api";
@@ -31,7 +33,7 @@ import { cn } from "@/lib/utils";
 /** 5'ten fazla alt kategorisi olan bir grup, mega-menüde tek uzun sütun yerine 2 sütuna yayılır. */
 const WIDE_SUBCATEGORY_THRESHOLD = 5;
 
-const NAV_LINKS = [{ href: "/", label: "Ana Sayfa" }];
+const FALLBACK_NAV_LINKS: MenuItem[] = [{ id: "fallback-home", location: "header", label: "Ana Sayfa", url: "/", sortOrder: 0 }];
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("tr-TR");
@@ -61,12 +63,26 @@ export function Navbar() {
   const [notifOpen, setNotifOpen] = useState(false);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [isVerifiedDoctor, setIsVerifiedDoctor] = useState(false);
+  const [navLinks, setNavLinks] = useState<MenuItem[]>(FALLBACK_NAV_LINKS);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
 
   useEffect(() => {
     // Duyuru panosu/navbar banner'ı login öncesi de görünür — anonim, hasToken'a bağlı değil.
     gatewayApi
       .listAnnouncements({ pageSize: 5 })
       .then((r) => setAnnouncements([...r.items].sort((a, b) => b.publishedAt.localeCompare(a.publishedAt))))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    // Header linkleri ve logo admin tarafından yönetiliyor — anonim, herkese açık.
+    gatewayApi
+      .listMenuItems({ location: "header" })
+      .then((items) => { if (items.length > 0) setNavLinks(items); })
+      .catch(() => {});
+    gatewayApi
+      .getSiteSettings()
+      .then((s) => setLogoUrl(s.logoUrl))
       .catch(() => {});
   }, []);
 
@@ -157,16 +173,23 @@ export function Navbar() {
 
       <div className="container mx-auto flex h-16 items-center justify-between px-6">
         <div className="flex items-center gap-8">
-          <Link href="/" className="text-lg font-bold text-foreground">
-            Hekim<span className="text-brand">Burada</span>
+          <Link href="/" className="flex items-center text-lg font-bold text-foreground">
+            {logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element -- admin panelden yüklenen keyfi harici görsel
+              <img src={`${GATEWAY_URL}${logoUrl}`} alt="HekimBurada" className="h-8 w-auto" />
+            ) : (
+              <>
+                Hekim<span className="text-brand">Burada</span>
+              </>
+            )}
           </Link>
 
           <nav className="hidden items-center gap-6 text-sm font-medium text-muted-foreground md:flex">
-            {NAV_LINKS.map((link) => (
+            {navLinks.map((link) => (
               <Link
-                key={link.href}
-                href={link.href}
-                className={pathname === link.href ? "text-foreground" : "hover:text-foreground"}
+                key={link.id}
+                href={link.url}
+                className={pathname === link.url ? "text-foreground" : "hover:text-foreground"}
               >
                 {link.label}
               </Link>

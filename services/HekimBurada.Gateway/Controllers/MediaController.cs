@@ -9,9 +9,11 @@ namespace Gateway.Controllers;
 [Route("api/media")]
 public sealed class MediaController : BaseController
 {
+    /// <summary>image/x-icon ve image/vnd.microsoft.icon ikisi de .ico için kullanılıyor — tarayıcıya/işletim
+    /// sistemine göre değişiyor (favicon yüklemesi için gerekli, bkz. admin Ayarlar Genel sekmesi).</summary>
     private static readonly HashSet<string> AllowedContentTypes = new(StringComparer.OrdinalIgnoreCase)
     {
-        "image/jpeg", "image/png", "image/webp", "image/gif",
+        "image/jpeg", "image/png", "image/webp", "image/gif", "image/x-icon", "image/vnd.microsoft.icon",
     };
 
     private const long MaxFileBytes = 5 * 1024 * 1024; // 5 MB
@@ -35,9 +37,12 @@ public sealed class MediaController : BaseController
             return BadRequest(new { error = "Dosya en fazla 5 MB olabilir." });
         }
 
-        if (!AllowedContentTypes.Contains(file.ContentType))
+        // Windows'ta .ico dosyaları için content-type tarayıcıya göre değişiyor, bazen hiç ayarlanmıyor
+        // (application/octet-stream) — bu yüzden content-type belirsizse dosya adı uzantısına da bakıyoruz.
+        var isIcoByExtension = file.FileName.EndsWith(".ico", StringComparison.OrdinalIgnoreCase);
+        if (!AllowedContentTypes.Contains(file.ContentType) && !isIcoByExtension)
         {
-            return BadRequest(new { error = "Sadece JPEG, PNG, WEBP veya GIF yükleyebilirsiniz." });
+            return BadRequest(new { error = "Sadece JPEG, PNG, WEBP, GIF veya ICO yükleyebilirsiniz." });
         }
 
         var extension = file.ContentType switch
@@ -46,6 +51,8 @@ public sealed class MediaController : BaseController
             "image/png" => ".png",
             "image/webp" => ".webp",
             "image/gif" => ".gif",
+            "image/x-icon" or "image/vnd.microsoft.icon" => ".ico",
+            _ when isIcoByExtension => ".ico",
             _ => ".bin",
         };
 

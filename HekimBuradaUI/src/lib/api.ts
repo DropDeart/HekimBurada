@@ -4,7 +4,8 @@ const IDENTITY_URL = process.env.NEXT_PUBLIC_IDENTITY_URL ?? "http://localhost:5
 const MARKETPLACE_URL = process.env.NEXT_PUBLIC_MARKETPLACE_URL ?? "http://localhost:5100";
 const COMMUNITY_URL = process.env.NEXT_PUBLIC_COMMUNITY_URL ?? "http://localhost:5110";
 export const MESSAGING_URL = process.env.NEXT_PUBLIC_MESSAGING_URL ?? "http://localhost:5120";
-const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL ?? "http://localhost:5080";
+/** Diğer servislerin aksine dışa açık — yüklenen görsellerin (/uploads/...) src'ini oluşturmak için (ör. logo/favicon/carousel önizlemesi) frontend bileşenlerinde doğrudan kullanılıyor. */
+export const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL ?? "http://localhost:5080";
 
 /** HTTP status kodunu taşır — örn. 403 Forbidden'ı çağıran tarafın sessizce (hata toast'ı göstermeden) ele alabilmesi için. */
 export class ApiError extends Error {
@@ -723,8 +724,9 @@ export const messagingApi = {
 };
 
 // ---- Gateway ----
-// Şu an tek amacı Announcement CRUD'u — diğer servisler frontend'e doğrudan bağlı, Gateway'e sadece
-// bu özellik için (duyuru panosu/navbar herkese açık, yönetimi admin panelinde) gidiliyor.
+// Announcement CRUD'u (duyuru panosu/navbar herkese açık, yönetimi admin panelinde) + site geneli
+// ayarlar (logo/favicon/GA/SEO), header/footer menü linkleri, anasayfa carousel'i — diğer servisler
+// frontend'e doğrudan bağlı, Gateway'e sadece bu site-content özellikleri için gidiliyor.
 
 const gReq = <T>(path: string, init?: RequestInit) => reqAt<T>(GATEWAY_URL, path, init);
 const gAuthedReq = <T>(path: string, init?: RequestInit) => authedReqAt<T>(GATEWAY_URL, path, init);
@@ -735,6 +737,47 @@ export interface Announcement {
   body: string;
   publishedAt: string;
   authorId: string;
+}
+
+export interface SiteSettings {
+  logoUrl: string | null;
+  faviconUrl: string | null;
+  gaMeasurementId: string | null;
+  defaultMetaTitle: string | null;
+  defaultMetaDescription: string | null;
+}
+
+export type MenuItemLocation = "header" | "footer_platform" | "footer_rules";
+
+export interface MenuItem {
+  id: string;
+  location: MenuItemLocation;
+  label: string;
+  url: string;
+  sortOrder: number;
+}
+
+export interface CarouselSlide {
+  id: string;
+  imageUrl: string;
+  /** Başlığın üstünde gösterilen küçük, büyük harfli etiket (ör. "GÜVENİLİR PAZAR YERİ") — boşsa
+   * frontend'in varsayılan metnini kullanır. */
+  eyebrow: string | null;
+  title: string | null;
+  /** RichTextEditor'dan gelen HTML — anasayfa hero'sunda dangerouslySetInnerHTML ile render edilir. */
+  description: string | null;
+  linkUrl: string | null;
+  /** CTA buton metni — boşsa frontend "İlanlara Göz At" varsayılanını kullanır. */
+  buttonLabel: string | null;
+  /** "color" veya "image" — hero section arka planının nasıl render edileceğini belirler. */
+  backgroundType: "color" | "image";
+  /** Hero section arka plan rengi (hex) — backgroundType "color" iken kullanılır. */
+  backgroundColor: string | null;
+  /** Hero section'ı tam kaplayan arka plan görseli — backgroundType "image" iken kullanılır. Sağdaki
+   * küçük kutu görseli olan imageUrl'den bağımsız, ayrı bir görsel. */
+  backgroundImageUrl: string | null;
+  sortOrder: number;
+  isActive: boolean;
 }
 
 export const gatewayApi = {
@@ -756,4 +799,38 @@ export const gatewayApi = {
 
   deleteAnnouncement: (id: string) =>
     gAuthedReq<void>(`/api/Announcements/${id}`, { method: "DELETE" }),
+
+  /** Anonim — root layout dahil herkes okuyabilir. */
+  getSiteSettings: () => gReq<SiteSettings>("/api/site-settings"),
+
+  updateSiteSettings: (input: SiteSettings) =>
+    gAuthedReq<SiteSettings>("/api/site-settings", { method: "PUT", body: JSON.stringify(input) }),
+
+  /** Anonim — Navbar/Footer herkese gösterir. `location` verilmezse tüm menü linkleri döner. */
+  listMenuItems: (params?: { location?: MenuItemLocation }) =>
+    gReq<MenuItem[]>(`/api/menu-items${toQuery(params)}`),
+
+  createMenuItem: (input: { location: MenuItemLocation; label: string; url: string; sortOrder: number }) =>
+    gAuthedReq<MenuItem>("/api/menu-items", { method: "POST", body: JSON.stringify(input) }),
+
+  updateMenuItem: (id: string, input: { location: MenuItemLocation; label: string; url: string; sortOrder: number }) =>
+    gAuthedReq<void>(`/api/menu-items/${id}`, { method: "PUT", body: JSON.stringify(input) }),
+
+  deleteMenuItem: (id: string) => gAuthedReq<void>(`/api/menu-items/${id}`, { method: "DELETE" }),
+
+  /** Anonim. `activeOnly` varsayılan false (query verilmezse) — admin sayfası pasifleri de görsün diye
+   * açıkça `activeOnly:false` gönderir, anasayfa `activeOnly:true` gönderir. */
+  listCarouselSlides: (params: { activeOnly: boolean }) =>
+    gReq<CarouselSlide[]>(`/api/carousel-slides${toQuery({ activeOnly: String(params.activeOnly) })}`),
+
+  createCarouselSlide: (input: Omit<CarouselSlide, "id">) =>
+    gAuthedReq<CarouselSlide>("/api/carousel-slides", { method: "POST", body: JSON.stringify(input) }),
+
+  updateCarouselSlide: (id: string, input: Omit<CarouselSlide, "id">) =>
+    gAuthedReq<void>(`/api/carousel-slides/${id}`, { method: "PUT", body: JSON.stringify(input) }),
+
+  deleteCarouselSlide: (id: string) => gAuthedReq<void>(`/api/carousel-slides/${id}`, { method: "DELETE" }),
+
+  /** Logo/favicon/carousel görseli yükler — category "site" (logo/favicon) veya "carousel". */
+  uploadImage: (file: File, category: "site" | "carousel") => uploadMedia(GATEWAY_URL, file, category),
 };

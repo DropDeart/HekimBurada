@@ -2,25 +2,27 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { marketplaceApi, type MarketplaceCategory } from "@/lib/api";
+import { gatewayApi, marketplaceApi, type MarketplaceCategory, type MenuItem } from "@/lib/api";
 import { useHasToken } from "@/lib/auth";
 
-const PLATFORM_LINKS = [
-  { href: "/hakkimizda", label: "Hakkımızda" },
-  { href: "/duyuru-panosu", label: "Duyuru Panosu" },
-  { href: "/talepler", label: "Talepler" },
-  { href: "/iletisim", label: "İletişim" },
+const FALLBACK_PLATFORM_LINKS: MenuItem[] = [
+  { id: "fallback-hakkimizda", location: "footer_platform", label: "Hakkımızda", url: "/hakkimizda", sortOrder: 0 },
+  { id: "fallback-duyuru-panosu", location: "footer_platform", label: "Duyuru Panosu", url: "/duyuru-panosu", sortOrder: 1 },
+  { id: "fallback-talepler", location: "footer_platform", label: "Talepler", url: "/talepler", sortOrder: 2 },
+  { id: "fallback-iletisim", location: "footer_platform", label: "İletişim", url: "/iletisim", sortOrder: 3 },
 ];
 
-const RULES_LINKS = [
-  { href: "/kullanim-kosullari", label: "Kullanım Koşulları" },
-  { href: "/gizlilik-politikasi", label: "Gizlilik Politikası" },
-  { href: "/dogrulama-sureci", label: "Doğrulama Süreci" },
+const FALLBACK_RULES_LINKS: MenuItem[] = [
+  { id: "fallback-kullanim-kosullari", location: "footer_rules", label: "Kullanım Koşulları", url: "/kullanim-kosullari", sortOrder: 0 },
+  { id: "fallback-gizlilik-politikasi", location: "footer_rules", label: "Gizlilik Politikası", url: "/gizlilik-politikasi", sortOrder: 1 },
+  { id: "fallback-dogrulama-sureci", location: "footer_rules", label: "Doğrulama Süreci", url: "/dogrulama-sureci", sortOrder: 2 },
 ];
 
 export function Footer() {
   const hasToken = useHasToken();
   const [categories, setCategories] = useState<MarketplaceCategory[]>([]);
+  const [platformLinks, setPlatformLinks] = useState<MenuItem[]>(FALLBACK_PLATFORM_LINKS);
+  const [rulesLinks, setRulesLinks] = useState<MenuItem[]>(FALLBACK_RULES_LINKS);
 
   useEffect(() => {
     if (!hasToken) return;
@@ -29,6 +31,18 @@ export function Footer() {
       .then((r) => setCategories(r.items.filter((c) => !c.parentId)))
       .catch(() => {});
   }, [hasToken]);
+
+  useEffect(() => {
+    // Footer linkleri admin tarafından yönetiliyor — anonim, herkese açık.
+    gatewayApi
+      .listMenuItems({ location: "footer_platform" })
+      .then((items) => { if (items.length > 0) setPlatformLinks(items); })
+      .catch(() => {});
+    gatewayApi
+      .listMenuItems({ location: "footer_rules" })
+      .then((items) => { if (items.length > 0) setRulesLinks(items); })
+      .catch(() => {});
+  }, []);
 
   return (
     <footer className="mt-auto bg-[#141718] px-6 py-11 text-[#B7BCBE] sm:px-10">
@@ -62,8 +76,8 @@ export function Footer() {
         <div>
           <div className="mb-2.5 text-[13px] font-semibold text-white">Platform</div>
           <div className="flex flex-col gap-1">
-            {PLATFORM_LINKS.map((l) => (
-              <Link key={l.href} href={l.href} className="text-xs hover:text-white">
+            {platformLinks.map((l) => (
+              <Link key={l.id} href={l.url} className="text-xs hover:text-white">
                 {l.label}
               </Link>
             ))}
@@ -73,8 +87,8 @@ export function Footer() {
         <div>
           <div className="mb-2.5 text-[13px] font-semibold text-white">Kurallar</div>
           <div className="flex flex-col gap-1">
-            {RULES_LINKS.map((l) => (
-              <Link key={l.href} href={l.href} className="text-xs hover:text-white">
+            {rulesLinks.map((l) => (
+              <Link key={l.id} href={l.url} className="text-xs hover:text-white">
                 {l.label}
               </Link>
             ))}

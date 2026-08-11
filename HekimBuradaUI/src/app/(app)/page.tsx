@@ -3,33 +3,25 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { gatewayApi, marketplaceApi, type Announcement, type Listing, type MarketplaceCategory, type MarketplaceRequest } from "@/lib/api";
+import { GATEWAY_URL, gatewayApi, marketplaceApi, type CarouselSlide, type Listing, type MarketplaceCategory, type MarketplaceRequest } from "@/lib/api";
 import { useHasToken } from "@/lib/auth";
 
-function heroSlides(latestAnnouncement: Announcement | null) {
-  return [
-    {
-      tag: "GÜVENİLİR PAZAR YERİ",
-      title: "HekimBurada'a hoş geldiniz",
-      desc: "Doğrulanmış doktorların bir araya geldiği; alışveriş yaptığı, meslektaşlarıyla haberleştiği kapalı platform.",
-    },
-    {
-      tag: "DUYURU",
-      title: latestAnnouncement?.title ?? "Duyuru panosunu takip edin",
-      desc: "Duyuru panosunu takip ederek platform güncellemelerinden haberdar olun.",
-    },
-    {
-      tag: "TALEPLER",
-      title: "Aradığınız ürünü bulamadınız mı?",
-      desc: "Bir talep oluşturun, uygun meslektaşlarınız size ulaşsın.",
-    },
-    {
-      tag: "TOPLULUK",
-      title: "Branşınıza özel toplulukla tanışın",
-      desc: "Kayıttaki branşınıza göre otomatik eklendiğiniz toplulukta tartışma, soru-cevap ve etkinlikleri takip edin. (Yakında)",
-    },
-  ];
-}
+/** Admin hiç carousel slaytı eklememişse gösterilecek tek statik varsayılan slayt. */
+const DEFAULT_SLIDE: CarouselSlide = {
+  id: "default",
+  imageUrl: "",
+  eyebrow: "GÜVENİLİR PAZAR YERİ",
+  title: "HekimBurada'a hoş geldiniz",
+  description:
+    "<p>Doğrulanmış doktorların bir araya geldiği; alışveriş yaptığı, meslektaşlarıyla haberleştiği kapalı platform.</p>",
+  linkUrl: "/ilanlar",
+  buttonLabel: "İlanlara Göz At",
+  backgroundType: "color",
+  backgroundColor: null,
+  backgroundImageUrl: null,
+  sortOrder: 0,
+  isActive: true,
+};
 
 // Herkese açık bir "doğrulanmış doktor sayısı" ucu backend'de yok — bu sayılar şimdilik statik/gösterge niteliğinde.
 const TRUST_STATS = [
@@ -48,15 +40,13 @@ export default function Home() {
   const [categories, setCategories] = useState<MarketplaceCategory[]>([]);
   const [requests, setRequests] = useState<MarketplaceRequest[]>([]);
   const [listings, setListings] = useState<Listing[]>([]);
-  const [latestAnnouncement, setLatestAnnouncement] = useState<Announcement | null>(null);
-  const slides = heroSlides(latestAnnouncement);
+  const [slides, setSlides] = useState<CarouselSlide[]>([DEFAULT_SLIDE]);
 
   useEffect(() => {
     gatewayApi
-      .listAnnouncements({ pageSize: 5 })
-      .then((r) => {
-        const latest = [...r.items].sort((a, b) => b.publishedAt.localeCompare(a.publishedAt))[0];
-        if (latest) setLatestAnnouncement(latest);
+      .listCarouselSlides({ activeOnly: true })
+      .then((items) => {
+        if (items.length > 0) setSlides([...items].sort((a, b) => a.sortOrder - b.sortOrder));
       })
       .catch(() => {});
   }, []);
@@ -88,29 +78,57 @@ export default function Home() {
 
   return (
     <div>
-      <section className="relative overflow-hidden bg-[#141718] text-white">
-        <div className="container mx-auto flex flex-wrap items-center justify-between gap-8 px-6 py-14">
+      <section
+        className="relative overflow-hidden bg-[#141718] bg-cover bg-center text-white"
+        style={
+          slide.backgroundType === "image" && slide.backgroundImageUrl
+            ? { backgroundImage: `url(${GATEWAY_URL}${slide.backgroundImageUrl})` }
+            : slide.backgroundColor
+              ? { backgroundColor: slide.backgroundColor }
+              : undefined
+        }
+      >
+        {slide.backgroundType === "image" && slide.backgroundImageUrl && (
+          <div className="pointer-events-none absolute inset-0 bg-black/45" />
+        )}
+        <div className="relative container mx-auto flex flex-wrap items-center justify-between gap-8 px-6 py-14">
           <div className="max-w-[520px] min-w-[280px] flex-1">
             <div className="mb-3 text-xs font-bold tracking-wider text-brand uppercase">
-              {slide.tag}
+              {slide.eyebrow || "GÜVENİLİR PAZAR YERİ"}
             </div>
-            <h1 className="mb-3 text-2xl leading-tight font-bold sm:text-3xl">{slide.title}</h1>
-            <p className="mb-5 max-w-[440px] text-sm text-[#B7BCBE]">{slide.desc}</p>
-            <Link href="/ilanlar">
+            <h1 className="mb-3 text-2xl leading-tight font-bold sm:text-3xl">
+              {slide.title ?? "HekimBurada"}
+            </h1>
+            {slide.description && (
+              <div
+                className="mb-5 max-w-[440px] text-sm text-[#B7BCBE] [&_a]:underline [&_strong]:font-bold"
+                dangerouslySetInnerHTML={{ __html: slide.description }}
+              />
+            )}
+            <Link href={slide.linkUrl || "/ilanlar"}>
               <Button className="bg-white text-[#141718] hover:bg-[#EDEEEE]">
-                İlanlara Göz At
+                {slide.buttonLabel || "İlanlara Göz At"}
               </Button>
             </Link>
           </div>
-          <div className="flex h-[170px] w-[280px] min-w-[200px] shrink-0 items-center justify-center rounded-xl bg-white/5 font-mono text-[11px] text-[#6C7275]">
-            GÖRSEL
-          </div>
+          {slide.imageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element -- admin panelden yüklenen keyfi harici görsel
+            <img
+              src={`${GATEWAY_URL}${slide.imageUrl}`}
+              alt={slide.title ?? ""}
+              className="h-[170px] w-[280px] min-w-[200px] shrink-0 rounded-xl object-cover"
+            />
+          ) : (
+            <div className="flex h-[170px] w-[280px] min-w-[200px] shrink-0 items-center justify-center rounded-xl bg-white/5 font-mono text-[11px] text-[#6C7275]">
+              GÖRSEL
+            </div>
+          )}
         </div>
 
         <div className="flex justify-center gap-2 pb-5">
           {slides.map((s, i) => (
             <button
-              key={s.tag}
+              key={s.id}
               onClick={() => setHeroIndex(i)}
               aria-label={`${i + 1}. slayt`}
               className={`size-2 rounded-full ${i === heroIndex ? "bg-brand" : "bg-white/35"}`}
