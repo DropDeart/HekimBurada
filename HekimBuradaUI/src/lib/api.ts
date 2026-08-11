@@ -157,6 +157,16 @@ export interface DoctorProfile {
   hasDocument: boolean;
 }
 
+export interface Address {
+  id: string;
+  title: string;
+  fullAddress: string;
+  city: string;
+  district: string | null;
+  phone: string | null;
+  createdAt: string;
+}
+
 export interface UserLookupRow {
   id: string;
   email: string;
@@ -246,6 +256,13 @@ export const identityApi = {
   },
 
   doctorProfile: () => authedReq<DoctorProfile>("/api/account/doctor-profile"),
+
+  listAddresses: () => authedReq<Address[]>("/api/account/addresses"),
+
+  createAddress: (input: { title: string; fullAddress: string; city: string; district: string | null; phone: string | null }) =>
+    authedReq<Address>("/api/account/addresses", { method: "POST", body: JSON.stringify(input) }),
+
+  deleteAddress: (id: string) => authedReq<void>(`/api/account/addresses/${id}`, { method: "DELETE" }),
 
   /** Kullanıcı ID'lerinden email/ad soyad çözer — Admin rolü gerektirmez (bkz. UsersLookupApiController),
    * topluluk üye listesi gibi admin-dışı ekranlarda isim göstermek için. */
@@ -637,8 +654,8 @@ export const marketplaceApi = {
 
   uploadImage: (file: File) => uploadMedia(MARKETPLACE_URL, file, "listings"),
 
-  /** Anonim — ilan detay sayfası girişsiz de görüntülenebildiğinden auth gerektirmez. */
-  listListingReviews: (params: { listingId: string; page?: number; pageSize?: number }) =>
+  /** Anonim — ilan detay sayfası girişsiz de görüntülenebildiğinden auth gerektirmez. listingId verilmezse tüm yorumlar döner. */
+  listListingReviews: (params?: { listingId?: string; page?: number; pageSize?: number }) =>
     mReq<PagedResult<ListingReview>>(`/api/listing-reviews${toQuery(params)}`),
 
   createListingReview: (input: { listingId: string; rating: number; body: string }) =>
@@ -695,6 +712,7 @@ export interface CommunityComment {
   body: string;
   topicId: string;
   authorId: string;
+  createdAt: string;
 }
 
 export interface Like {

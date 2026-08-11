@@ -30,6 +30,9 @@ public sealed class IdentityServiceDbContext : IdentityDbContext<ApplicationUser
     /// <summary>Türkiye ilçeleri — CodeGen üretimi dışında, elle eklendi (bkz. <see cref="District"/>).</summary>
     public DbSet<District> Districts => Set<District>();
 
+    /// <summary>Kullanıcı adresleri — CodeGen üretimi dışında, elle eklendi (bkz. <see cref="Address"/>).</summary>
+    public DbSet<Address> Addresses => Set<Address>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -67,6 +70,16 @@ public sealed class IdentityServiceDbContext : IdentityDbContext<ApplicationUser
         {
             entity.HasIndex(s => s.Name).IsUnique();
             entity.Property(s => s.Name).HasMaxLength(150).IsRequired();
+        });
+
+        builder.Entity<Address>(entity =>
+        {
+            entity.HasIndex(a => a.UserId);
+            entity.Property(a => a.Title).HasMaxLength(100).IsRequired();
+            entity.Property(a => a.FullAddress).HasMaxLength(500).IsRequired();
+            entity.Property(a => a.City).HasMaxLength(100).IsRequired();
+            entity.Property(a => a.District).HasMaxLength(100);
+            entity.Property(a => a.Phone).HasMaxLength(30);
         });
     }
 }

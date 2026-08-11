@@ -4,6 +4,16 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useState, type FormEvent } from "react";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,14 +22,18 @@ import {
   communityApi,
   identityApi,
   marketplaceApi,
+  type Address,
   type CommunityCategory,
+  type CommunityComment,
   type DoctorProfile,
   type Favorite,
   type Listing,
+  type ListingReview,
   type Me,
   type Membership,
   type MarketplaceRequest,
   type Order,
+  type Topic,
 } from "@/lib/api";
 import { auth, useHasToken } from "@/lib/auth";
 import { cn } from "@/lib/utils";
@@ -76,6 +90,16 @@ function ProfilContent() {
   const [favorites, setFavorites] = useState<{ favorite: Favorite; listing: Listing }[]>([]);
   const [myRequests, setMyRequests] = useState<MarketplaceRequest[]>([]);
   const [orders, setOrders] = useState<{ order: Order; listing: Listing | null }[]>([]);
+  const [myReviews, setMyReviews] = useState<{ review: ListingReview; listing: Listing | null }[]>([]);
+  const [myComments, setMyComments] = useState<{ comment: CommunityComment; topic: Topic | null }[]>([]);
+  const [addresses, setAddresses] = useState<Address[]>([]);
+  const [addressTitle, setAddressTitle] = useState("");
+  const [addressFull, setAddressFull] = useState("");
+  const [addressCity, setAddressCity] = useState("");
+  const [addressDistrict, setAddressDistrict] = useState("");
+  const [addressPhone, setAddressPhone] = useState("");
+  const [savingAddress, setSavingAddress] = useState(false);
+  const [deleteAddressTarget, setDeleteAddressTarget] = useState<Address | null>(null);
 
   const [fullName, setFullName] = useState("");
   const [savingProfile, setSavingProfile] = useState(false);
@@ -113,8 +137,9 @@ function ProfilContent() {
       marketplaceApi.listFavorites({ pageSize: 200 }),
       marketplaceApi.listListings({ pageSize: 200 }),
       marketplaceApi.listOrders({ pageSize: 200 }),
+      marketplaceApi.listListingReviews({ pageSize: 200 }),
     ])
-      .then(([favRes, listingsRes, ordersRes]) => {
+      .then(([favRes, listingsRes, ordersRes, reviewsRes]) => {
         const mine = favRes.items.filter((f) => f.userId === myId);
         setFavorites(
           mine
@@ -132,12 +157,40 @@ function ProfilContent() {
               listing: listingsRes.items.find((l) => l.id === order.listingId) ?? null,
             }))
         );
+        setMyReviews(
+          reviewsRes.items
+            .filter((r) => r.authorId === myId)
+            .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+            .map((review) => ({
+              review,
+              listing: listingsRes.items.find((l) => l.id === review.listingId) ?? null,
+            }))
+        );
       })
       .catch(() => {});
 
     marketplaceApi
       .listRequests({ pageSize: 200 })
       .then((r) => setMyRequests(r.items.filter((req) => req.requesterId === myId)))
+      .catch(() => {});
+
+    identityApi
+      .listAddresses()
+      .then(setAddresses)
+      .catch(() => {});
+
+    Promise.all([communityApi.listComments({ pageSize: 200 }), communityApi.listTopics({ pageSize: 200 })])
+      .then(([commentsRes, topicsRes]) => {
+        setMyComments(
+          commentsRes.items
+            .filter((c) => c.authorId === myId)
+            .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+            .map((comment) => ({
+              comment,
+              topic: topicsRes.items.find((t) => t.id === comment.topicId) ?? null,
+            }))
+        );
+      })
       .catch(() => {});
   }, []);
 
@@ -180,6 +233,44 @@ function ProfilContent() {
       toast.error(err instanceof Error ? err.message : "Şifre güncellenemedi.");
     } finally {
       setSavingPassword(false);
+    }
+  };
+
+  const submitAddress = async (e: FormEvent) => {
+    e.preventDefault();
+    setSavingAddress(true);
+    try {
+      const created = await identityApi.createAddress({
+        title: addressTitle,
+        fullAddress: addressFull,
+        city: addressCity,
+        district: addressDistrict || null,
+        phone: addressPhone || null,
+      });
+      setAddresses((prev) => [created, ...prev]);
+      setAddressTitle("");
+      setAddressFull("");
+      setAddressCity("");
+      setAddressDistrict("");
+      setAddressPhone("");
+      toast.success("Adresiniz eklendi.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Adres eklenemedi.");
+    } finally {
+      setSavingAddress(false);
+    }
+  };
+
+  const confirmDeleteAddress = async () => {
+    if (!deleteAddressTarget) return;
+    try {
+      await identityApi.deleteAddress(deleteAddressTarget.id);
+      setAddresses((prev) => prev.filter((a) => a.id !== deleteAddressTarget.id));
+      toast.success("Adres silindi.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Silinemedi.");
+    } finally {
+      setDeleteAddressTarget(null);
     }
   };
 
@@ -311,13 +402,88 @@ function ProfilContent() {
         )}
 
         {activeTab === "adres" && (
-          <div>
-            <h3 className="mb-4 text-lg font-bold text-foreground">Kayıtlı Adreslerim</h3>
-            <StaticNotice />
-            <div className="grid gap-1.5">
-              <Label>Adres Başlığı</Label>
-              <Input placeholder="Örn. Muayenehane" />
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+            <div>
+              <h3 className="mb-4 text-lg font-bold text-foreground">Kayıtlı Adreslerim</h3>
+              {addresses.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Henüz kayıtlı adresiniz yok.</p>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {addresses.map((a) => (
+                    <div key={a.id} className="rounded-lg border border-border p-3.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="text-[13px] font-bold text-foreground">{a.title}</div>
+                        <button
+                          type="button"
+                          onClick={() => setDeleteAddressTarget(a)}
+                          className="text-xs font-semibold text-red-600 hover:underline"
+                        >
+                          Sil
+                        </button>
+                      </div>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {a.fullAddress}
+                        {a.district ? `, ${a.district}` : ""}, {a.city}
+                      </p>
+                      {a.phone && <p className="mt-1 text-xs text-muted-foreground">Tel: {a.phone}</p>}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
+
+            <form onSubmit={submitAddress} className="rounded-lg border border-border p-5">
+              <h3 className="mb-5 text-base font-semibold text-foreground">Yeni Adres Ekle</h3>
+              <div className="mb-4 grid gap-1.5">
+                <Label htmlFor="addressTitle">Adres Başlığı</Label>
+                <Input
+                  id="addressTitle"
+                  placeholder="Örn. Muayenehane"
+                  value={addressTitle}
+                  onChange={(e) => setAddressTitle(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="mb-4 grid gap-1.5">
+                <Label htmlFor="addressFull">Açık Adres</Label>
+                <Input
+                  id="addressFull"
+                  value={addressFull}
+                  onChange={(e) => setAddressFull(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="mb-4 grid grid-cols-2 gap-3">
+                <div className="grid gap-1.5">
+                  <Label htmlFor="addressCity">İl</Label>
+                  <Input
+                    id="addressCity"
+                    value={addressCity}
+                    onChange={(e) => setAddressCity(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label htmlFor="addressDistrict">İlçe</Label>
+                  <Input
+                    id="addressDistrict"
+                    value={addressDistrict}
+                    onChange={(e) => setAddressDistrict(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="mb-4 grid gap-1.5">
+                <Label htmlFor="addressPhone">Telefon</Label>
+                <Input
+                  id="addressPhone"
+                  value={addressPhone}
+                  onChange={(e) => setAddressPhone(e.target.value)}
+                />
+              </div>
+              <Button type="submit" disabled={savingAddress} className="mt-1">
+                {savingAddress ? "Ekleniyor…" : "Adresi Ekle"}
+              </Button>
+            </form>
           </div>
         )}
 
@@ -325,7 +491,10 @@ function ProfilContent() {
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
             <div className="rounded-lg border border-border p-5">
               <h3 className="mb-4 text-lg font-bold text-foreground">Eğitim Bilgilerim</h3>
-              <StaticNotice />
+              <p className="mb-5 rounded-lg bg-muted px-3 py-2.5 text-xs text-muted-foreground">
+                Uzmanlık alanınız kayıt sırasında verdiğiniz belgeyle doğrulandı, bu nedenle burada
+                değiştirilemez.
+              </p>
               <div className="grid gap-1.5">
                 <Label>Uzmanlık Alanı</Label>
                 <Input value={doctorProfile?.specialty ?? ""} disabled />
@@ -371,11 +540,50 @@ function ProfilContent() {
         )}
 
         {activeTab === "yorumlar" && (
-          <div>
-            <h3 className="mb-4 text-lg font-bold text-foreground">Yorumlarım</h3>
-            <p className="text-sm text-muted-foreground">
-              İlan/topluluk yorum geçmişi bu özellik yayına alındığında burada görünecek.
-            </p>
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+            <div>
+              <h3 className="mb-4 text-lg font-bold text-foreground">Ürün Yorumlarım</h3>
+              {myReviews.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Henüz bir ilana yorum yapmadınız.</p>
+              ) : (
+                <div className="flex flex-col">
+                  {myReviews.map(({ review, listing }) => (
+                    <div key={review.id} className="border-t border-[#F0F2F3] py-3.5 first:border-t-0">
+                      <div className="flex items-center justify-between">
+                        <Link
+                          href={listing ? `/ilanlar/${listing.id}` : "#"}
+                          className="text-[13px] font-bold text-foreground hover:text-brand"
+                        >
+                          {listing?.title ?? "İlan bulunamadı"}
+                        </Link>
+                        <span className="text-xs font-semibold text-amber-500">
+                          {"★".repeat(review.rating)}
+                          {"☆".repeat(5 - review.rating)}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-xs text-muted-foreground">{review.body}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div>
+              <h3 className="mb-4 text-lg font-bold text-foreground">Topluluk Yorumlarım</h3>
+              {myComments.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Henüz bir konuya yorum yapmadınız.</p>
+              ) : (
+                <div className="flex flex-col">
+                  {myComments.map(({ comment, topic }) => (
+                    <div key={comment.id} className="border-t border-[#F0F2F3] py-3.5 first:border-t-0">
+                      <div className="text-[13px] font-bold text-foreground">
+                        {topic?.title ?? "Konu bulunamadı"}
+                      </div>
+                      <p className="mt-1 text-xs text-muted-foreground">{comment.body}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -468,6 +676,21 @@ function ProfilContent() {
           </div>
         )}
       </div>
+
+      <AlertDialog open={deleteAddressTarget !== null} onOpenChange={(next) => !next && setDeleteAddressTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Adres silinsin mi?</AlertDialogTitle>
+            <AlertDialogDescription>
+              &quot;{deleteAddressTarget?.title}&quot; adresi kalıcı olarak silinecek.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Vazgeç</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteAddress}>Sil</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
