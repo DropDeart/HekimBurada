@@ -17,11 +17,21 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ListingImage } from "@/components/ListingImage";
+import { ProvinceDistrictSelect } from "@/components/ProvinceDistrictSelect";
 import {
   communityApi,
   identityApi,
   marketplaceApi,
+  IDENTITY_URL,
   type Address,
   type CommunityCategory,
   type CommunityComment,
@@ -42,7 +52,6 @@ const NAV_ITEMS = [
   { slug: "uyelik", label: "Üyelik Bilgilerim" },
   { slug: "adres", label: "Adres Bilgilerim" },
   { slug: "egitim", label: "Eğitim Bilgilerim" },
-  { slug: "foto", label: "Profil Fotoğrafım" },
   { slug: "yorumlar", label: "Ürün ve Topluluk Yorumlarım" },
   { slug: "favoriler", label: "Favorilerim" },
   { slug: "talepler", label: "Taleplerim" },
@@ -53,6 +62,9 @@ const NAV_ITEMS = [
 function currency(n: number) {
   return `${n.toLocaleString("tr-TR")} ₺`;
 }
+
+/** TR telefon formatı — 0/+90 önekli veya öneksiz 10 haneli. Backend'deki desenle aynı. */
+const PHONE_PATTERN = /^(\+90|0)?[1-9]\d{9}$/;
 
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
   bagis: "Bağış ile Ödeme",
@@ -95,9 +107,9 @@ function ProfilContent() {
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [addressTitle, setAddressTitle] = useState("");
   const [addressFull, setAddressFull] = useState("");
-  const [addressCity, setAddressCity] = useState("");
-  const [addressDistrict, setAddressDistrict] = useState("");
+  const [addressDistrictId, setAddressDistrictId] = useState("");
   const [addressPhone, setAddressPhone] = useState("");
+  const [addressPhoneError, setAddressPhoneError] = useState<string | null>(null);
   const [savingAddress, setSavingAddress] = useState(false);
   const [deleteAddressTarget, setDeleteAddressTarget] = useState<Address | null>(null);
 
@@ -108,6 +120,12 @@ function ProfilContent() {
   const [newPassword2, setNewPassword2] = useState("");
   const [savingPassword, setSavingPassword] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [deletingAvatar, setDeletingAvatar] = useState(false);
+  const [avatarModalOpen, setAvatarModalOpen] = useState(false);
+  const [avatarDeleteConfirmOpen, setAvatarDeleteConfirmOpen] = useState(false);
+  const [graduationSchool, setGraduationSchool] = useState("");
+  const [graduationYear, setGraduationYear] = useState("");
+  const [savingEducation, setSavingEducation] = useState(false);
 
   const load = useCallback(async () => {
     const myId = auth.getUserId();
@@ -120,6 +138,8 @@ function ProfilContent() {
       setMe(meRes);
       setFullName(meRes.fullName ?? "");
       setDoctorProfile(profileRes);
+      setGraduationSchool(profileRes?.graduationSchool ?? "");
+      setGraduationYear(profileRes?.graduationYear ? String(profileRes.graduationYear) : "");
     } catch {
       // sayfa yine de render edilsin, alanlar boş kalır
     }
@@ -236,22 +256,54 @@ function ProfilContent() {
     }
   };
 
+  const submitEducation = async (e: FormEvent) => {
+    e.preventDefault();
+    const year = graduationYear.trim() ? Number(graduationYear) : null;
+    if (year !== null && (!Number.isInteger(year) || year < 1950 || year > 2100)) {
+      toast.error("Geçerli bir mezuniyet yılı girin (1950-2100).");
+      return;
+    }
+    setSavingEducation(true);
+    try {
+      await identityApi.updateEducation({
+        graduationSchool: graduationSchool.trim() || null,
+        graduationYear: year,
+      });
+      toast.success("Eğitim bilgileriniz güncellendi.");
+      await load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Güncellenemedi.");
+    } finally {
+      setSavingEducation(false);
+    }
+  };
+
   const submitAddress = async (e: FormEvent) => {
     e.preventDefault();
+    setAddressPhoneError(null);
+
+    if (!addressDistrictId) {
+      toast.error("Lütfen il ve ilçe seçin.");
+      return;
+    }
+    const phone = addressPhone.trim().replace(/\s+/g, "");
+    if (phone && !PHONE_PATTERN.test(phone)) {
+      setAddressPhoneError("Geçerli bir telefon numarası girin (örn. 0532 111 22 33).");
+      return;
+    }
+
     setSavingAddress(true);
     try {
       const created = await identityApi.createAddress({
         title: addressTitle,
         fullAddress: addressFull,
-        city: addressCity,
-        district: addressDistrict || null,
-        phone: addressPhone || null,
+        districtId: addressDistrictId,
+        phone: phone || null,
       });
       setAddresses((prev) => [created, ...prev]);
       setAddressTitle("");
       setAddressFull("");
-      setAddressCity("");
-      setAddressDistrict("");
+      setAddressDistrictId("");
       setAddressPhone("");
       toast.success("Adresiniz eklendi.");
     } catch (err) {
@@ -290,6 +342,20 @@ function ProfilContent() {
     }
   };
 
+  const confirmDeleteAvatar = async () => {
+    setAvatarDeleteConfirmOpen(false);
+    setDeletingAvatar(true);
+    try {
+      await identityApi.deleteAvatar();
+      toast.success("Fotoğrafınız kaldırıldı.");
+      await load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Kaldırılamadı.");
+    } finally {
+      setDeletingAvatar(false);
+    }
+  };
+
   const logout = () => {
     auth.clearToken();
     router.push("/");
@@ -310,13 +376,24 @@ function ProfilContent() {
     <div className="mx-auto grid max-w-5xl grid-cols-1 gap-6 px-6 py-10 sm:px-10 lg:grid-cols-[280px_1fr]">
       <aside className="h-fit rounded-[10px] bg-[#F9FAFB] p-5 text-center">
         <div className="relative mx-auto size-20">
-          <div className="flex size-20 items-center justify-center rounded-full bg-brand text-2xl font-bold text-white">
-            {initials}
-          </div>
-          <label className="absolute -right-1.5 -bottom-1.5 flex size-7 cursor-pointer items-center justify-center rounded-full bg-white text-xs shadow">
+          {me?.avatarUrl ? (
+            <img
+              src={`${IDENTITY_URL}${me.avatarUrl}`}
+              alt={me.fullName ?? me.email}
+              className="size-20 rounded-full object-cover"
+            />
+          ) : (
+            <div className="flex size-20 items-center justify-center rounded-full bg-brand text-2xl font-bold text-white">
+              {initials}
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() => setAvatarModalOpen(true)}
+            className="absolute -right-1.5 -bottom-1.5 flex size-7 cursor-pointer items-center justify-center rounded-full bg-white text-xs shadow"
+          >
             📷
-            <input type="file" accept="image/*" className="hidden" onChange={handleAvatarSelect} />
-          </label>
+          </button>
         </div>
         <h3 className="mt-4 text-lg font-bold text-foreground">{me?.fullName ?? me?.email}</h3>
         <div className="mt-0.5 text-xs text-muted-foreground">
@@ -422,8 +499,7 @@ function ProfilContent() {
                         </button>
                       </div>
                       <p className="mt-1 text-xs text-muted-foreground">
-                        {a.fullAddress}
-                        {a.district ? `, ${a.district}` : ""}, {a.city}
+                        {a.fullAddress}, {a.region}
                       </p>
                       {a.phone && <p className="mt-1 text-xs text-muted-foreground">Tel: {a.phone}</p>}
                     </div>
@@ -453,32 +529,22 @@ function ProfilContent() {
                   required
                 />
               </div>
-              <div className="mb-4 grid grid-cols-2 gap-3">
-                <div className="grid gap-1.5">
-                  <Label htmlFor="addressCity">İl</Label>
-                  <Input
-                    id="addressCity"
-                    value={addressCity}
-                    onChange={(e) => setAddressCity(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="grid gap-1.5">
-                  <Label htmlFor="addressDistrict">İlçe</Label>
-                  <Input
-                    id="addressDistrict"
-                    value={addressDistrict}
-                    onChange={(e) => setAddressDistrict(e.target.value)}
-                  />
-                </div>
+              <div className="mb-4 grid gap-1.5">
+                <Label>İl / İlçe</Label>
+                <ProvinceDistrictSelect districtId={addressDistrictId} onDistrictIdChange={setAddressDistrictId} />
               </div>
               <div className="mb-4 grid gap-1.5">
                 <Label htmlFor="addressPhone">Telefon</Label>
                 <Input
                   id="addressPhone"
+                  placeholder="0532 111 22 33"
                   value={addressPhone}
-                  onChange={(e) => setAddressPhone(e.target.value)}
+                  onChange={(e) => {
+                    setAddressPhone(e.target.value);
+                    setAddressPhoneError(null);
+                  }}
                 />
+                {addressPhoneError && <p className="text-xs text-red-600">{addressPhoneError}</p>}
               </div>
               <Button type="submit" disabled={savingAddress} className="mt-1">
                 {savingAddress ? "Ekleniyor…" : "Adresi Ekle"}
@@ -495,10 +561,41 @@ function ProfilContent() {
                 Uzmanlık alanınız kayıt sırasında verdiğiniz belgeyle doğrulandı, bu nedenle burada
                 değiştirilemez.
               </p>
-              <div className="grid gap-1.5">
+              <div className="mb-5 grid gap-1.5">
                 <Label>Uzmanlık Alanı</Label>
                 <Input value={doctorProfile?.specialty ?? ""} disabled />
               </div>
+
+              <form onSubmit={submitEducation} className="border-t border-[#F0F2F3] pt-5">
+                <p className="mb-4 text-xs text-muted-foreground">
+                  Mezun olduğunuz okul ve mezuniyet yılı — bu bilgiler kendiniz girer/düzenlersiniz,
+                  doğrulama gerekmez.
+                </p>
+                <div className="mb-4 grid gap-1.5">
+                  <Label htmlFor="graduationSchool">Mezun Olunan Okul</Label>
+                  <Input
+                    id="graduationSchool"
+                    placeholder="Örn. Ankara Üniversitesi Tıp Fakültesi"
+                    value={graduationSchool}
+                    onChange={(e) => setGraduationSchool(e.target.value)}
+                  />
+                </div>
+                <div className="mb-4 grid gap-1.5">
+                  <Label htmlFor="graduationYear">Mezuniyet Yılı</Label>
+                  <Input
+                    id="graduationYear"
+                    type="number"
+                    min={1950}
+                    max={2100}
+                    placeholder="Örn. 2018"
+                    value={graduationYear}
+                    onChange={(e) => setGraduationYear(e.target.value)}
+                  />
+                </div>
+                <Button type="submit" disabled={savingEducation}>
+                  {savingEducation ? "Güncelleniyor…" : "Güncelle"}
+                </Button>
+              </form>
             </div>
             <div className="rounded-lg border border-border p-5">
               <h3 className="mb-4 text-base font-semibold text-foreground">Topluluk Bilgilerim</h3>
@@ -520,70 +617,56 @@ function ProfilContent() {
           </div>
         )}
 
-        {activeTab === "foto" && (
-          <div className="flex flex-col items-center gap-4">
-            <h3 className="self-start text-lg font-bold text-foreground">Profil Fotoğrafım</h3>
-            <div className="flex size-28 items-center justify-center rounded-full bg-brand text-3xl font-bold text-white">
-              {initials}
-            </div>
-            <label className="cursor-pointer rounded-md bg-[#141718] px-4 py-2 text-sm font-medium text-white">
-              {uploadingAvatar ? "Yükleniyor…" : "Fotoğrafı Değiştir"}
-              <input
-                type="file"
-                accept="image/jpeg,image/png,image/webp,image/gif"
-                className="hidden"
-                disabled={uploadingAvatar}
-                onChange={handleAvatarSelect}
-              />
-            </label>
-          </div>
-        )}
-
         {activeTab === "yorumlar" && (
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-            <div>
-              <h3 className="mb-4 text-lg font-bold text-foreground">Ürün Yorumlarım</h3>
-              {myReviews.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Henüz bir ilana yorum yapmadınız.</p>
-              ) : (
-                <div className="flex flex-col">
-                  {myReviews.map(({ review, listing }) => (
-                    <div key={review.id} className="border-t border-[#F0F2F3] py-3.5 first:border-t-0">
-                      <div className="flex items-center justify-between">
-                        <Link
-                          href={listing ? `/ilanlar/${listing.id}` : "#"}
-                          className="text-[13px] font-bold text-foreground hover:text-brand"
-                        >
-                          {listing?.title ?? "İlan bulunamadı"}
-                        </Link>
-                        <span className="text-xs font-semibold text-amber-500">
-                          {"★".repeat(review.rating)}
-                          {"☆".repeat(5 - review.rating)}
-                        </span>
+          <div>
+            <h3 className="mb-4 text-lg font-bold text-foreground">Yorumlarım</h3>
+            <Tabs defaultValue="urun">
+              <TabsList>
+                <TabsTrigger value="urun">Ürün Yorumlarım ({myReviews.length})</TabsTrigger>
+                <TabsTrigger value="topluluk">Topluluk Yorumlarım ({myComments.length})</TabsTrigger>
+              </TabsList>
+              <TabsContent value="urun">
+                {myReviews.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Henüz bir ilana yorum yapmadınız.</p>
+                ) : (
+                  <div className="flex flex-col">
+                    {myReviews.map(({ review, listing }) => (
+                      <div key={review.id} className="border-t border-[#F0F2F3] py-3.5 first:border-t-0">
+                        <div className="flex items-center justify-between">
+                          <Link
+                            href={listing ? `/ilanlar/${listing.id}` : "#"}
+                            className="text-[13px] font-bold text-foreground hover:text-brand"
+                          >
+                            {listing?.title ?? "İlan bulunamadı"}
+                          </Link>
+                          <span className="text-xs font-semibold text-amber-500">
+                            {"★".repeat(review.rating)}
+                            {"☆".repeat(5 - review.rating)}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-xs text-muted-foreground">{review.body}</p>
                       </div>
-                      <p className="mt-1 text-xs text-muted-foreground">{review.body}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-            <div>
-              <h3 className="mb-4 text-lg font-bold text-foreground">Topluluk Yorumlarım</h3>
-              {myComments.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Henüz bir konuya yorum yapmadınız.</p>
-              ) : (
-                <div className="flex flex-col">
-                  {myComments.map(({ comment, topic }) => (
-                    <div key={comment.id} className="border-t border-[#F0F2F3] py-3.5 first:border-t-0">
-                      <div className="text-[13px] font-bold text-foreground">
-                        {topic?.title ?? "Konu bulunamadı"}
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+              <TabsContent value="topluluk">
+                {myComments.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Henüz bir konuya yorum yapmadınız.</p>
+                ) : (
+                  <div className="flex flex-col">
+                    {myComments.map(({ comment, topic }) => (
+                      <div key={comment.id} className="border-t border-[#F0F2F3] py-3.5 first:border-t-0">
+                        <div className="text-[13px] font-bold text-foreground">
+                          {topic?.title ?? "Konu bulunamadı"}
+                        </div>
+                        <p className="mt-1 text-xs text-muted-foreground">{comment.body}</p>
                       </div>
-                      <p className="mt-1 text-xs text-muted-foreground">{comment.body}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
           </div>
         )}
 
@@ -676,6 +759,63 @@ function ProfilContent() {
           </div>
         )}
       </div>
+
+      <Dialog open={avatarModalOpen} onOpenChange={setAvatarModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Profil Fotoğrafım</DialogTitle>
+            <DialogDescription>JPEG, PNG, WEBP veya GIF — en fazla 2 MB.</DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col items-center gap-4 py-2">
+            {me?.avatarUrl ? (
+              <img
+                src={`${IDENTITY_URL}${me.avatarUrl}`}
+                alt={me.fullName ?? me.email}
+                className="size-28 rounded-full object-cover"
+              />
+            ) : (
+              <div className="flex size-28 items-center justify-center rounded-full bg-brand text-3xl font-bold text-white">
+                {initials}
+              </div>
+            )}
+            <div className="flex gap-2">
+              <label className="cursor-pointer rounded-md bg-[#141718] px-4 py-2 text-sm font-medium text-white">
+                {uploadingAvatar ? "Yükleniyor…" : me?.avatarUrl ? "Fotoğrafı Değiştir" : "Fotoğraf Yükle"}
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  className="hidden"
+                  disabled={uploadingAvatar}
+                  onChange={handleAvatarSelect}
+                />
+              </label>
+              {me?.avatarUrl && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={deletingAvatar}
+                  onClick={() => setAvatarDeleteConfirmOpen(true)}
+                >
+                  {deletingAvatar ? "Kaldırılıyor…" : "Kaldır"}
+                </Button>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={avatarDeleteConfirmOpen} onOpenChange={setAvatarDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Fotoğraf kaldırılsın mı?</AlertDialogTitle>
+            <AlertDialogDescription>Profil fotoğrafınız kaldırılacak, yerine baş harfleriniz gösterilecek.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Vazgeç</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteAvatar}>Kaldır</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={deleteAddressTarget !== null} onOpenChange={(next) => !next && setDeleteAddressTarget(null)}>
         <AlertDialogContent>

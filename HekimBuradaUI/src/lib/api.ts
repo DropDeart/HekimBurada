@@ -1,6 +1,6 @@
 import { auth } from "./auth";
 
-const IDENTITY_URL = process.env.NEXT_PUBLIC_IDENTITY_URL ?? "http://localhost:5090";
+export const IDENTITY_URL = process.env.NEXT_PUBLIC_IDENTITY_URL ?? "http://localhost:5090";
 /** Diğer servislerin aksine dışa açık — yüklenen ilan görsellerinin (/uploads/...) src'ini oluşturmak için frontend bileşenlerinde doğrudan kullanılıyor. */
 export const MARKETPLACE_URL = process.env.NEXT_PUBLIC_MARKETPLACE_URL ?? "http://localhost:5100";
 const COMMUNITY_URL = process.env.NEXT_PUBLIC_COMMUNITY_URL ?? "http://localhost:5110";
@@ -155,14 +155,17 @@ export interface DoctorProfile {
   region: string;
   verificationStatus: VerificationStatus;
   hasDocument: boolean;
+  graduationSchool: string | null;
+  graduationYear: number | null;
 }
 
 export interface Address {
   id: string;
   title: string;
   fullAddress: string;
-  city: string;
-  district: string | null;
+  districtId: string;
+  /** "İlçe, İl" biçiminde önceden biçimlendirilmiş görünen ad — backend'den gelir. */
+  region: string;
   phone: string | null;
   createdAt: string;
 }
@@ -257,9 +260,12 @@ export const identityApi = {
 
   doctorProfile: () => authedReq<DoctorProfile>("/api/account/doctor-profile"),
 
+  updateEducation: (input: { graduationSchool: string | null; graduationYear: number | null }) =>
+    authedReq<void>("/api/account/doctor-profile/education", { method: "PUT", body: JSON.stringify(input) }),
+
   listAddresses: () => authedReq<Address[]>("/api/account/addresses"),
 
-  createAddress: (input: { title: string; fullAddress: string; city: string; district: string | null; phone: string | null }) =>
+  createAddress: (input: { title: string; fullAddress: string; districtId: string; phone: string | null }) =>
     authedReq<Address>("/api/account/addresses", { method: "POST", body: JSON.stringify(input) }),
 
   deleteAddress: (id: string) => authedReq<void>(`/api/account/addresses/${id}`, { method: "DELETE" }),
@@ -305,6 +311,8 @@ export const identityApi = {
 
     return ((await res.json()) as { avatarUrl: string }).avatarUrl;
   },
+
+  deleteAvatar: () => authedReq<void>("/api/account/avatar", { method: "DELETE" }),
 
   uploadVerificationDocument: async (file: File): Promise<void> => {
     const token = auth.getToken();

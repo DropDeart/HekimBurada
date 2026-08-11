@@ -16,9 +16,8 @@ public sealed class Address
 
     public string FullAddress { get; set; } = string.Empty;
 
-    public string City { get; set; } = string.Empty;
-
-    public string? District { get; set; }
+    /// <summary><see cref="Entities.District"/>'e referans — serbest metin yerine kapalı il/ilçe kümesi (bkz. DoctorProfile.DistrictId ile aynı desen).</summary>
+    public Guid DistrictId { get; set; }
 
     public string? Phone { get; set; }
 

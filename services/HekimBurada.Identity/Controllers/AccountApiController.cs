@@ -169,6 +169,31 @@ public sealed class AccountApiController : ControllerBase
         return Ok(new AvatarResponse(user.AvatarUrl));
     }
 
+    /// <summary>Yüklenmiş profil fotoğrafını kaldırır — dış sağlayıcı (Google vb.) URL'lerine dokunmaz, sadece kendi yüklediğimiz dosyayı siler.</summary>
+    [HttpDelete("avatar")]
+    [Authorize(AuthenticationSchemes = ProfileAuthSchemes)]
+    public async Task<IActionResult> DeleteAvatar()
+    {
+        var user = await _userManager.GetUserAsync(User);
+        if (user is null)
+        {
+            return Unauthorized();
+        }
+
+        if (!string.IsNullOrWhiteSpace(user.AvatarUrl) && user.AvatarUrl.StartsWith("/uploads/avatars/", StringComparison.Ordinal))
+        {
+            var oldPath = Path.Combine(_env.WebRootPath, user.AvatarUrl.TrimStart('/').Replace('/', Path.DirectorySeparatorChar));
+            if (System.IO.File.Exists(oldPath))
+            {
+                System.IO.File.Delete(oldPath);
+            }
+        }
+
+        user.AvatarUrl = null;
+        await _userManager.UpdateAsync(user);
+        return Ok();
+    }
+
     [HttpGet("providers")]
     public async Task<IActionResult> Providers()
     {

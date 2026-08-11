@@ -14,7 +14,7 @@ public sealed class CommentDto
     /// <summary>AuthorId.</summary>
     public Guid AuthorId { get; set; }
     /// <summary>Oluşturulma zamanı — elle eklendi.</summary>
-    public DateTime CreatedAt { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
 
     /// <summary>Bir Comment entity'sinden DTO üretir.</summary>
     public static CommentDto From(Comment entity)

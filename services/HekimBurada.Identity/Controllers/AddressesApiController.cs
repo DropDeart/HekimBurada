@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Identity.Data;
 using Identity.Entities;
 using Microsoft.AspNetCore.Authorization;
@@ -14,8 +15,11 @@ namespace Identity.Controllers;
 [ApiController]
 [Route("api/account/addresses")]
 [Authorize(AuthenticationSchemes = "Identity.Application,OpenIddict.Validation.AspNetCore")]
-public sealed class AddressesApiController : ControllerBase
+public sealed partial class AddressesApiController : ControllerBase
 {
+    [GeneratedRegex(@"^(\+90|0)?[1-9]\d{9}$")]
+    private static partial Regex PhonePattern();
+
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IdentityServiceDbContext _db;
 
@@ -37,10 +41,15 @@ public sealed class AddressesApiController : ControllerBase
         var addresses = await _db.Addresses
             .Where(a => a.UserId == user.Id)
             .OrderByDescending(a => a.CreatedAt)
-            .Select(a => new AddressRow(a.Id, a.Title, a.FullAddress, a.City, a.District, a.Phone, a.CreatedAt))
             .ToListAsync(HttpContext.RequestAborted);
 
-        return Ok(addresses);
+        var rows = new List<AddressRow>();
+        foreach (var a in addresses)
+        {
+            rows.Add(new AddressRow(a.Id, a.Title, a.FullAddress, a.DistrictId, await FormatRegionAsync(a.DistrictId), a.Phone, a.CreatedAt));
+        }
+
+        return Ok(rows);
     }
 
     [HttpPost]
@@ -54,10 +63,21 @@ public sealed class AddressesApiController : ControllerBase
 
         var title = request.Title?.Trim();
         var fullAddress = request.FullAddress?.Trim();
-        var city = request.City?.Trim();
-        if (string.IsNullOrWhiteSpace(title) || string.IsNullOrWhiteSpace(fullAddress) || string.IsNullOrWhiteSpace(city))
+        if (string.IsNullOrWhiteSpace(title) || string.IsNullOrWhiteSpace(fullAddress))
         {
-            return BadRequest(new ErrorResponse("Başlık, açık adres ve il zorunludur."));
+            return BadRequest(new ErrorResponse("Başlık ve açık adres zorunludur."));
+        }
+
+        if (request.DistrictId is null || request.DistrictId == Guid.Empty
+            || !await _db.Districts.AnyAsync(d => d.Id == request.DistrictId, HttpContext.RequestAborted))
+        {
+            return BadRequest(new ErrorResponse("Geçerli bir il/ilçe seçin."));
+        }
+
+        var phone = string.IsNullOrWhiteSpace(request.Phone) ? null : request.Phone.Trim();
+        if (phone is not null && !PhonePattern().IsMatch(phone.Replace(" ", string.Empty)))
+        {
+            return BadRequest(new ErrorResponse("Geçerli bir telefon numarası girin (örn. 0532 111 22 33)."));
         }
 
         var address = new Address
@@ -66,14 +86,13 @@ public sealed class AddressesApiController : ControllerBase
             UserId = user.Id,
             Title = title,
             FullAddress = fullAddress,
-            City = city,
-            District = string.IsNullOrWhiteSpace(request.District) ? null : request.District.Trim(),
-            Phone = string.IsNullOrWhiteSpace(request.Phone) ? null : request.Phone.Trim(),
+            DistrictId = request.DistrictId.Value,
+            Phone = phone,
         };
         _db.Addresses.Add(address);
         await _db.SaveChangesAsync(HttpContext.RequestAborted);
 
-        return Ok(new AddressRow(address.Id, address.Title, address.FullAddress, address.City, address.District, address.Phone, address.CreatedAt));
+        return Ok(new AddressRow(address.Id, address.Title, address.FullAddress, address.DistrictId, await FormatRegionAsync(address.DistrictId), address.Phone, address.CreatedAt));
     }
 
     [HttpDelete("{id:guid}")]
@@ -96,8 +115,20 @@ public sealed class AddressesApiController : ControllerBase
 
         return NoContent();
     }
+
+    private async Task<string> FormatRegionAsync(Guid districtId)
+    {
+        var row = await (
+            from d in _db.Districts
+            join p in _db.Provinces on d.ProvinceId equals p.Id
+            where d.Id == districtId
+            select new { DistrictName = d.Name, ProvinceName = p.Name }
+        ).FirstOrDefaultAsync(HttpContext.RequestAborted);
+
+        return row is null ? "—" : $"{row.DistrictName}, {row.ProvinceName}";
+    }
 }
 
-public sealed record AddressRow(Guid Id, string Title, string FullAddress, string City, string? District, string? Phone, DateTimeOffset CreatedAt);
+public sealed record AddressRow(Guid Id, string Title, string FullAddress, Guid DistrictId, string Region, string? Phone, DateTimeOffset CreatedAt);
 
-public sealed record AddressRequest(string? Title, string? FullAddress, string? City, string? District, string? Phone);
+public sealed record AddressRequest(string? Title, string? FullAddress, Guid? DistrictId, string? Phone);

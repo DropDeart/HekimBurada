@@ -46,6 +46,7 @@ public sealed class IdentityServiceDbContext : IdentityDbContext<ApplicationUser
             entity.Property(p => p.VerificationStatus).HasMaxLength(20).IsRequired();
             entity.Property(p => p.VerificationDocumentPath).HasMaxLength(500);
             entity.Property(p => p.VerificationDocumentContentType).HasMaxLength(50);
+            entity.Property(p => p.GraduationSchool).HasMaxLength(200);
         });
 
         builder.Entity<Province>(entity =>
@@ -77,8 +78,6 @@ public sealed class IdentityServiceDbContext : IdentityDbContext<ApplicationUser
             entity.HasIndex(a => a.UserId);
             entity.Property(a => a.Title).HasMaxLength(100).IsRequired();
             entity.Property(a => a.FullAddress).HasMaxLength(500).IsRequired();
-            entity.Property(a => a.City).HasMaxLength(100).IsRequired();
-            entity.Property(a => a.District).HasMaxLength(100);
             entity.Property(a => a.Phone).HasMaxLength(30);
         });
     }

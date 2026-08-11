@@ -25,6 +25,16 @@ public sealed class DoctorProfile
 
     public string VerificationStatus { get; set; } = DoctorVerificationStatus.Pending;
 
+    /// <summary>
+    /// Mezun olunan okul — kullanıcı tarafından Profil'den kendi girer/düzenler, doğrulanmaz
+    /// (Specialty/DiplomaNo'nun aksine, belge yükleme akışına bağlı değil). Amaç yalnızca topluluk
+    /// kaydı için ek bilgi tutmak. Elle eklendi.
+    /// </summary>
+    public string? GraduationSchool { get; set; }
+
+    /// <summary>Mezuniyet yılı — self-report, doğrulanmaz. Elle eklendi.</summary>
+    public int? GraduationYear { get; set; }
+
     /// <summary>Yüklenen belgenin, upload volume köküne göre göreli yolu (örn. <c>doctors/{userId}/{guid}.jpg</c>).</summary>
     public string? VerificationDocumentPath { get; set; }
 

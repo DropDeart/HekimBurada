@@ -131,7 +131,41 @@ public sealed class DoctorVerificationController : ControllerBase
             profile.DiplomaNo,
             await FormatRegionAsync(profile.DistrictId),
             profile.VerificationStatus,
-            profile.VerificationDocumentPath is not null));
+            profile.VerificationDocumentPath is not null,
+            profile.GraduationSchool,
+            profile.GraduationYear));
+    }
+
+    /// <summary>
+    /// Okul/mezuniyet yılını kullanıcı kendi günceller — doğrulama akışına dahil değil (bkz.
+    /// GraduationSchool doc yorumu), bu yüzden admin onayına düşmez.
+    /// </summary>
+    [HttpPut("account/doctor-profile/education")]
+    [Authorize(AuthenticationSchemes = ProfileAuthSchemes)]
+    public async Task<IActionResult> UpdateEducation(UpdateEducationRequest request)
+    {
+        var user = await _userManager.GetUserAsync(User);
+        if (user is null)
+        {
+            return Unauthorized();
+        }
+
+        var profile = await _db.DoctorProfiles.FirstOrDefaultAsync(p => p.UserId == user.Id, HttpContext.RequestAborted);
+        if (profile is null)
+        {
+            return NotFound();
+        }
+
+        if (request.GraduationYear is < 1950 or > 2100)
+        {
+            return BadRequest(new ErrorResponse("Geçerli bir mezuniyet yılı girin."));
+        }
+
+        profile.GraduationSchool = string.IsNullOrWhiteSpace(request.GraduationSchool) ? null : request.GraduationSchool.Trim();
+        profile.GraduationYear = request.GraduationYear;
+        await _db.SaveChangesAsync(HttpContext.RequestAborted);
+
+        return Ok();
     }
 
     // ---- Admin: bekleyen doğrulamaları listele (SuperAdmin: tümü, RegionAdmin: yalnızca kendi bölgesi) ----
@@ -407,9 +441,13 @@ public sealed record VerificationRow(
 
 public sealed record AssignRegionAdminRequest(Guid ProvinceId);
 
+public sealed record UpdateEducationRequest(string? GraduationSchool, int? GraduationYear);
+
 public sealed record DoctorProfileResponse(
     string Specialty,
     string DiplomaNo,
     string Region,
     string VerificationStatus,
-    bool HasDocument);
+    bool HasDocument,
+    string? GraduationSchool,
+    int? GraduationYear);
