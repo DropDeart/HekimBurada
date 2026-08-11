@@ -377,6 +377,7 @@ function ProfilContent() {
       <aside className="h-fit rounded-[10px] bg-[#F9FAFB] p-5 text-center">
         <div className="relative mx-auto size-20">
           {me?.avatarUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element -- kullanıcı tarafından yüklenen keyfi harici görsel
             <img
               src={`${IDENTITY_URL}${me.avatarUrl}`}
               alt={me.fullName ?? me.email}
@@ -768,6 +769,7 @@ function ProfilContent() {
           </DialogHeader>
           <div className="flex flex-col items-center gap-4 py-2">
             {me?.avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element -- kullanıcı tarafından yüklenen keyfi harici görsel
               <img
                 src={`${IDENTITY_URL}${me.avatarUrl}`}
                 alt={me.fullName ?? me.email}
