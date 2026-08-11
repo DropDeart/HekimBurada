@@ -511,6 +511,14 @@ export interface Offer {
   buyerId: string;
 }
 
+export interface RequestOffer {
+  id: string;
+  amount: number;
+  status: OfferStatus;
+  requestId: string;
+  responderId: string;
+}
+
 export type RequestStatus = "open" | "closed";
 
 export interface MarketplaceRequest {
@@ -638,6 +646,8 @@ export const marketplaceApi = {
   listRequests: (params?: { page?: number; pageSize?: number; search?: string }) =>
     mAuthedReq<PagedResult<MarketplaceRequest>>(`/api/Requests${toQuery(params)}`),
 
+  getRequest: (id: string) => mAuthedReq<MarketplaceRequest>(`/api/Requests/${id}`),
+
   createRequest: (input: {
     title: string;
     description: string;
@@ -650,7 +660,30 @@ export const marketplaceApi = {
       body: JSON.stringify({ ...input, status: "open" }),
     }),
 
+  /** Talep sahibinin talebi kapatması dahil — backend'de ayrı bir uç yok, tüm alanları PUT ile güncelliyoruz. */
+  updateRequest: (id: string, request: MarketplaceRequest, status: RequestStatus) =>
+    mAuthedReq<void>(`/api/Requests/${id}`, {
+      method: "PUT",
+      body: JSON.stringify({ ...request, status }),
+    }),
+
   deleteRequest: (id: string) => mAuthedReq<void>(`/api/Requests/${id}`, { method: "DELETE" }),
+
+  listRequestOffers: (params: { requestId: string; page?: number; pageSize?: number }) =>
+    mAuthedReq<PagedResult<RequestOffer>>(`/api/request-offers${toQuery(params)}`),
+
+  createRequestOffer: (input: { amount: number; requestId: string }) =>
+    mAuthedReq<string>("/api/request-offers", {
+      method: "POST",
+      body: JSON.stringify({ ...input, status: "pending" }),
+    }),
+
+  /** Kabul/red de dahil — backend'de ayrı bir uç yok, durumu PUT ile güncelliyoruz. */
+  updateRequestOfferStatus: (id: string, offer: RequestOffer, status: OfferStatus) =>
+    mAuthedReq<void>(`/api/request-offers/${id}`, {
+      method: "PUT",
+      body: JSON.stringify({ ...offer, status }),
+    }),
 
   listFavorites: (params?: { page?: number; pageSize?: number }) =>
     mAuthedReq<PagedResult<Favorite>>(`/api/Favorites${toQuery(params)}`),

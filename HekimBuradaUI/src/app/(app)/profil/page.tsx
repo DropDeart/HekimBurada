@@ -710,9 +710,21 @@ function ProfilContent() {
               <p className="text-sm text-muted-foreground">Henüz talebiniz yok.</p>
             ) : (
               myRequests.map((req) => (
-                <div key={req.id} className="border-t border-[#F0F2F3] py-3.5 first:border-t-0">
+                <Link
+                  key={req.id}
+                  href={`/talepler/${req.id}`}
+                  className="flex items-center justify-between border-t border-[#F0F2F3] py-3.5 first:border-t-0 hover:text-brand"
+                >
                   <div className="text-[13px] font-bold text-foreground">{req.title}</div>
-                </div>
+                  <span
+                    className={cn(
+                      "rounded-md px-2 py-0.5 text-[11px] font-semibold",
+                      req.status === "open" ? "bg-brand-soft text-brand" : "bg-muted text-muted-foreground"
+                    )}
+                  >
+                    {req.status === "open" ? "Açık" : "Kapatıldı"}
+                  </span>
+                </Link>
               ))
             )}
           </div>

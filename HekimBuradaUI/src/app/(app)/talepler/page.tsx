@@ -64,16 +64,27 @@ export default function TaleplerPage() {
       ) : (
         <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
           {requests.map((req) => (
-            <div key={req.id} className="rounded-[10px] border border-border bg-[#FAFBFB] p-4">
-              <div className="mb-1.5 inline-block rounded-md bg-brand-soft px-2 py-0.5 text-[11px] font-bold text-brand">
-                {categories.find((c) => c.id === req.categoryId)?.name ?? "Diğer"}
+            <Link
+              key={req.id}
+              href={`/talepler/${req.id}`}
+              className="block rounded-[10px] border border-border bg-[#FAFBFB] p-4 hover:border-brand"
+            >
+              <div className="mb-1.5 flex items-center justify-between">
+                <span className="inline-block rounded-md bg-brand-soft px-2 py-0.5 text-[11px] font-bold text-brand">
+                  {categories.find((c) => c.id === req.categoryId)?.name ?? "Diğer"}
+                </span>
+                {req.status === "closed" && (
+                  <span className="rounded-md bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
+                    Kapatıldı
+                  </span>
+                )}
               </div>
               <div className="mb-1.5 text-sm font-bold text-foreground">{req.title}</div>
               <p className="mb-1.5 text-xs text-muted-foreground">{req.description}</p>
               <div className="text-xs font-semibold text-foreground">
                 {req.budgetMax ? `Bütçe: ${currency(req.budgetMax)}` : "Bütçe belirtilmedi"}
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       )}

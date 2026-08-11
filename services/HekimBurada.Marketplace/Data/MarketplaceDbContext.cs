@@ -28,4 +28,6 @@ public sealed class MarketplaceDbContext : BaseForgeDbContext
     public DbSet<ListingReview> ListingReviews => Set<ListingReview>();
     /// <summary>Order tablosu — CodeGen dışı, elle eklendi.</summary>
     public DbSet<Order> Orders => Set<Order>();
+    /// <summary>RequestOffer tablosu — CodeGen dışı, elle eklendi.</summary>
+    public DbSet<RequestOffer> RequestOffers => Set<RequestOffer>();
 }
