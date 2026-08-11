@@ -16,8 +16,12 @@ public sealed class DoctorProfile
 
     public string DiplomaNo { get; set; } = string.Empty;
 
-    /// <summary>Bölge admini yetkilendirmesinde ve elden teslim şehir eşleşmesinde kullanılır.</summary>
-    public string Region { get; set; } = string.Empty;
+    /// <summary>
+    /// <see cref="Entities.District"/>'e referans — bölge admini yetkilendirmesinde ve elden teslim
+    /// şehir eşleşmesinde kullanılır. Önceden serbest metin (Region) idi; il/ilçe referans tablosuna
+    /// geçirildi (bkz. <see cref="Entities.District"/> doc yorumu).
+    /// </summary>
+    public Guid DistrictId { get; set; }
 
     public string VerificationStatus { get; set; } = DoctorVerificationStatus.Pending;
 

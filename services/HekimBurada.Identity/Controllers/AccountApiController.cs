@@ -206,9 +206,9 @@ public sealed class AccountApiController : ControllerBase
             return BadRequest(new ErrorResponse("Tüm alanları doldurun."));
         }
 
-        if (string.IsNullOrWhiteSpace(request.Specialty) || string.IsNullOrWhiteSpace(request.DiplomaNo) || string.IsNullOrWhiteSpace(request.Region))
+        if (string.IsNullOrWhiteSpace(request.Specialty) || string.IsNullOrWhiteSpace(request.DiplomaNo) || request.DistrictId == Guid.Empty)
         {
-            return BadRequest(new ErrorResponse("Uzmanlık alanı, diploma/tescil no ve bölge gerekli."));
+            return BadRequest(new ErrorResponse("Uzmanlık alanı, diploma/tescil no ve ilçe gerekli."));
         }
 
         // Uzmanlık alanı yönetilen listeden seçilmeli — serbest metin, Community'nin topluluk
@@ -219,6 +219,14 @@ public sealed class AccountApiController : ControllerBase
         if (!validSpecialty)
         {
             return BadRequest(new ErrorResponse("Geçersiz uzmanlık alanı."));
+        }
+
+        // İlçe de yönetilen listeden seçilmeli — serbest metin (eski Region alanı) "istanbul"/"İstanbul"
+        // gibi farklı yazımlarla RegionAdmin'in bölge kuyruğunu sessizce boş gösteriyordu.
+        var validDistrict = await _db.Districts.AnyAsync(d => d.Id == request.DistrictId, HttpContext.RequestAborted);
+        if (!validDistrict)
+        {
+            return BadRequest(new ErrorResponse("Geçersiz ilçe."));
         }
 
         var user = new ApplicationUser
@@ -244,7 +252,7 @@ public sealed class AccountApiController : ControllerBase
             UserId = user.Id,
             Specialty = specialty,
             DiplomaNo = request.DiplomaNo.Trim(),
-            Region = request.Region.Trim(),
+            DistrictId = request.DistrictId,
             VerificationStatus = DoctorVerificationStatus.Pending,
         });
         await _db.SaveChangesAsync();
@@ -315,8 +323,9 @@ public sealed class AccountApiController : ControllerBase
 
             await _userManager.AddToRoleAsync(user, SeedData.UserRole);
 
-            // Sosyal girişle oluşan hesap da doğrulama kapısına tabi — Specialty/DiplomaNo/Region
-            // boş bırakılır, kullanıcı profilini tamamlayıp belge yükleyene kadar 'pending' kalır
+            // Sosyal girişle oluşan hesap da doğrulama kapısına tabi — Specialty/DiplomaNo/DistrictId
+            // boş bırakılır (DistrictId = Guid.Empty), kullanıcı profilini tamamlayıp belge yükleyene
+            // kadar 'pending' kalır
             // (bkz. DoctorVerificationController.UploadDocument — profil bilgisi eksikse belge
             // yükleme reddedilir, önce profilin tamamlanması istenir).
             _db.DoctorProfiles.Add(new DoctorProfile
@@ -336,7 +345,7 @@ public sealed class AccountApiController : ControllerBase
 
 public sealed record LoginRequest(string Email, string Password);
 
-public sealed record RegisterRequest(string? FullName, string Email, string Password, string Specialty, string DiplomaNo, string Region);
+public sealed record RegisterRequest(string? FullName, string Email, string Password, string Specialty, string DiplomaNo, Guid DistrictId);
 
 public sealed record RegisterResponse(Guid UserId);
 

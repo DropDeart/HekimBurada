@@ -13,6 +13,10 @@ public sealed class Membership : BaseEntity
     public Guid CategoryId { get; set; }
     /// <summary>UserId.</summary>
     public Guid UserId { get; set; }
+    /// <summary>Kategorinin ilk üyesi otomatik admin olur (bkz. MembershipsController.Create,
+    /// SyncMembershipOnDoctorProfileUpdated) — üye çıkarma/engelleme yetkisi taşır. CodeGen dışı,
+    /// elle eklendi.</summary>
+    public bool IsAdmin { get; set; }
     /// <summary>Category (servis içi ilişki).</summary>
     public CommunityCategory? Category { get; set; }
 }

@@ -1,3 +1,4 @@
+using BaseForge.Core.CQRS;
 using Identity.Data;
 using Identity.Entities;
 using Microsoft.AspNetCore.Authorization;
@@ -33,9 +34,15 @@ public sealed class AdminUsersApiController : ControllerBase
     public IActionResult Roles() => Ok(KnownRoles);
 
     [HttpGet("users")]
-    public async Task<IActionResult> List()
+    public async Task<IActionResult> List([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
     {
-        var users = _userManager.Users.OrderBy(u => u.Email).ToList();
+        page = page < 1 ? 1 : page;
+        pageSize = pageSize switch { < 1 => 1, > 100 => 100, _ => pageSize };
+
+        var query = _userManager.Users.OrderBy(u => u.Email);
+        var totalCount = query.Count();
+        var users = query.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+
         var rows = new List<AdminUserRow>(users.Count);
         foreach (var user in users)
         {
@@ -43,7 +50,7 @@ public sealed class AdminUsersApiController : ControllerBase
             rows.Add(ToRow(user, roles));
         }
 
-        return Ok(rows);
+        return Ok(new PagedResult<AdminUserRow> { Items = rows, TotalCount = totalCount, Page = page, PageSize = pageSize });
     }
 
     [HttpPost("users")]

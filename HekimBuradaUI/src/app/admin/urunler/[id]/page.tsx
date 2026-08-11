@@ -16,12 +16,12 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
-  adminUsersApi,
+  identityApi,
   marketplaceApi,
-  type AdminUserRow,
   type Listing,
   type ListingStatus,
   type MarketplaceCategory,
+  type UserLookupRow,
 } from "@/lib/api";
 
 const STATUS_LABEL: Record<ListingStatus, string> = {
@@ -48,7 +48,7 @@ export default function AdminUrunDetayPage() {
 
   const [listing, setListing] = useState<Listing | null>(null);
   const [category, setCategory] = useState<MarketplaceCategory | null>(null);
-  const [seller, setSeller] = useState<AdminUserRow | null>(null);
+  const [seller, setSeller] = useState<UserLookupRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [removing, setRemoving] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -59,11 +59,11 @@ export default function AdminUrunDetayPage() {
       const l = await marketplaceApi.getListing(listingId);
       setListing(l);
       const [cats, users] = await Promise.all([
-        marketplaceApi.listCategories({ pageSize: 200 }),
-        adminUsersApi.listUsers(),
+        marketplaceApi.listCategories({ pageSize: 100 }),
+        identityApi.lookupUsers([l.sellerId]),
       ]);
       setCategory(cats.items.find((c) => c.id === l.categoryId) ?? null);
-      setSeller(users.find((u) => u.id === l.sellerId) ?? null);
+      setSeller(users[0] ?? null);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "İlan yüklenemedi.");
     } finally {

@@ -36,8 +36,19 @@ export default function AdminKategorilerPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await marketplaceApi.listCategories({ pageSize: 200 });
-      setCategories(res.items);
+      // Kategoriler bir ağaç olarak gösteriliyor (üst/alt kategori ilişkisi) — sayfa sayfa gezinme bu
+      // yapıyı bölerdi (bir alt kategori üst kategorisinden farklı bir sayfaya düşebilir). Bunun
+      // yerine tamamını çekiyoruz; sunucu tarafı sayfa başına en fazla 100 kayıt döndürdüğünden
+      // (bkz. PagedRequest.PageSize clamp) burada sayfalar arasında döngüyle topluyoruz.
+      const all: MarketplaceCategory[] = [];
+      let page = 1;
+      while (true) {
+        const res = await marketplaceApi.listCategories({ page, pageSize: 100 });
+        all.push(...res.items);
+        if (all.length >= res.totalCount || res.items.length === 0) break;
+        page++;
+      }
+      setCategories(all);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Liste alınamadı.");
     } finally {

@@ -13,6 +13,8 @@ public sealed class MembershipDto
     public Guid CategoryId { get; set; }
     /// <summary>UserId.</summary>
     public Guid UserId { get; set; }
+    /// <summary>Topluluğun ilk üyesi mi (bkz. Membership.IsAdmin doc yorumu) — üye çıkarma yetkisi taşır.</summary>
+    public bool IsAdmin { get; set; }
 
     /// <summary>Bir Membership entity'sinden DTO üretir.</summary>
     public static MembershipDto From(Membership entity)
@@ -24,6 +26,7 @@ public sealed class MembershipDto
             AutoJoined = entity.AutoJoined,
             CategoryId = entity.CategoryId,
             UserId = entity.UserId,
+            IsAdmin = entity.IsAdmin,
         };
     }
 }

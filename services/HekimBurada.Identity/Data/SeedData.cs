@@ -17,6 +17,47 @@ public static class SeedData
         await SeedClientsAsync(services, auth, cancellationToken);
         await SeedAdminAsync(services, auth);
         await SeedSpecialtiesAsync(services, cancellationToken);
+        await SeedRegionsAsync(services, cancellationToken);
+    }
+
+    /// <summary>
+    /// Province/District tablolarını Türkiye'nin 81 ili ve bağlı ilçeleriyle doldurur (tablo boşsa).
+    /// Önceden DoctorProfile.Region serbest metin alanıydı; il/ilçe adlarının farklı yazımlarda
+    /// girilmesi RegionAdmin'in bölge kuyruğunu sessizce boş gösteriyordu (bkz. DoctorProfile.DistrictId
+    /// doc yorumu) — kapalı bir referans kümesi bunu önler.
+    /// </summary>
+    private static async Task SeedRegionsAsync(IServiceProvider services, CancellationToken ct)
+    {
+        var db = services.GetRequiredService<IdentityServiceDbContext>();
+        if (await db.Provinces.AnyAsync(ct))
+        {
+            return;
+        }
+
+        // Province/District arasında navigasyon property'si YOK (bu projede UserId gibi diğer
+        // referanslarla tutarlı olsun diye elle tanımlı FK), bu yüzden EF change tracker Province'in
+        // Districts'ten önce insert edilmesi gerektiğini kendiliğinden bilemiyor — tek SaveChanges'te
+        // ikisini birden yazmaya çalışmak "Districts_ProvinceId_fkey" ihlaliyle patlıyor (sıra garantisi
+        // yok). Bu yüzden iki ayrı SaveChanges'e bölünüyor.
+        var provinces = RegionSeedData.ProvinceDistricts.Keys
+            .Select(name => new Province { Id = Guid.NewGuid(), Name = name })
+            .ToList();
+        db.Provinces.AddRange(provinces);
+        await db.SaveChangesAsync(ct);
+
+        var provinceIdByName = provinces.ToDictionary(p => p.Name);
+        foreach (var (provinceName, districtNames) in RegionSeedData.ProvinceDistricts)
+        {
+            var provinceId = provinceIdByName[provinceName].Id;
+            db.Districts.AddRange(districtNames.Select(name => new District
+            {
+                Id = Guid.NewGuid(),
+                ProvinceId = provinceId,
+                Name = name,
+            }));
+        }
+
+        await db.SaveChangesAsync(ct);
     }
 
     /// <summary>

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 import { AuthShell } from "@/components/auth/AuthShell";
+import { ProvinceDistrictSelect } from "@/components/ProvinceDistrictSelect";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,7 +19,7 @@ export default function KayitOlPage() {
   const [specialties, setSpecialties] = useState<Specialty[]>([]);
   const [specialtiesLoading, setSpecialtiesLoading] = useState(true);
   const [diplomaNo, setDiplomaNo] = useState("");
-  const [region, setRegion] = useState("");
+  const [districtId, setDistrictId] = useState("");
   const [password, setPassword] = useState("");
   const [password2, setPassword2] = useState("");
   const [acceptedTerms, setAcceptedTerms] = useState(false);
@@ -41,6 +42,10 @@ export default function KayitOlPage() {
       setError("Uzmanlık alanı seçmelisiniz.");
       return;
     }
+    if (!districtId) {
+      setError("İl/ilçe seçmelisiniz.");
+      return;
+    }
     if (password !== password2) {
       setError("Şifreler eşleşmiyor.");
       return;
@@ -58,7 +63,7 @@ export default function KayitOlPage() {
         password,
         specialty,
         diplomaNo,
-        region,
+        districtId,
       });
       router.push(
         `/kayit-ol/dogrula?userId=${encodeURIComponent(result.userId)}&email=${encodeURIComponent(email)}`
@@ -147,14 +152,8 @@ export default function KayitOlPage() {
         </div>
 
         <div className="grid gap-1.5">
-          <Label htmlFor="region">Bölge</Label>
-          <Input
-            id="region"
-            placeholder="Örn. Marmara"
-            value={region}
-            onChange={(e) => setRegion(e.target.value)}
-            required
-          />
+          <Label>İl / İlçe</Label>
+          <ProvinceDistrictSelect districtId={districtId} onDistrictIdChange={setDistrictId} />
         </div>
 
         <div className="grid gap-1.5">

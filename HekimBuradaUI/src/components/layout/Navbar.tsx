@@ -14,14 +14,17 @@ import {
 import { ADMIN_ROLES, auth, useAuthRoles, useHasToken } from "@/lib/auth";
 import {
   communityApi,
+  gatewayApi,
+  identityApi,
   marketplaceApi,
+  type Announcement,
   type CommunityCategory,
   type MarketplaceCategory,
   type MarketplaceRequest,
   type Membership,
   type Offer,
 } from "@/lib/api";
-import { ANNOUNCEMENTS, CONTACT_COLUMNS } from "@/lib/staticContent";
+import { CONTACT_COLUMNS } from "@/lib/staticContent";
 import { MegaMenu } from "./MegaMenu";
 import { cn } from "@/lib/utils";
 
@@ -29,6 +32,10 @@ import { cn } from "@/lib/utils";
 const WIDE_SUBCATEGORY_THRESHOLD = 5;
 
 const NAV_LINKS = [{ href: "/", label: "Ana Sayfa" }];
+
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString("tr-TR");
+}
 
 function getInitials(email: string | null) {
   if (!email) return "H";
@@ -52,6 +59,27 @@ export function Navbar() {
   const [memberships, setMemberships] = useState<Membership[]>([]);
   const [pendingOffers, setPendingOffers] = useState<Offer[]>([]);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [isVerifiedDoctor, setIsVerifiedDoctor] = useState(false);
+
+  useEffect(() => {
+    // Duyuru panosu/navbar banner'ı login öncesi de görünür — anonim, hasToken'a bağlı değil.
+    gatewayApi
+      .listAnnouncements({ pageSize: 5 })
+      .then((r) => setAnnouncements([...r.items].sort((a, b) => b.publishedAt.localeCompare(a.publishedAt))))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!hasToken) return;
+    // Onaylı doktorun artık "Belge Durumu"na bakmasına gerek yok — link sadece pending/rejected'ta
+    // anlamlı. Admin hesaplarının DoctorProfile'ı olmayabilir (404) — o durumda link zaten yanlış
+    // olurdu, catch ile sessizce gizli kalır.
+    identityApi
+      .doctorProfile()
+      .then((p) => setIsVerifiedDoctor(p.verificationStatus === "approved"))
+      .catch(() => {});
+  }, [hasToken]);
 
   useEffect(() => {
     if (!hasToken) return;
@@ -117,13 +145,15 @@ export function Navbar() {
 
   return (
     <header className="border-b border-border bg-white">
-      <div className="flex items-center justify-center gap-2 bg-[#141718] px-4 py-2 text-xs text-white">
-        <span>📌</span>
-        <span className="truncate">{ANNOUNCEMENTS[0].title}</span>
-        <Link href="/duyuru-panosu" className="font-semibold text-brand whitespace-nowrap">
-          Duyuru Panosu →
-        </Link>
-      </div>
+      {announcements.length > 0 && (
+        <div className="flex items-center justify-center gap-2 bg-[#141718] px-4 py-2 text-xs text-white">
+          <span>📌</span>
+          <span className="truncate">{announcements[0].title}</span>
+          <Link href="/duyuru-panosu" className="font-semibold text-brand whitespace-nowrap">
+            Duyuru Panosu →
+          </Link>
+        </div>
+      )}
 
       <div className="container mx-auto flex h-16 items-center justify-between px-6">
         <div className="flex items-center gap-8">
@@ -239,12 +269,16 @@ export function Navbar() {
               panel={
                 <div className="min-w-[260px]">
                   <div className="mb-2.5 text-xs font-bold text-foreground">Son Duyurular</div>
-                  {ANNOUNCEMENTS.map((a) => (
-                    <div key={a.title} className="border-t border-[#F0F2F3] py-1.5">
-                      <div className="text-xs font-semibold text-foreground">{a.title}</div>
-                      <div className="text-[11px] text-muted-foreground">{a.date}</div>
-                    </div>
-                  ))}
+                  {announcements.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">Henüz duyuru yok.</p>
+                  ) : (
+                    announcements.map((a) => (
+                      <div key={a.id} className="border-t border-[#F0F2F3] py-1.5">
+                        <div className="text-xs font-semibold text-foreground">{a.title}</div>
+                        <div className="text-[11px] text-muted-foreground">{formatDate(a.publishedAt)}</div>
+                      </div>
+                    ))
+                  )}
                   <Link href="/duyuru-panosu" className="mt-3 block text-xs font-semibold text-brand">
                     Tüm Duyurular
                   </Link>
@@ -410,10 +444,14 @@ export function Navbar() {
                     <Link href="/admin">Admin Paneli</Link>
                   </DropdownMenuItem>
                 )}
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link href="/kayit-ol/belge-yukle">Belge Durumu</Link>
-                </DropdownMenuItem>
+                {!isVerifiedDoctor && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                      <Link href="/kayit-ol/belge-yukle">Belge Durumu</Link>
+                    </DropdownMenuItem>
+                  </>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={logout}>Çıkış Yap</DropdownMenuItem>
               </DropdownMenuContent>

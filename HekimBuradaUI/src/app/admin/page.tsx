@@ -1,28 +1,47 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { adminApi, marketplaceApi, type VerificationRow } from "@/lib/api";
-import { ANNOUNCEMENTS } from "@/lib/staticContent";
+import { toast } from "sonner";
+import { adminApi, gatewayApi, marketplaceApi, type Announcement, type VerificationRow } from "@/lib/api";
+
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString("tr-TR");
+}
 
 export default function AdminDashboardPage() {
   const [pendingDoctors, setPendingDoctors] = useState<VerificationRow[]>([]);
+  // Widget'ta sadece ilk 3 kayıt gösteriliyor ama istatistik kartı gerçek toplamı göstermeli — önceden
+  // ikisi de aynı (3'e kırpılmış) diziden okunduğu için 3'ten fazla bekleyen varsa kart hep "3" gösterirdi.
+  const [pendingTotal, setPendingTotal] = useState<number | null>(null);
   const [activeListingCount, setActiveListingCount] = useState<number | null>(null);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [announcementTotal, setAnnouncementTotal] = useState<number | null>(null);
 
   useEffect(() => {
     adminApi
-      .listVerifications("pending")
-      .then((rows) => setPendingDoctors(rows.slice(0, 3)))
-      .catch(() => {});
+      .listVerifications("pending", { pageSize: 3 })
+      .then((res) => {
+        setPendingTotal(res.totalCount);
+        setPendingDoctors(res.items);
+      })
+      .catch((err) => toast.error(err instanceof Error ? err.message : "Bekleyen doğrulamalar alınamadı."));
     marketplaceApi
       .listListings({ pageSize: 1 })
       .then((r) => setActiveListingCount(r.totalCount))
-      .catch(() => {});
+      .catch((err) => toast.error(err instanceof Error ? err.message : "İlan sayısı alınamadı."));
+    gatewayApi
+      .listAnnouncements({ pageSize: 100 })
+      .then((r) => {
+        setAnnouncementTotal(r.totalCount);
+        setAnnouncements([...r.items].sort((a, b) => b.publishedAt.localeCompare(a.publishedAt)).slice(0, 3));
+      })
+      .catch((err) => toast.error(err instanceof Error ? err.message : "Duyurular alınamadı."));
   }, []);
 
   const stats = [
-    { label: "Bekleyen Doğrulama", value: String(pendingDoctors.length) },
+    { label: "Bekleyen Doğrulama", value: pendingTotal === null ? "—" : String(pendingTotal) },
     { label: "Toplam İlan", value: activeListingCount === null ? "—" : String(activeListingCount) },
-    { label: "Duyuru Sayısı", value: String(ANNOUNCEMENTS.length) },
+    { label: "Duyuru Sayısı", value: announcementTotal === null ? "—" : String(announcementTotal) },
   ];
 
   return (
@@ -62,12 +81,16 @@ export default function AdminDashboardPage() {
 
         <div className="rounded-[10px] border border-border bg-white p-5">
           <h3 className="mb-3.5 text-base font-bold text-foreground">Duyurular</h3>
-          {ANNOUNCEMENTS.map((a) => (
-            <div key={a.title} className="border-t border-[#F0F2F3] py-3 first:border-t-0">
-              <div className="text-[13px] font-semibold text-foreground">{a.title}</div>
-              <div className="mt-0.5 text-xs text-muted-foreground">{a.date}</div>
-            </div>
-          ))}
+          {announcements.length === 0 ? (
+            <p className="text-xs text-muted-foreground">Duyuru yok.</p>
+          ) : (
+            announcements.map((a) => (
+              <div key={a.id} className="border-t border-[#F0F2F3] py-3 first:border-t-0">
+                <div className="text-[13px] font-semibold text-foreground">{a.title}</div>
+                <div className="mt-0.5 text-xs text-muted-foreground">{formatDate(a.publishedAt)}</div>
+              </div>
+            ))
+          )}
         </div>
       </div>
     </div>

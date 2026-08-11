@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using System.Text.Json;
+using BaseForge.Core.CQRS;
 using BaseForge.Infrastructure.Messaging;
 using Identity.Data;
 using Identity.Entities;
@@ -128,7 +129,7 @@ public sealed class DoctorVerificationController : ControllerBase
         return Ok(new DoctorProfileResponse(
             profile.Specialty,
             profile.DiplomaNo,
-            profile.Region,
+            await FormatRegionAsync(profile.DistrictId),
             profile.VerificationStatus,
             profile.VerificationDocumentPath is not null));
     }
@@ -137,8 +138,11 @@ public sealed class DoctorVerificationController : ControllerBase
 
     [HttpGet("admin/verifications")]
     [Authorize(AuthenticationSchemes = ProfileAuthSchemes, Roles = $"{SeedData.SuperAdminRole},{SeedData.RegionAdminRole}")]
-    public async Task<IActionResult> List([FromQuery] string? status)
+    public async Task<IActionResult> List([FromQuery] string? status, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
     {
+        page = page < 1 ? 1 : page;
+        pageSize = pageSize switch { < 1 => 1, > 100 => 100, _ => pageSize };
+
         var query = _db.DoctorProfiles.AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(status))
@@ -148,16 +152,27 @@ public sealed class DoctorVerificationController : ControllerBase
 
         if (!User.IsInRole(SeedData.SuperAdminRole))
         {
+            // region claim artık serbest metin değil, Province.Id (bkz. AssignRegionAdmin) — Guid
+            // parse edilemiyorsa ya claim hiç atanmamış ya da bozuk, ikisinde de kuyruk boş dönmeli.
+            // RegionAdmin il bazlı görür (o ildeki tüm ilçeler) — DoctorProfile sadece DistrictId
+            // taşıdığından önce o ile ait ilçe kimliklerini çözüp öyle filtreliyoruz.
             var region = User.FindFirstValue(SeedData.RegionClaimType);
-            if (string.IsNullOrWhiteSpace(region))
+            if (string.IsNullOrWhiteSpace(region) || !Guid.TryParse(region, out var regionProvinceId))
             {
                 return Forbid();
             }
 
-            query = query.Where(p => p.Region == region);
+            var districtIdsInProvince = await _db.Districts
+                .Where(d => d.ProvinceId == regionProvinceId)
+                .Select(d => d.Id)
+                .ToListAsync(HttpContext.RequestAborted);
+            query = query.Where(p => districtIdsInProvince.Contains(p.DistrictId));
         }
 
-        var profiles = await query.OrderBy(p => p.CreatedAt).ToListAsync(HttpContext.RequestAborted);
+        query = query.OrderBy(p => p.CreatedAt);
+        var totalCount = await query.CountAsync(HttpContext.RequestAborted);
+        var profiles = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(HttpContext.RequestAborted);
+
         var rows = new List<VerificationRow>(profiles.Count);
         foreach (var profile in profiles)
         {
@@ -168,12 +183,12 @@ public sealed class DoctorVerificationController : ControllerBase
                 user?.FullName,
                 profile.Specialty,
                 profile.DiplomaNo,
-                profile.Region,
+                await FormatRegionAsync(profile.DistrictId),
                 profile.VerificationStatus,
                 profile.VerificationDocumentPath is not null));
         }
 
-        return Ok(rows);
+        return Ok(new PagedResult<VerificationRow> { Items = rows, TotalCount = totalCount, Page = page, PageSize = pageSize });
     }
 
     [HttpPost("admin/verifications/{userId:guid}/approve")]
@@ -243,9 +258,15 @@ public sealed class DoctorVerificationController : ControllerBase
     [Authorize(AuthenticationSchemes = ProfileAuthSchemes, Roles = SeedData.SuperAdminRole)]
     public async Task<IActionResult> AssignRegionAdmin(Guid userId, AssignRegionAdminRequest request)
     {
-        if (string.IsNullOrWhiteSpace(request.Region))
+        if (request.ProvinceId == Guid.Empty)
         {
-            return BadRequest(new ErrorResponse("Bölge gerekli."));
+            return BadRequest(new ErrorResponse("İl gerekli."));
+        }
+
+        var validProvince = await _db.Provinces.AnyAsync(p => p.Id == request.ProvinceId, HttpContext.RequestAborted);
+        if (!validProvince)
+        {
+            return BadRequest(new ErrorResponse("Geçersiz il."));
         }
 
         var user = await _userManager.FindByIdAsync(userId.ToString());
@@ -266,7 +287,9 @@ public sealed class DoctorVerificationController : ControllerBase
             await _userManager.RemoveClaimAsync(user, oldRegionClaim);
         }
 
-        await _userManager.AddClaimAsync(user, new Claim(SeedData.RegionClaimType, request.Region.Trim()));
+        // Claim değeri artık serbest metin değil, Province.Id — bkz. List/LoadForAdminAsync'teki
+        // Guid.TryParse karşılaştırması. RegionAdmin il bazlı görür (o ildeki tüm ilçeler).
+        await _userManager.AddClaimAsync(user, new Claim(SeedData.RegionClaimType, request.ProvinceId.ToString()));
         return Ok();
     }
 
@@ -281,7 +304,13 @@ public sealed class DoctorVerificationController : ControllerBase
         if (!User.IsInRole(SeedData.SuperAdminRole))
         {
             var region = User.FindFirstValue(SeedData.RegionClaimType);
-            if (string.IsNullOrWhiteSpace(region) || !string.Equals(profile.Region, region, StringComparison.Ordinal))
+            if (string.IsNullOrWhiteSpace(region) || !Guid.TryParse(region, out var regionProvinceId))
+            {
+                return null;
+            }
+
+            var district = await _db.Districts.FirstOrDefaultAsync(d => d.Id == profile.DistrictId, HttpContext.RequestAborted);
+            if (district is null || district.ProvinceId != regionProvinceId)
             {
                 return null;
             }
@@ -294,6 +323,26 @@ public sealed class DoctorVerificationController : ControllerBase
     {
         var admin = await _userManager.GetUserAsync(User);
         return admin?.Id;
+    }
+
+    /// <summary>DistrictId'yi "İlçe, İl" biçiminde okunabilir metne çevirir (admin ekranlarında gösterim
+    /// için) — CodeGen dışı, elle eklendi. Profil henüz tamamlanmadıysa (DistrictId boş, bkz. sosyal
+    /// girişle oluşan hesap) "—" döner.</summary>
+    private async Task<string> FormatRegionAsync(Guid districtId)
+    {
+        if (districtId == Guid.Empty)
+        {
+            return "—";
+        }
+
+        var row = await (
+            from d in _db.Districts
+            join p in _db.Provinces on d.ProvinceId equals p.Id
+            where d.Id == districtId
+            select new { DistrictName = d.Name, ProvinceName = p.Name }
+        ).FirstOrDefaultAsync(HttpContext.RequestAborted);
+
+        return row is null ? "—" : $"{row.DistrictName}, {row.ProvinceName}";
     }
 
     private async Task PublishDoctorProfileUpdatedAsync(DoctorProfile profile)
@@ -356,7 +405,7 @@ public sealed record VerificationRow(
     string VerificationStatus,
     bool HasDocument);
 
-public sealed record AssignRegionAdminRequest(string Region);
+public sealed record AssignRegionAdminRequest(Guid ProvinceId);
 
 public sealed record DoctorProfileResponse(
     string Specialty,

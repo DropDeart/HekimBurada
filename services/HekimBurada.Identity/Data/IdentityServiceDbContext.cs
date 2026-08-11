@@ -24,6 +24,12 @@ public sealed class IdentityServiceDbContext : IdentityDbContext<ApplicationUser
     /// <summary>Kayıt formunun uzmanlık alanı seçim listesi — CodeGen üretimi dışında, elle eklendi (bkz. <see cref="Specialty"/>).</summary>
     public DbSet<Specialty> Specialties => Set<Specialty>();
 
+    /// <summary>Türkiye illeri — CodeGen üretimi dışında, elle eklendi (bkz. <see cref="Province"/>).</summary>
+    public DbSet<Province> Provinces => Set<Province>();
+
+    /// <summary>Türkiye ilçeleri — CodeGen üretimi dışında, elle eklendi (bkz. <see cref="District"/>).</summary>
+    public DbSet<District> Districts => Set<District>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -34,10 +40,21 @@ public sealed class IdentityServiceDbContext : IdentityDbContext<ApplicationUser
             entity.HasIndex(p => p.UserId).IsUnique();
             entity.Property(p => p.Specialty).HasMaxLength(150).IsRequired();
             entity.Property(p => p.DiplomaNo).HasMaxLength(50).IsRequired();
-            entity.Property(p => p.Region).HasMaxLength(100).IsRequired();
             entity.Property(p => p.VerificationStatus).HasMaxLength(20).IsRequired();
             entity.Property(p => p.VerificationDocumentPath).HasMaxLength(500);
             entity.Property(p => p.VerificationDocumentContentType).HasMaxLength(50);
+        });
+
+        builder.Entity<Province>(entity =>
+        {
+            entity.HasIndex(p => p.Name).IsUnique();
+            entity.Property(p => p.Name).HasMaxLength(100).IsRequired();
+        });
+
+        builder.Entity<District>(entity =>
+        {
+            entity.HasIndex(d => new { d.ProvinceId, d.Name }).IsUnique();
+            entity.Property(d => d.Name).HasMaxLength(100).IsRequired();
         });
 
         builder.Entity<EmailOtp>(entity =>

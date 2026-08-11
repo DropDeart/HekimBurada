@@ -152,6 +152,15 @@ public sealed class AuthorizationController : ControllerBase
             identity.AddClaim(Claims.Role, role);
         }
 
+        // UserManager.AddClaimAsync ile atanan özel claim'ler (örn. RegionAdmin'in "region" claim'i,
+        // bkz. DoctorVerificationController.AssignRegionAdmin) — CodeGen dışı, elle eklendi. Önceden
+        // buraya hiç eklenmiyordu; DB'de kayıtlı olsa bile token'a hiç yansımıyor, RegionAdmin'in bölge
+        // kuyruğu filtresi (SeedData.RegionClaimType) sessizce hep boş dönüyordu.
+        foreach (var claim in await _userManager.GetClaimsAsync(user))
+        {
+            identity.AddClaim(claim.Type, claim.Value);
+        }
+
         var principal = new ClaimsPrincipal(identity);
         principal.SetScopes(scopes);
         principal.SetResources(await ResolveResourcesAsync(principal.GetScopes()));

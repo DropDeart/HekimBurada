@@ -81,11 +81,16 @@ internal sealed class SyncMembershipOnDoctorProfileUpdated : INotificationHandle
             return;
         }
 
+        // Kategorinin ilk üyesi otomatik topluluk admin'i olur (bkz. Membership.IsAdmin doc yorumu) —
+        // yeni oluşturulan bir kategoride bu neredeyse hep true olur.
+        var hasAnyMember = await _db.Memberships.AnyAsync(m => m.CategoryId == category.Id, cancellationToken);
+
         _db.Memberships.Add(new Membership
         {
             UserId = userId,
             CategoryId = category.Id,
             AutoJoined = true,
+            IsAdmin = !hasAnyMember,
         });
         await _db.SaveChangesAsync(cancellationToken);
     }

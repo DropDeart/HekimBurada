@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { PaginationBar } from "@/components/ui/pagination-bar";
 import {
   Table,
   TableBody,
@@ -22,29 +23,34 @@ const STATUS_LABEL: Record<ListingStatus, string> = {
   expired: "Süresi Doldu",
 };
 
+const PAGE_SIZE = 20;
+
 function currency(n: number) {
   return `${n.toLocaleString("tr-TR")} ₺`;
 }
 
 export default function AdminUrunlerPage() {
   const [listings, setListings] = useState<Listing[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await marketplaceApi.listListings({ pageSize: 200 });
+      const res = await marketplaceApi.listListings({ page, pageSize: PAGE_SIZE });
       setListings(res.items);
+      setTotalCount(res.totalCount);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Liste alınamadı.");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [page]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- mount'ta veri çekme (React'in "Fetching data" deseni)
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- mount'ta/sayfa değişince veri çekme (React'in "Fetching data" deseni)
     void load();
   }, [load]);
 
@@ -52,7 +58,11 @@ export default function AdminUrunlerPage() {
     setBusyId(id);
     try {
       await marketplaceApi.deleteListing(id);
-      setListings((prev) => prev.filter((l) => l.id !== id));
+      if (listings.length === 1 && page > 1) {
+        setPage((p) => p - 1);
+      } else {
+        await load();
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Silinemedi.");
     } finally {
@@ -123,6 +133,15 @@ export default function AdminUrunlerPage() {
           </TableBody>
         </Table>
       </div>
+
+      <PaginationBar
+        page={page}
+        totalPages={Math.ceil(totalCount / PAGE_SIZE)}
+        totalCount={totalCount}
+        pageSize={PAGE_SIZE}
+        onPageChange={setPage}
+        disabled={loading}
+      />
     </div>
   );
 }

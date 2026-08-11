@@ -48,7 +48,10 @@ function SelectContent({
         data-slot="select-content"
         position={position}
         className={cn(
-          "z-50 max-h-[--radix-select-content-available-height] min-w-[8rem] overflow-hidden rounded-lg border border-border bg-popover text-popover-foreground shadow-md data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
+          // "max-h-[--radix-select-content-available-height]" var() sarmalayıcısı olmadan geçersiz bir
+          // CSS değeri üretir (tarayıcı sessizce yok sayar) — uzun listelerde (örn. 39 ilçeli bir il)
+          // popup'ın viewport dışına taşıp seçenekleri erişilemez kılmasına yol açıyordu.
+          "z-50 max-h-[var(--radix-select-content-available-height)] min-w-[8rem] overflow-hidden rounded-lg border border-border bg-popover text-popover-foreground shadow-md data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
           position === "popper" &&
             "data-[side=bottom]:translate-y-1 data-[side=top]:-translate-y-1",
           className
@@ -58,8 +61,11 @@ function SelectContent({
         <SelectPrimitive.Viewport
           className={cn(
             "p-1",
-            position === "popper" &&
-              "h-[var(--radix-select-trigger-height)] w-full min-w-[var(--radix-select-trigger-width)]"
+            // Viewport'a trigger'ın (küçük, ~32px) yüksekliğini sabit vermek uzun listelerde (örn. 39
+            // ilçeli bir il) scroll container'ı bozup listeyi viewport dışına taşırıyordu — sadece
+            // genişlik trigger'a göre sabitleniyor, yükseklik Content'teki max-h-[...available-height]
+            // sınırına bırakılıyor.
+            position === "popper" && "w-full min-w-[var(--radix-select-trigger-width)]"
           )}
         >
           {children}

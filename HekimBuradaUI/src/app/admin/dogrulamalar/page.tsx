@@ -2,7 +2,18 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { PaginationBar } from "@/components/ui/pagination-bar";
 import {
   Table,
   TableBody,
@@ -13,6 +24,8 @@ import {
 } from "@/components/ui/table";
 import { ApiError, adminApi, type VerificationRow, type VerificationStatus } from "@/lib/api";
 import { cn } from "@/lib/utils";
+
+const PAGE_SIZE = 20;
 
 const STATUS_TABS: { label: string; value: VerificationStatus | "all" }[] = [
   { label: "Bekleyen", value: "pending" },
@@ -36,26 +49,34 @@ const STATUS_LABEL: Record<VerificationStatus, string> = {
 export default function DogrulamalarPage() {
   const [status, setStatus] = useState<VerificationStatus | "all">("pending");
   const [rows, setRows] = useState<VerificationRow[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [busyUserId, setBusyUserId] = useState<string | null>(null);
+  const [rejectTarget, setRejectTarget] = useState<VerificationRow | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await adminApi.listVerifications(status === "all" ? undefined : status);
-      setRows(data);
+      const data = await adminApi.listVerifications(status === "all" ? undefined : status, {
+        page,
+        pageSize: PAGE_SIZE,
+      });
+      setRows(data.items);
+      setTotalCount(data.totalCount);
     } catch (err) {
       // 403: bölgesi tanımlı olmayan bir RegionAdmin için backend erişimi reddediyor —
       // bunu hata olarak göstermek yerine sessizce boş liste gösteriyoruz.
       if (err instanceof ApiError && err.status === 403) {
         setRows([]);
+        setTotalCount(0);
       } else {
         toast.error(err instanceof Error ? err.message : "Liste alınamadı.");
       }
     } finally {
       setLoading(false);
     }
-  }, [status]);
+  }, [status, page]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- mount'ta/filtre değişince veri çekme (React'in "Fetching data" deseni); projede henüz data-fetching kütüphanesi yok
@@ -75,11 +96,14 @@ export default function DogrulamalarPage() {
     }
   };
 
-  const reject = async (userId: string) => {
+  const reject = async () => {
+    if (!rejectTarget) return;
+    const userId = rejectTarget.userId;
     setBusyUserId(userId);
     try {
       await adminApi.rejectVerification(userId);
       toast.success("Kayıt reddedildi.");
+      setRejectTarget(null);
       await load();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Reddedilemedi.");
@@ -112,7 +136,10 @@ export default function DogrulamalarPage() {
             key={tab.value}
             size="sm"
             variant={status === tab.value ? "default" : "outline"}
-            onClick={() => setStatus(tab.value)}
+            onClick={() => {
+              setStatus(tab.value);
+              setPage(1);
+            }}
           >
             {tab.label}
           </Button>
@@ -190,7 +217,7 @@ export default function DogrulamalarPage() {
                           size="sm"
                           variant="destructive"
                           disabled={busyUserId === row.userId}
-                          onClick={() => reject(row.userId)}
+                          onClick={() => setRejectTarget(row)}
                         >
                           Reddet
                         </Button>
@@ -205,6 +232,31 @@ export default function DogrulamalarPage() {
           </TableBody>
         </Table>
       </div>
+
+      <PaginationBar
+        page={page}
+        totalPages={Math.ceil(totalCount / PAGE_SIZE)}
+        totalCount={totalCount}
+        pageSize={PAGE_SIZE}
+        onPageChange={setPage}
+        disabled={loading}
+      />
+
+      <AlertDialog open={rejectTarget !== null} onOpenChange={(next) => !next && setRejectTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Kayıt reddedilsin mi?</AlertDialogTitle>
+            <AlertDialogDescription>
+              &quot;{rejectTarget?.email}&quot; doğrulama başvurusu reddedilecek. Doktor tekrar belge
+              yükleyip başvurabilir.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Vazgeç</AlertDialogCancel>
+            <AlertDialogAction onClick={reject}>Reddet</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -15,6 +15,9 @@ public sealed class CreateMembershipCommand : ICommand<Guid>
     public Guid CategoryId { get; set; }
     /// <summary>UserId.</summary>
     public Guid UserId { get; set; }
+    /// <summary>Bu kategorinin ilk üyesi mi — controller belirler (bkz. Membership.IsAdmin doc yorumu).
+    /// CodeGen dışı, elle eklendi.</summary>
+    public bool IsAdmin { get; set; }
 }
 
 internal sealed class CreateMembershipHandler : ICommandHandler<CreateMembershipCommand, Guid>
@@ -35,6 +38,7 @@ internal sealed class CreateMembershipHandler : ICommandHandler<CreateMembership
             AutoJoined = request.AutoJoined,
             CategoryId = request.CategoryId,
             UserId = request.UserId,
+            IsAdmin = request.IsAdmin,
         };
         await _repository.AddAsync(entity, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);

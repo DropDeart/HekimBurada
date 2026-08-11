@@ -3,32 +3,33 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { marketplaceApi, type Listing, type MarketplaceCategory, type MarketplaceRequest } from "@/lib/api";
-import { ANNOUNCEMENTS } from "@/lib/staticContent";
+import { gatewayApi, marketplaceApi, type Announcement, type Listing, type MarketplaceCategory, type MarketplaceRequest } from "@/lib/api";
 import { useHasToken } from "@/lib/auth";
 
-const HERO_SLIDES = [
-  {
-    tag: "GÜVENİLİR PAZAR YERİ",
-    title: "HekimBurada'a hoş geldiniz",
-    desc: "Doğrulanmış doktorların bir araya geldiği; alışveriş yaptığı, meslektaşlarıyla haberleştiği kapalı platform.",
-  },
-  {
-    tag: "DUYURU",
-    title: ANNOUNCEMENTS[0].title,
-    desc: "Duyuru panosunu takip ederek platform güncellemelerinden haberdar olun.",
-  },
-  {
-    tag: "TALEPLER",
-    title: "Aradığınız ürünü bulamadınız mı?",
-    desc: "Bir talep oluşturun, uygun meslektaşlarınız size ulaşsın.",
-  },
-  {
-    tag: "TOPLULUK",
-    title: "Branşınıza özel toplulukla tanışın",
-    desc: "Kayıttaki branşınıza göre otomatik eklendiğiniz toplulukta tartışma, soru-cevap ve etkinlikleri takip edin. (Yakında)",
-  },
-];
+function heroSlides(latestAnnouncement: Announcement | null) {
+  return [
+    {
+      tag: "GÜVENİLİR PAZAR YERİ",
+      title: "HekimBurada'a hoş geldiniz",
+      desc: "Doğrulanmış doktorların bir araya geldiği; alışveriş yaptığı, meslektaşlarıyla haberleştiği kapalı platform.",
+    },
+    {
+      tag: "DUYURU",
+      title: latestAnnouncement?.title ?? "Duyuru panosunu takip edin",
+      desc: "Duyuru panosunu takip ederek platform güncellemelerinden haberdar olun.",
+    },
+    {
+      tag: "TALEPLER",
+      title: "Aradığınız ürünü bulamadınız mı?",
+      desc: "Bir talep oluşturun, uygun meslektaşlarınız size ulaşsın.",
+    },
+    {
+      tag: "TOPLULUK",
+      title: "Branşınıza özel toplulukla tanışın",
+      desc: "Kayıttaki branşınıza göre otomatik eklendiğiniz toplulukta tartışma, soru-cevap ve etkinlikleri takip edin. (Yakında)",
+    },
+  ];
+}
 
 // Herkese açık bir "doğrulanmış doktor sayısı" ucu backend'de yok — bu sayılar şimdilik statik/gösterge niteliğinde.
 const TRUST_STATS = [
@@ -47,11 +48,23 @@ export default function Home() {
   const [categories, setCategories] = useState<MarketplaceCategory[]>([]);
   const [requests, setRequests] = useState<MarketplaceRequest[]>([]);
   const [listings, setListings] = useState<Listing[]>([]);
+  const [latestAnnouncement, setLatestAnnouncement] = useState<Announcement | null>(null);
+  const slides = heroSlides(latestAnnouncement);
 
   useEffect(() => {
-    const timer = setInterval(() => setHeroIndex((i) => (i + 1) % HERO_SLIDES.length), 5000);
-    return () => clearInterval(timer);
+    gatewayApi
+      .listAnnouncements({ pageSize: 5 })
+      .then((r) => {
+        const latest = [...r.items].sort((a, b) => b.publishedAt.localeCompare(a.publishedAt))[0];
+        if (latest) setLatestAnnouncement(latest);
+      })
+      .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    const timer = setInterval(() => setHeroIndex((i) => (i + 1) % slides.length), 5000);
+    return () => clearInterval(timer);
+  }, [slides.length]);
 
   useEffect(() => {
     if (!hasToken) return;
@@ -71,7 +84,7 @@ export default function Home() {
 
   const featured = listings.find((l) => l.isFeatured) ?? listings[0];
   const otherListings = listings.filter((l) => l.id !== featured?.id).slice(0, 6);
-  const slide = HERO_SLIDES[heroIndex];
+  const slide = slides[heroIndex];
 
   return (
     <div>
@@ -95,9 +108,9 @@ export default function Home() {
         </div>
 
         <div className="flex justify-center gap-2 pb-5">
-          {HERO_SLIDES.map((s, i) => (
+          {slides.map((s, i) => (
             <button
-              key={s.title}
+              key={s.tag}
               onClick={() => setHeroIndex(i)}
               aria-label={`${i + 1}. slayt`}
               className={`size-2 rounded-full ${i === heroIndex ? "bg-brand" : "bg-white/35"}`}

@@ -20,8 +20,13 @@ import { cn } from "@/lib/utils";
 import { auth } from "@/lib/auth";
 
 const ALL_ADMIN_ROLES = ["Admin", "SuperAdmin", "RegionAdmin"];
+// RegionAdmin'in tek görevi kendi bölgesindeki doktor doğrulama kuyruğu (bkz. Identity/Data/SeedData.cs
+// RegionAdminRole doc yorumu) — ürün/kategori/yorum/duyuru/kural/ayar yönetiminde yetkisi yok.
+const STAFF_ADMIN_ROLES = ["Admin", "SuperAdmin"];
 
-const LINKS = [
+/** Route -> izinli roller eşlemesi. admin/layout.tsx'teki sayfa seviyesi erişim koruması da bunu
+ * okur, böylece "menüde gizli ama URL'den erişilebilir" tutarsızlığı oluşmaz. */
+export const LINKS = [
   { href: "/admin", label: "Ana Sayfa", icon: Home, roles: ALL_ADMIN_ROLES },
   {
     href: "/admin/dogrulamalar",
@@ -29,25 +34,25 @@ const LINKS = [
     icon: ShieldCheck,
     roles: ["SuperAdmin", "RegionAdmin"],
   },
-  { href: "/admin/urunler", label: "Ürün Yönetimi", icon: Package, roles: ALL_ADMIN_ROLES },
+  { href: "/admin/urunler", label: "Ürün Yönetimi", icon: Package, roles: STAFF_ADMIN_ROLES },
   {
     href: "/admin/kategoriler",
     label: "Kategori Yönetimi",
     icon: LayoutGrid,
-    roles: ALL_ADMIN_ROLES,
+    roles: STAFF_ADMIN_ROLES,
   },
   {
     href: "/admin/yorumlar",
     label: "Yorum Moderasyonu",
     icon: MessageSquareWarning,
-    roles: ALL_ADMIN_ROLES,
+    roles: STAFF_ADMIN_ROLES,
   },
-  { href: "/admin/duyurular", label: "Duyuru Yönetimi", icon: Megaphone, roles: ALL_ADMIN_ROLES },
+  { href: "/admin/duyurular", label: "Duyuru Yönetimi", icon: Megaphone, roles: STAFF_ADMIN_ROLES },
   {
     href: "/admin/kurallar",
     label: "Kurallar ve Yetkiler",
     icon: ShieldQuestion,
-    roles: ALL_ADMIN_ROLES,
+    roles: STAFF_ADMIN_ROLES,
   },
   {
     href: "/admin/kullanicilar",
@@ -61,7 +66,7 @@ const LINKS = [
     icon: Stethoscope,
     roles: ["SuperAdmin"],
   },
-  { href: "/admin/ayarlar", label: "Ayarlar", icon: Settings, roles: ALL_ADMIN_ROLES },
+  { href: "/admin/ayarlar", label: "Ayarlar", icon: Settings, roles: STAFF_ADMIN_ROLES },
 ];
 
 export function AdminSidebar({ roles }: { roles: string[] }) {

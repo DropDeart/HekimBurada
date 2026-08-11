@@ -4,6 +4,7 @@ const IDENTITY_URL = process.env.NEXT_PUBLIC_IDENTITY_URL ?? "http://localhost:5
 const MARKETPLACE_URL = process.env.NEXT_PUBLIC_MARKETPLACE_URL ?? "http://localhost:5100";
 const COMMUNITY_URL = process.env.NEXT_PUBLIC_COMMUNITY_URL ?? "http://localhost:5110";
 export const MESSAGING_URL = process.env.NEXT_PUBLIC_MESSAGING_URL ?? "http://localhost:5120";
+const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL ?? "http://localhost:5080";
 
 /** HTTP status kodunu taşır — örn. 403 Forbidden'ı çağıran tarafın sessizce (hata toast'ı göstermeden) ele alabilmesi için. */
 export class ApiError extends Error {
@@ -130,7 +131,7 @@ export interface RegisterInput {
   password: string;
   specialty: string;
   diplomaNo: string;
-  region: string;
+  districtId: string;
 }
 
 export interface RegisterResult {
@@ -154,9 +155,26 @@ export interface DoctorProfile {
   hasDocument: boolean;
 }
 
+export interface UserLookupRow {
+  id: string;
+  email: string;
+  fullName: string | null;
+}
+
 export interface Specialty {
   id: string;
   name: string;
+}
+
+export interface District {
+  id: string;
+  name: string;
+}
+
+export interface Province {
+  id: string;
+  name: string;
+  districts: District[];
 }
 
 export interface Me {
@@ -171,6 +189,12 @@ export interface Me {
 /** Kayıt formundan (login öncesi) çağrılır — anonim. */
 export const specialtiesApi = {
   list: () => req<Specialty[]>("/api/specialties"),
+};
+
+/** Kayıt formundaki (login öncesi) ve admin panelindeki (RegionAdmin bölge ataması) kademeli il/ilçe
+ * seçimi için — anonim, tek çağrıda tüm il/ilçe ağacı. */
+export const regionsApi = {
+  list: () => req<Province[]>("/api/regions"),
 };
 
 export const identityApi = {
@@ -220,6 +244,13 @@ export const identityApi = {
   },
 
   doctorProfile: () => authedReq<DoctorProfile>("/api/account/doctor-profile"),
+
+  /** Kullanıcı ID'lerinden email/ad soyad çözer — Admin rolü gerektirmez (bkz. UsersLookupApiController),
+   * topluluk üye listesi gibi admin-dışı ekranlarda isim göstermek için. */
+  lookupUsers: (ids: string[]) =>
+    ids.length === 0
+      ? Promise.resolve<UserLookupRow[]>([])
+      : authedReq<UserLookupRow[]>(`/api/users?ids=${ids.join(",")}`),
 
   me: () => authedReq<Me>("/api/account/me"),
 
@@ -295,9 +326,9 @@ export interface VerificationRow {
 }
 
 export const adminApi = {
-  listVerifications: (status?: VerificationStatus) =>
-    authedReq<VerificationRow[]>(
-      `/api/admin/verifications${status ? `?status=${encodeURIComponent(status)}` : ""}`
+  listVerifications: (status?: VerificationStatus, params?: { page?: number; pageSize?: number }) =>
+    authedReq<PagedResult<VerificationRow>>(
+      `/api/admin/verifications${toQuery({ ...params, status })}`
     ),
 
   approveVerification: (userId: string) =>
@@ -354,7 +385,8 @@ export interface AdminUserRow {
 export const adminUsersApi = {
   listRoles: () => authedReq<string[]>("/api/admin/roles"),
 
-  listUsers: () => authedReq<AdminUserRow[]>("/api/admin/users"),
+  listUsers: (params?: { page?: number; pageSize?: number }) =>
+    authedReq<PagedResult<AdminUserRow>>(`/api/admin/users${toQuery(params)}`),
 
   addUser: (input: { fullName: string | null; email: string }) =>
     authedReq<AdminUserRow>("/api/admin/users", { method: "POST", body: JSON.stringify(input) }),
@@ -366,6 +398,16 @@ export const adminUsersApi = {
 
   removeRole: (id: string, role: string) =>
     authedReq<void>(`/api/admin/users/${id}/roles/${role}`, { method: "DELETE" }),
+
+  /** RegionAdmin rolünü VE doğrulama kuyruğunu filtrelemek için kullanılan "region" claim'ini (artık
+   * Province.Id — il bazlı, o ildeki tüm ilçeleri kapsar) tek seferde atar (yalnızca SuperAdmin) —
+   * bkz. DoctorVerificationController.AssignRegionAdmin. Sade addRole("RegionAdmin") çağrısı bu
+   * claim'i atamadığından RegionAdmin'in kuyruğu boş görünürdü. */
+  assignRegionAdmin: (id: string, provinceId: string) =>
+    authedReq<void>(`/api/admin/users/${id}/region-admin`, {
+      method: "POST",
+      body: JSON.stringify({ provinceId }),
+    }),
 };
 
 // ---- Marketplace ----
@@ -565,6 +607,8 @@ export interface Membership {
   autoJoined: boolean;
   categoryId: string;
   userId: string;
+  /** Kategorinin ilk üyesi mi — üye çıkarma yetkisi taşır (bkz. backend Membership.IsAdmin doc yorumu). */
+  isAdmin: boolean;
 }
 
 export interface Topic {
@@ -603,6 +647,18 @@ export const communityApi = {
 
   listMemberships: (params?: { page?: number; pageSize?: number }) =>
     cAuthedReq<PagedResult<Membership>>(`/api/memberships${toQuery(params)}`),
+
+  /** Bir topluluğa katılma — backend UserId'yi çağıranın kendi kimliğiyle ezer, birden fazla topluluğa
+   * katılmaya kısıt yok. */
+  joinCommunity: (categoryId: string) =>
+    cAuthedReq<string>("/api/memberships", {
+      method: "POST",
+      body: JSON.stringify({ categoryId, autoJoined: false }),
+    }),
+
+  /** Kendi üyeliğinden ayrılma veya (topluluk admin'iysen) başka bir üyeyi çıkarma. */
+  removeMembership: (membershipId: string) =>
+    cAuthedReq<void>(`/api/memberships/${membershipId}`, { method: "DELETE" }),
 
   listTopics: (params?: { page?: number; pageSize?: number; search?: string }) =>
     cAuthedReq<PagedResult<Topic>>(`/api/topics${toQuery(params)}`),
@@ -664,4 +720,40 @@ export const messagingApi = {
 
   sendMessage: (input: { body: string; offerId: string; senderId: string }) =>
     msgAuthedReq<string>("/api/Messages", { method: "POST", body: JSON.stringify(input) }),
+};
+
+// ---- Gateway ----
+// Şu an tek amacı Announcement CRUD'u — diğer servisler frontend'e doğrudan bağlı, Gateway'e sadece
+// bu özellik için (duyuru panosu/navbar herkese açık, yönetimi admin panelinde) gidiliyor.
+
+const gReq = <T>(path: string, init?: RequestInit) => reqAt<T>(GATEWAY_URL, path, init);
+const gAuthedReq = <T>(path: string, init?: RequestInit) => authedReqAt<T>(GATEWAY_URL, path, init);
+
+export interface Announcement {
+  id: string;
+  title: string;
+  body: string;
+  publishedAt: string;
+  authorId: string;
+}
+
+export const gatewayApi = {
+  /** Duyuru panosu/navbar herkese açık (login öncesi de görünür) — anonim. */
+  listAnnouncements: (params?: { page?: number; pageSize?: number }) =>
+    gReq<PagedResult<Announcement>>(`/api/Announcements${toQuery(params)}`),
+
+  /** Yalnızca Admin/SuperAdmin — backend AuthorId'yi çağıranın kendi kimliğiyle dolduruyor, burada
+   * gönderilmiyor (boş string geçerli bir Guid değil; gönderilirse JSON deserialize aşamasında
+   * patlayıp "The command field is required" hatasına yol açıyordu). */
+  createAnnouncement: (input: { title: string; body: string; publishedAt: string }) =>
+    gAuthedReq<string>("/api/Announcements", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+
+  updateAnnouncement: (id: string, input: { title: string; body: string; publishedAt: string; authorId: string }) =>
+    gAuthedReq<void>(`/api/Announcements/${id}`, { method: "PUT", body: JSON.stringify(input) }),
+
+  deleteAnnouncement: (id: string) =>
+    gAuthedReq<void>(`/api/Announcements/${id}`, { method: "DELETE" }),
 };
