@@ -213,6 +213,9 @@ export const regionsApi = {
 };
 
 export const identityApi = {
+  /** Aktif dış kimlik sağlayıcıları (Google/Facebook/vb.) — sadece config'te ClientId dolu olanlar döner. Anonim. */
+  providers: () => req<string[]>("/api/account/providers"),
+
   register: (input: RegisterInput) =>
     req<RegisterResult>("/api/account/register", {
       method: "POST",
