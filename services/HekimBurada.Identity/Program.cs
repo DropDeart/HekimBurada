@@ -139,17 +139,31 @@ builder.Services.AddOpenIddict()
         options.RegisterScopes(scopeNames);
 
         // Asimetrik imzalama (RSA) → JWKS. Sertifika verildiyse kalıcı, yoksa ephemeral (dev).
-        options.AddEphemeralEncryptionKey();
         if (!string.IsNullOrWhiteSpace(authOptions.SigningCertificatePath) && File.Exists(authOptions.SigningCertificatePath))
         {
-            var certificate = X509CertificateLoader.LoadPkcs12FromFile(
+            var signingCertificate = X509CertificateLoader.LoadPkcs12FromFile(
                 authOptions.SigningCertificatePath,
                 authOptions.SigningCertificatePassword);
-            options.AddSigningCertificate(certificate);
+            options.AddSigningCertificate(signingCertificate);
         }
         else
         {
             options.AddEphemeralSigningKey();
+        }
+
+        // Authorization code/refresh token şifrelemesi. Sertifika verildiyse kalıcı, yoksa ephemeral (dev) —
+        // ephemeral olduğunda container her restart'ta yeni anahtar üretir, o ana kadar verilmiş refresh
+        // token'lar/authorization code'lar çözülemez hale gelir (bkz. proje hafızası).
+        if (!string.IsNullOrWhiteSpace(authOptions.EncryptionCertificatePath) && File.Exists(authOptions.EncryptionCertificatePath))
+        {
+            var encryptionCertificate = X509CertificateLoader.LoadPkcs12FromFile(
+                authOptions.EncryptionCertificatePath,
+                authOptions.EncryptionCertificatePassword);
+            options.AddEncryptionCertificate(encryptionCertificate);
+        }
+        else
+        {
+            options.AddEphemeralEncryptionKey();
         }
 
         // Access token JWS (şifresiz) olsun ki downstream public key ile offline doğrulayabilsin.

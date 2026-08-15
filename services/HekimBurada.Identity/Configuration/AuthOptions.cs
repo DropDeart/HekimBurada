@@ -17,6 +17,12 @@ public sealed class AuthOptions
     /// <summary>İmza sertifikası parolası.</summary>
     public string? SigningCertificatePassword { get; set; }
 
+    /// <summary>Şifreleme sertifikası (.pfx) yolu — authorization code/refresh token şifrelemesi için. Boşsa ephemeral anahtar kullanılır.</summary>
+    public string? EncryptionCertificatePath { get; set; }
+
+    /// <summary>Şifreleme sertifikası parolası.</summary>
+    public string? EncryptionCertificatePassword { get; set; }
+
     /// <summary>Tanımlı API scope'ları.</summary>
     public List<ScopeOptions> Scopes { get; set; } = [];
 
