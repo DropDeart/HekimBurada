@@ -39,6 +39,12 @@ export function SocialLoginButtons({ remember = true }: { remember?: boolean }) 
 
   return (
     <div className="flex flex-col gap-2">
+      <div className="my-1 flex items-center gap-3 text-xs text-muted-foreground">
+        <div className="h-px flex-1 bg-border" />
+        veya
+        <div className="h-px flex-1 bg-border" />
+      </div>
+
       {providers.map((provider) => (
         <Button
           key={provider}
@@ -54,12 +60,6 @@ export function SocialLoginButtons({ remember = true }: { remember?: boolean }) 
           {PROVIDER_LABELS[provider.toLowerCase()] ?? `${provider} ile devam et`}
         </Button>
       ))}
-
-      <div className="my-1 flex items-center gap-3 text-xs text-muted-foreground">
-        <div className="h-px flex-1 bg-border" />
-        veya
-        <div className="h-px flex-1 bg-border" />
-      </div>
     </div>
   );
 }

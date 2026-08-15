@@ -97,8 +97,6 @@ export default function KayitOlPage() {
         <div className="mb-4 rounded-lg bg-red-50 px-3 py-2.5 text-xs text-red-700">{error}</div>
       )}
 
-      <SocialLoginButtons />
-
       <form onSubmit={submit} className="flex flex-col gap-3.5">
         <div className="grid gap-1.5">
           <Label htmlFor="fullName">Ad Soyad</Label>
@@ -209,6 +207,8 @@ export default function KayitOlPage() {
         <Button type="submit" disabled={loading} className="mt-1 w-full">
           {loading ? "Oluşturuluyor…" : "Kayıt Ol ve Doğrulama Kodu Gönder"}
         </Button>
+
+        <SocialLoginButtons />
 
         <p className="text-center text-xs text-muted-foreground">
           Zaten hesabın var mı?{" "}
