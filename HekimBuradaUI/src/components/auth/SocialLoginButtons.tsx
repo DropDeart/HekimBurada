@@ -13,12 +13,14 @@ const PROVIDER_ICONS: Record<string, ReactNode> = {
   apple: <FaApple />,
 };
 
+// Butonlar yan yana dizildiğinden ("Google ile devam et" gibi uzun etiketler dar sütunda taşar)
+// kısa isimler kullanılıyor.
 const PROVIDER_LABELS: Record<string, string> = {
-  google: "Google ile devam et",
-  facebook: "Facebook ile devam et",
-  github: "GitHub ile devam et",
-  apple: "Apple ile devam et",
-  microsoft: "Microsoft ile devam et",
+  google: "Google",
+  facebook: "Facebook",
+  github: "GitHub",
+  apple: "Apple",
+  microsoft: "Microsoft",
 };
 
 /**
@@ -45,21 +47,23 @@ export function SocialLoginButtons({ remember = true }: { remember?: boolean }) 
         <div className="h-px flex-1 bg-border" />
       </div>
 
-      {providers.map((provider) => (
-        <Button
-          key={provider}
-          type="button"
-          variant="outline"
-          size="lg"
-          className="w-full justify-center gap-2"
-          onClick={() => {
-            void startExternalLogin(provider, remember);
-          }}
-        >
-          {PROVIDER_ICONS[provider.toLowerCase()]}
-          {PROVIDER_LABELS[provider.toLowerCase()] ?? `${provider} ile devam et`}
-        </Button>
-      ))}
+      <div className="flex flex-wrap gap-2">
+        {providers.map((provider) => (
+          <Button
+            key={provider}
+            type="button"
+            variant="outline"
+            size="lg"
+            className="min-w-0 flex-1 justify-center gap-2"
+            onClick={() => {
+              void startExternalLogin(provider, remember);
+            }}
+          >
+            {PROVIDER_ICONS[provider.toLowerCase()]}
+            {PROVIDER_LABELS[provider.toLowerCase()] ?? provider}
+          </Button>
+        ))}
+      </div>
     </div>
   );
 }
