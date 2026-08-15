@@ -44,3 +44,8 @@ node_modules/
 
 # scripts/backup.ps1 çıktısı — DB dump'ları ve dosya arşivleri, repo'ya girmez
 /backups/
+
+# Sunucuya özel prod deploy config'leri (host portları, network adları, secret referansları) —
+# sunucuda yaşar, repo'ya girmez. Bkz. DEPLOYMENT.md.
+docker-compose.server.yml
+**/certs/
