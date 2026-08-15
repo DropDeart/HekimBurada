@@ -227,7 +227,7 @@ export default function Home() {
               href={`/ilanlar/${featured.id}`}
               className="col-span-1 flex flex-wrap overflow-hidden rounded-[10px] border border-border bg-white sm:col-span-2"
             >
-              <ListingImage images={featured.images} alt={featured.title} className="min-h-[200px] flex-1 basis-[260px]" />
+              <ListingImage images={featured.images} alt={featured.title} className="h-[220px] flex-1 basis-[260px]" />
               <div className="flex flex-1 basis-[260px] flex-col justify-center p-5.5">
                 <div className="mb-2.5 inline-block w-fit rounded-md bg-brand-soft px-2 py-0.5 text-[11px] font-bold text-brand">
                   ÖNE ÇIKAN
