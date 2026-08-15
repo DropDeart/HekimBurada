@@ -263,6 +263,11 @@ export const identityApi = {
 
   doctorProfile: () => authedReq<DoctorProfile>("/api/account/doctor-profile"),
 
+  /** Sosyal girişle (Google/Facebook) oluşan hesaplarda specialty/diplomaNo/region boş kalıyor —
+   * belge yüklemeden önce bunları tamamlamak için (bkz. kayit-ol/belge-yukle sayfası). */
+  updateDoctorProfile: (input: { specialty: string; diplomaNo: string; districtId: string }) =>
+    authedReq<void>("/api/account/doctor-profile", { method: "PUT", body: JSON.stringify(input) }),
+
   updateEducation: (input: { graduationSchool: string | null; graduationYear: number | null }) =>
     authedReq<void>("/api/account/doctor-profile/education", { method: "PUT", body: JSON.stringify(input) }),
 

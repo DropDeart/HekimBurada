@@ -137,6 +137,60 @@ public sealed class DoctorVerificationController : ControllerBase
     }
 
     /// <summary>
+    /// Uzmanlık/diploma no/ilçe doldurur — özellikle sosyal girişle (Google/Facebook) oluşan
+    /// hesaplar için: o akışta ExternalLoginCallback profili bu alanlar BOŞ oluşturuyor (bkz.
+    /// AccountApiController.ExternalLoginCallback), kullanıcı belge yüklemeden önce burada
+    /// tamamlıyor. Email/parola ile kayıt olanlarda bu alanlar zaten Register'da doluyor —
+    /// frontend bu uca yalnızca alanlar boşken gidiyor ama backend'de ayrıca bir kısıt yok,
+    /// istenirse sonradan da düzeltilebilir.
+    /// </summary>
+    [HttpPut("account/doctor-profile")]
+    [Authorize(AuthenticationSchemes = ProfileAuthSchemes)]
+    public async Task<IActionResult> UpdateProfile(UpdateDoctorProfileRequest request)
+    {
+        var user = await _userManager.GetUserAsync(User);
+        if (user is null)
+        {
+            return Unauthorized();
+        }
+
+        var profile = await _db.DoctorProfiles.FirstOrDefaultAsync(p => p.UserId == user.Id, HttpContext.RequestAborted);
+        if (profile is null)
+        {
+            return NotFound();
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Specialty) || string.IsNullOrWhiteSpace(request.DiplomaNo) || request.DistrictId == Guid.Empty)
+        {
+            return BadRequest(new ErrorResponse("Uzmanlık alanı, diploma/tescil no ve ilçe gerekli."));
+        }
+
+        // AccountApiController.Register ile aynı doğrulama kuralları (bkz. oradaki yorum) —
+        // uzmanlık/ilçe yönetilen listeden seçilmeli, serbest metin Community'nin topluluk
+        // eşleşmesini ve RegionAdmin kuyruğu filtresini bozar.
+        var specialty = request.Specialty.Trim();
+        var validSpecialty = await _db.Specialties.AnyAsync(
+            s => s.Name.ToLower() == specialty.ToLower(), HttpContext.RequestAborted);
+        if (!validSpecialty)
+        {
+            return BadRequest(new ErrorResponse("Geçersiz uzmanlık alanı."));
+        }
+
+        var validDistrict = await _db.Districts.AnyAsync(d => d.Id == request.DistrictId, HttpContext.RequestAborted);
+        if (!validDistrict)
+        {
+            return BadRequest(new ErrorResponse("Geçersiz ilçe."));
+        }
+
+        profile.Specialty = specialty;
+        profile.DiplomaNo = request.DiplomaNo.Trim();
+        profile.DistrictId = request.DistrictId;
+        await _db.SaveChangesAsync(HttpContext.RequestAborted);
+
+        return Ok();
+    }
+
+    /// <summary>
     /// Okul/mezuniyet yılını kullanıcı kendi günceller — doğrulama akışına dahil değil (bkz.
     /// GraduationSchool doc yorumu), bu yüzden admin onayına düşmez.
     /// </summary>
@@ -442,6 +496,8 @@ public sealed record VerificationRow(
 public sealed record AssignRegionAdminRequest(Guid ProvinceId);
 
 public sealed record UpdateEducationRequest(string? GraduationSchool, int? GraduationYear);
+
+public sealed record UpdateDoctorProfileRequest(string Specialty, string DiplomaNo, Guid DistrictId);
 
 public sealed record DoctorProfileResponse(
     string Specialty,

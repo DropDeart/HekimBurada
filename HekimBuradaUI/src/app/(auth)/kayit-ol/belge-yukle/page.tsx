@@ -1,13 +1,118 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { Dropzone } from "@/components/upload/Dropzone";
+import { ProvinceDistrictSelect } from "@/components/ProvinceDistrictSelect";
 import { Button } from "@/components/ui/button";
-import { identityApi, type DoctorProfile } from "@/lib/api";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { identityApi, specialtiesApi, type DoctorProfile, type Specialty } from "@/lib/api";
 import { auth } from "@/lib/auth";
+
+/**
+ * Sosyal girişle (Google/Facebook) oluşan hesaplarda Specialty/DiplomaNo/DistrictId boş kalıyor
+ * (bkz. AccountApiController.ExternalLoginCallback) — belge yüklemeden önce burada tamamlatılıyor.
+ * Email/parola ile kayıt olanlarda bu alanlar Register'da zaten dolu, bu form hiç görünmez.
+ */
+function CompleteProfileForm({ onCompleted }: { onCompleted: () => void }) {
+  const [specialty, setSpecialty] = useState("");
+  const [specialties, setSpecialties] = useState<Specialty[]>([]);
+  const [specialtiesLoading, setSpecialtiesLoading] = useState(true);
+  const [diplomaNo, setDiplomaNo] = useState("");
+  const [districtId, setDistrictId] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    specialtiesApi
+      .list()
+      .then(setSpecialties)
+      .catch(() => setError("Uzmanlık alanları yüklenemedi, sayfayı yenileyin."))
+      .finally(() => setSpecialtiesLoading(false));
+  }, []);
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    setError(null);
+
+    if (!specialty) {
+      setError("Uzmanlık alanı seçmelisiniz.");
+      return;
+    }
+    if (!districtId) {
+      setError("İl/ilçe seçmelisiniz.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await identityApi.updateDoctorProfile({ specialty, diplomaNo, districtId });
+      onCompleted();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Kaydedilemedi.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <>
+      <h2 className="mb-1 text-xl font-bold text-foreground">Doktor bilgilerinizi tamamlayın</h2>
+      <p className="mb-6 text-sm text-muted-foreground">
+        Google/Facebook girişinde ad-soyad ve e-postanızı aldık — belge yüklemeden önce
+        uzmanlık alanınızı ve tescil bilgilerinizi de eklemeniz gerekiyor.
+      </p>
+
+      {error && (
+        <div className="mb-4 rounded-lg bg-red-50 px-3 py-2.5 text-xs text-red-700">{error}</div>
+      )}
+
+      <form onSubmit={submit} className="flex flex-col gap-3.5">
+        <div className="grid grid-cols-2 gap-3.5">
+          <div className="grid gap-1.5">
+            <Label htmlFor="specialty">Uzmanlık Alanı</Label>
+            <Select value={specialty} onValueChange={setSpecialty} required disabled={specialtiesLoading}>
+              <SelectTrigger id="specialty">
+                <SelectValue placeholder={specialtiesLoading ? "Yükleniyor…" : "Seçiniz"} />
+              </SelectTrigger>
+              <SelectContent>
+                {specialties.map((s) => (
+                  <SelectItem key={s.id} value={s.name}>
+                    {s.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="diplomaNo">Diploma / Tescil No</Label>
+            <Input
+              id="diplomaNo"
+              inputMode="numeric"
+              maxLength={16}
+              value={diplomaNo}
+              onChange={(e) => setDiplomaNo(e.target.value.replace(/\D/g, "").slice(0, 16))}
+              required
+            />
+          </div>
+        </div>
+
+        <div className="grid gap-1.5">
+          <Label>İl / İlçe</Label>
+          <ProvinceDistrictSelect districtId={districtId} onDistrictIdChange={setDistrictId} />
+        </div>
+
+        <Button type="submit" disabled={loading} className="mt-1 w-full">
+          {loading ? "Kaydediliyor…" : "Devam Et"}
+        </Button>
+      </form>
+    </>
+  );
+}
 
 export default function BelgeYuklePage() {
   const router = useRouter();
@@ -99,31 +204,35 @@ export default function BelgeYuklePage() {
       heading="Son bir adım kaldı"
       subheading="HekimBurada, yalnızca doğrulanmış doktorların katılabildiği kapalı bir pazar yeridir."
     >
-      <h2 className="mb-1 text-xl font-bold text-foreground">Doktorluk belgesi yükleyin</h2>
-      {profile.specialty && (
-        <p className="mb-1 text-sm text-muted-foreground">
-          {profile.specialty} · {profile.diplomaNo} · {profile.region}
-        </p>
+      {!profile.specialty ? (
+        <CompleteProfileForm onCompleted={loadProfile} />
+      ) : (
+        <>
+          <h2 className="mb-1 text-xl font-bold text-foreground">Doktorluk belgesi yükleyin</h2>
+          <p className="mb-1 text-sm text-muted-foreground">
+            {profile.specialty} · {profile.diplomaNo} · {profile.region}
+          </p>
+          <p className="mb-6 text-sm text-muted-foreground">
+            Doktor bilgi bankasından aldığınız belge ile doğrulama yapılacaktır.
+          </p>
+
+          {isRejected && (
+            <div className="mb-4 rounded-lg bg-red-50 px-3 py-2.5 text-xs text-red-700">
+              Yüklediğiniz belge admin tarafından reddedildi. Lütfen yeni bir belge yükleyin.
+            </div>
+          )}
+
+          {error && (
+            <div className="mb-4 rounded-lg bg-red-50 px-3 py-2.5 text-xs text-red-700">{error}</div>
+          )}
+
+          <Dropzone file={file} onFileChange={setFile} disabled={uploading} />
+
+          <Button onClick={submit} disabled={!file || uploading} className="mt-4 w-full">
+            {uploading ? "Yükleniyor…" : "Belgeyi Gönder"}
+          </Button>
+        </>
       )}
-      <p className="mb-6 text-sm text-muted-foreground">
-        Doktor bilgi bankasından aldığınız belge ile doğrulama yapılacaktır.
-      </p>
-
-      {isRejected && (
-        <div className="mb-4 rounded-lg bg-red-50 px-3 py-2.5 text-xs text-red-700">
-          Yüklediğiniz belge admin tarafından reddedildi. Lütfen yeni bir belge yükleyin.
-        </div>
-      )}
-
-      {error && (
-        <div className="mb-4 rounded-lg bg-red-50 px-3 py-2.5 text-xs text-red-700">{error}</div>
-      )}
-
-      <Dropzone file={file} onFileChange={setFile} disabled={uploading} />
-
-      <Button onClick={submit} disabled={!file || uploading} className="mt-4 w-full">
-        {uploading ? "Yükleniyor…" : "Belgeyi Gönder"}
-      </Button>
     </AuthShell>
   );
 }
