@@ -100,8 +100,13 @@ export default function BelgeYuklePage() {
       subheading="HekimBurada, yalnızca doğrulanmış doktorların katılabildiği kapalı bir pazar yeridir."
     >
       <h2 className="mb-1 text-xl font-bold text-foreground">Doktorluk belgesi yükleyin</h2>
+      {profile.specialty && (
+        <p className="mb-1 text-sm text-muted-foreground">
+          {profile.specialty} · {profile.diplomaNo} · {profile.region}
+        </p>
+      )}
       <p className="mb-6 text-sm text-muted-foreground">
-        {profile.specialty} · {profile.diplomaNo} · {profile.region}
+        Doktor bilgi bankasından aldığınız belge ile doğrulama yapılacaktır.
       </p>
 
       {isRejected && (
