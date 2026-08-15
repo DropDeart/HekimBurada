@@ -5,11 +5,28 @@ import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { identityApi, MARKETPLACE_URL, marketplaceApi, type MarketplaceCategory } from "@/lib/api";
+import { identityApi, MARKETPLACE_URL, marketplaceApi, type ListingKind, type MarketplaceCategory } from "@/lib/api";
 import { auth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 
-const STEPS = ["Kategori", "Ürün Bilgileri", "Ödeme Yöntemi", "Öne Çıkar", "Önizleme"];
+type StepId = "category" | "info" | "payment" | "feature" | "preview";
+
+/**
+ * Adımlar kategorinin listingKind'ine göre değişir — "product" dışındaki kategorilerde Ödeme
+ * Yöntemi adımı hiç yok (bkz. proje notu: konut/araba/iş ilanı gibi kategoriler için ayrı bir
+ * ödeme akışı anlamsız). "info" adımının içeriği de kind'e göre değişir (bkz. render kısmı).
+ */
+function stepsForKind(kind: ListingKind): { id: StepId; label: string }[] {
+  const steps: { id: StepId; label: string }[] = [
+    { id: "category", label: "Kategori" },
+    { id: "info", label: kind === "product" ? "Ürün Bilgileri" : "İlan Bilgileri" },
+  ];
+  if (kind === "product") {
+    steps.push({ id: "payment", label: "Ödeme Yöntemi" });
+  }
+  steps.push({ id: "feature", label: "Öne Çıkar" }, { id: "preview", label: "Önizleme" });
+  return steps;
+}
 
 const PAYMENT_METHODS = [
   { id: "bagis", label: "Bağış ile Ödeme" },
@@ -30,7 +47,7 @@ export default function IlanVerPage() {
   const [checking, setChecking] = useState(true);
   const [allowed, setAllowed] = useState(false);
 
-  const [step, setStep] = useState(1);
+  const [stepIndex, setStepIndex] = useState(0);
   const [categories, setCategories] = useState<MarketplaceCategory[]>([]);
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [subId, setSubId] = useState<string | null>(null);
@@ -67,6 +84,10 @@ export default function IlanVerPage() {
   const topCategories = categories.filter((c) => !c.parentId);
   const subCategories = categoryId ? categories.filter((c) => c.parentId === categoryId) : [];
   const selectedCategory = categories.find((c) => c.id === (subId ?? categoryId));
+  const kind: ListingKind = selectedCategory?.listingKind ?? "product";
+  const steps = stepsForKind(kind);
+  const safeStepIndex = Math.min(stepIndex, steps.length - 1);
+  const currentStepId = steps[safeStepIndex]?.id;
 
   const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -88,14 +109,24 @@ export default function IlanVerPage() {
     if (!userId || !categoryId) return;
     setPublishing(true);
     try {
+      // Fiyat/ödeme/durum, seçilen kategorinin türüne göre farklı anlam taşır — bkz. stepsForKind
+      // doc yorumu. "job" (iş ilanı vb.) fiyatsız/ödemesiz düz bir ilan, "big_ticket" (konut/araba
+      // vb.) sadece fiyat gösterir, ödeme yöntemi her zaman "elden" (platform üzerinden gerçek bir
+      // ödeme akışı yok, tüm kategorilerde nihai teslim/ödeme alıcı-satıcı arasında).
+      const effectiveCondition = kind === "job" ? "" : condition;
+      const effectivePrice = kind === "job" ? null : price ? Number(price) : null;
+      const effectivePaymentMethod = kind === "product" ? paymentMethod : kind === "big_ticket" ? "elden" : "yok";
+      const effectiveOriginalPrice = kind === "product" && paymentMethod === "referans" ? (originalPrice ? Number(originalPrice) : null) : null;
+      const effectiveReferansUrl = kind === "product" && paymentMethod === "referans" ? referansUrl || null : null;
+
       await marketplaceApi.createListing({
         title,
         description,
-        condition,
-        price: price ? Number(price) : null,
-        originalPrice: originalPrice ? Number(originalPrice) : null,
-        paymentMethod,
-        referansUrl: paymentMethod === "referans" ? referansUrl || null : null,
+        condition: effectiveCondition,
+        price: effectivePrice,
+        originalPrice: effectiveOriginalPrice,
+        paymentMethod: effectivePaymentMethod,
+        referansUrl: effectiveReferansUrl,
         city,
         images: JSON.stringify(imageUrls),
         durationDays: 30,
@@ -131,12 +162,11 @@ export default function IlanVerPage() {
   return (
     <div className="px-6 py-7 sm:px-10">
       <div className="mb-7 flex flex-wrap justify-center gap-3.5">
-        {STEPS.map((label, i) => {
-          const n = i + 1;
-          const isDone = step > n;
-          const isActive = step === n;
+        {steps.map((s, i) => {
+          const isDone = safeStepIndex > i;
+          const isActive = safeStepIndex === i;
           return (
-            <div key={label} className="flex items-center gap-2">
+            <div key={s.id} className="flex items-center gap-2">
               <div
                 className={cn(
                   "flex size-6.5 items-center justify-center rounded-full text-xs font-bold",
@@ -147,7 +177,7 @@ export default function IlanVerPage() {
                       : "bg-border text-muted-foreground"
                 )}
               >
-                {n}
+                {i + 1}
               </div>
               <span
                 className={cn(
@@ -155,7 +185,7 @@ export default function IlanVerPage() {
                   isActive ? "text-foreground" : "text-muted-foreground"
                 )}
               >
-                {label}
+                {s.label}
               </span>
             </div>
           );
@@ -164,7 +194,7 @@ export default function IlanVerPage() {
 
       <div className="mx-auto grid max-w-4xl grid-cols-1 gap-8 lg:grid-cols-[1.3fr_1fr]">
         <div className="min-h-[360px] rounded-[10px] border border-border bg-white p-7">
-          {step === 1 && (
+          {currentStepId === "category" && (
             <div>
               <h3 className="mb-5 text-lg font-bold text-foreground">Kategori Seçin</h3>
               <div className="mb-5 grid grid-cols-2 gap-2.5">
@@ -206,15 +236,17 @@ export default function IlanVerPage() {
             </div>
           )}
 
-          {step === 2 && (
+          {currentStepId === "info" && (
             <div className="flex flex-col gap-4">
-              <h3 className="text-lg font-bold text-foreground">Ürün Bilgileri</h3>
+              <h3 className="text-lg font-bold text-foreground">
+                {kind === "product" ? "Ürün Bilgileri" : "İlan Bilgileri"}
+              </h3>
               <div>
                 <label className="text-xs text-muted-foreground">İlan Başlığı</label>
                 <input
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Örn. Portatif Ultrason Cihazı"
+                  placeholder={kind === "job" ? "Örn. Aile Hekimliği Uzmanı Aranıyor" : "Örn. Portatif Ultrason Cihazı"}
                   className="w-full border-0 border-b border-input bg-transparent py-2 text-sm outline-none"
                 />
               </div>
@@ -223,25 +255,27 @@ export default function IlanVerPage() {
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Ürün durumu, kullanım süresi vb."
+                  placeholder={kind === "job" ? "Pozisyon, çalışma şartları vb." : "Ürün durumu, kullanım süresi vb."}
                   className="min-h-[90px] w-full rounded-lg border border-input p-2.5 text-[13px] outline-none"
                 />
               </div>
               <div className="grid grid-cols-2 gap-3.5">
-                <div>
-                  <label className="text-xs text-muted-foreground">Durum</label>
-                  <select
-                    value={condition}
-                    onChange={(e) => setCondition(e.target.value)}
-                    className="w-full border-0 border-b border-input bg-transparent py-2 text-sm outline-none"
-                  >
-                    {CONDITIONS.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                {kind !== "job" && (
+                  <div>
+                    <label className="text-xs text-muted-foreground">Durum</label>
+                    <select
+                      value={condition}
+                      onChange={(e) => setCondition(e.target.value)}
+                      className="w-full border-0 border-b border-input bg-transparent py-2 text-sm outline-none"
+                    >
+                      {CONDITIONS.map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
                 <div>
                   <label className="text-xs text-muted-foreground">Şehir</label>
                   <input
@@ -252,6 +286,21 @@ export default function IlanVerPage() {
                   />
                 </div>
               </div>
+              {kind === "big_ticket" && (
+                <div>
+                  <label className="text-xs text-muted-foreground">Fiyat</label>
+                  <input
+                    type="number"
+                    value={price}
+                    onChange={(e) => setPrice(e.target.value)}
+                    placeholder="₺"
+                    className="w-full border-0 border-b border-input bg-transparent py-2 text-sm outline-none"
+                  />
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    Teslim ve ödeme alıcı-satıcı arasında elden gerçekleşir.
+                  </p>
+                </div>
+              )}
               <div className="rounded-[10px] border-[1.5px] border-dashed border-[#C9CFD2] bg-[#FAFBFB] p-4.5 text-center">
                 <div className="mb-2 text-sm font-semibold text-foreground">Fotoğraflar</div>
                 {imageUrls.length > 0 && (
@@ -286,7 +335,7 @@ export default function IlanVerPage() {
             </div>
           )}
 
-          {step === 3 && (
+          {currentStepId === "payment" && (
             <div>
               <h3 className="mb-1.5 text-lg font-bold text-foreground">Ödeme Yöntemi</h3>
               <p className="mb-4.5 text-xs text-muted-foreground">
@@ -348,7 +397,7 @@ export default function IlanVerPage() {
             </div>
           )}
 
-          {step === 4 && (
+          {currentStepId === "feature" && (
             <div>
               <h3 className="mb-5 text-lg font-bold text-foreground">Öne Çıkar</h3>
               <button
@@ -373,7 +422,7 @@ export default function IlanVerPage() {
             </div>
           )}
 
-          {step === 5 && (
+          {currentStepId === "preview" && (
             <div>
               <h3 className="mb-5 text-lg font-bold text-foreground">Önizleme ve Yayınla</h3>
               <p className="mb-5 text-[13px] text-muted-foreground">
@@ -386,17 +435,17 @@ export default function IlanVerPage() {
           )}
 
           <div className="mt-7 flex justify-between">
-            {step > 1 ? (
-              <Button variant="outline" onClick={() => setStep((s) => s - 1)}>
+            {safeStepIndex > 0 ? (
+              <Button variant="outline" onClick={() => setStepIndex((s) => s - 1)}>
                 ← Geri
               </Button>
             ) : (
               <span />
             )}
-            {step < 5 && (
+            {safeStepIndex < steps.length - 1 && (
               <Button
-                onClick={() => setStep((s) => s + 1)}
-                disabled={step === 1 && !categoryId}
+                onClick={() => setStepIndex((s) => s + 1)}
+                disabled={safeStepIndex === 0 && !categoryId}
               >
                 İleri →
               </Button>
@@ -424,9 +473,13 @@ export default function IlanVerPage() {
               <div className="mb-1 text-sm font-bold text-foreground">
                 {title || "İlan Başlığı"}
               </div>
-              <div className="text-[15px] font-bold text-brand">
-                {price ? currency(Number(price)) : "Fiyat belirtilmedi"}
-              </div>
+              {kind === "job" ? (
+                <div className="text-[13px] text-muted-foreground">İlan (fiyatsız)</div>
+              ) : (
+                <div className="text-[15px] font-bold text-brand">
+                  {price ? currency(Number(price)) : "Fiyat belirtilmedi"}
+                </div>
+              )}
             </div>
           </div>
         </div>

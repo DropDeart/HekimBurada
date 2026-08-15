@@ -452,10 +452,16 @@ export const adminUsersApi = {
 const mReq = <T>(path: string, init?: RequestInit) => reqAt<T>(MARKETPLACE_URL, path, init);
 const mAuthedReq = <T>(path: string, init?: RequestInit) => authedReqAt<T>(MARKETPLACE_URL, path, init);
 
+/** "product": durum+fiyat+ödeme yöntemi (mevcut/varsayılan). "big_ticket": konut/araba gibi —
+ * sadece fiyat, ödeme yöntemi sabit "elden". "job": iş ilanı gibi — fiyat/ödeme/durum hiç yok,
+ * düz ilan. ilan-ver sihirbazı bu değere göre adımlarını gösterir/gizler. */
+export type ListingKind = "product" | "big_ticket" | "job";
+
 export interface MarketplaceCategory {
   id: string;
   name: string;
   parentId: string | null;
+  listingKind: ListingKind;
 }
 
 export type ListingStatus = "draft" | "pending" | "active" | "rejected" | "sold" | "removed" | "expired";
@@ -599,10 +605,10 @@ export const marketplaceApi = {
   listCategories: (params?: { page?: number; pageSize?: number; search?: string }) =>
     mAuthedReq<PagedResult<MarketplaceCategory>>(`/api/Categorys${toQuery(params)}`),
 
-  createCategory: (input: { name: string; parentId?: string | null }) =>
+  createCategory: (input: { name: string; parentId?: string | null; listingKind: ListingKind }) =>
     mAuthedReq<string>("/api/Categorys", { method: "POST", body: JSON.stringify(input) }),
 
-  updateCategory: (id: string, input: { name: string; parentId?: string | null }) =>
+  updateCategory: (id: string, input: { name: string; parentId?: string | null; listingKind: ListingKind }) =>
     mAuthedReq<void>(`/api/Categorys/${id}`, { method: "PUT", body: JSON.stringify(input) }),
 
   deleteCategory: (id: string) => mAuthedReq<void>(`/api/Categorys/${id}`, { method: "DELETE" }),

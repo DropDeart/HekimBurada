@@ -22,7 +22,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { marketplaceApi, type MarketplaceCategory } from "@/lib/api";
+import { marketplaceApi, type ListingKind, type MarketplaceCategory } from "@/lib/api";
+
+const LISTING_KIND_LABELS: Record<ListingKind, string> = {
+  product: "Ürün (durum + fiyat + ödeme yöntemi)",
+  big_ticket: "Büyük Değerli (konut/araba — sadece fiyat, elden teslim)",
+  job: "İlan / İş (fiyatsız, düz ilan)",
+};
 
 export default function AdminKategorilerPage() {
   const [categories, setCategories] = useState<MarketplaceCategory[]>([]);
@@ -30,6 +36,7 @@ export default function AdminKategorilerPage() {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [parentId, setParentId] = useState<string>("");
+  const [listingKind, setListingKind] = useState<ListingKind>("product");
   const [submitting, setSubmitting] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
 
@@ -65,10 +72,11 @@ export default function AdminKategorilerPage() {
     e.preventDefault();
     setSubmitting(true);
     try {
-      await marketplaceApi.createCategory({ name, parentId: parentId || null });
+      await marketplaceApi.createCategory({ name, parentId: parentId || null, listingKind });
       toast.success("Kategori eklendi.");
       setName("");
       setParentId("");
+      setListingKind("product");
       setOpen(false);
       await load();
     } catch (err) {
@@ -134,6 +142,21 @@ export default function AdminKategorilerPage() {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="grid gap-1.5">
+                <Label>İlan Türü</Label>
+                <Select value={listingKind} onValueChange={(v) => setListingKind(v as ListingKind)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(Object.keys(LISTING_KIND_LABELS) as ListingKind[]).map((k) => (
+                      <SelectItem key={k} value={k}>
+                        {LISTING_KIND_LABELS[k]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <DialogFooter>
                 <Button type="submit" disabled={submitting}>
                   {submitting ? "Ekleniyor…" : "Ekle"}
@@ -150,13 +173,14 @@ export default function AdminKategorilerPage() {
             <TableRow>
               <TableHead>Ad</TableHead>
               <TableHead>Üst Kategori</TableHead>
+              <TableHead>İlan Türü</TableHead>
               <TableHead>İşlemler</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={3} className="h-24 text-center text-muted-foreground">
+                <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
                   Yükleniyor…
                 </TableCell>
               </TableRow>
@@ -165,6 +189,9 @@ export default function AdminKategorilerPage() {
                 <TableRow key={c.id}>
                   <TableCell className={c.parentId ? "pl-8" : "font-semibold"}>{c.name}</TableCell>
                   <TableCell>{categories.find((p) => p.id === c.parentId)?.name ?? "—"}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground">
+                    {LISTING_KIND_LABELS[c.listingKind] ?? c.listingKind}
+                  </TableCell>
                   <TableCell>
                     <Button
                       size="sm"

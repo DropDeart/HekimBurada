@@ -59,6 +59,8 @@ export async function startExternalLogin(provider: string, remember: boolean): P
     `${IDENTITY_URL}/api/account/external/${encodeURIComponent(provider)}` +
     `?returnUrl=${encodeURIComponent(authorizeUrl)}`;
 
+  // Kasıtlı: Identity farklı bir origin, Next.js router bunu yönetemez — tam sayfa navigasyonu gerekiyor.
+  // eslint-disable-next-line @next/next/no-location-assign-relative-destination
   window.location.href = externalLoginUrl;
 }
 

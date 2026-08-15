@@ -17,27 +17,27 @@ function CallbackInner() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const code = searchParams.get("code");
-    const state = searchParams.get("state");
-    const oauthError = searchParams.get("error");
-
-    if (oauthError) {
-      setError("Giriş iptal edildi veya sağlayıcı tarafında başarısız oldu.");
-      return;
-    }
-    if (!code) {
-      setError("Geçersiz geri dönüş bağlantısı — kod bulunamadı.");
-      return;
-    }
-
-    const pkce = consumePkceState(state);
-    if (!pkce) {
-      setError("Oturum doğrulanamadı, lütfen tekrar deneyin.");
-      return;
-    }
-    const remember = consumeRememberFlag();
-
     (async () => {
+      const code = searchParams.get("code");
+      const state = searchParams.get("state");
+      const oauthError = searchParams.get("error");
+
+      if (oauthError) {
+        setError("Giriş iptal edildi veya sağlayıcı tarafında başarısız oldu.");
+        return;
+      }
+      if (!code) {
+        setError("Geçersiz geri dönüş bağlantısı — kod bulunamadı.");
+        return;
+      }
+
+      const pkce = consumePkceState(state);
+      if (!pkce) {
+        setError("Oturum doğrulanamadı, lütfen tekrar deneyin.");
+        return;
+      }
+      const remember = consumeRememberFlag();
+
       try {
         const res = await fetch(`${IDENTITY_URL}/connect/token`, {
           method: "POST",
