@@ -22,7 +22,9 @@ const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL ?? "http://localhost:508
  * silinir, çalışma zamanı etkisi yok), gatewayApi runtime kodu değil. */
 async function getSiteSettingsServer(): Promise<SiteSettings | null> {
   try {
-    const res = await fetch(`${GATEWAY_URL}/api/site-settings`);
+    // no-store: admin panelinden logo/favicon/SEO değiştiğinde yeniden deploy gerekmeden
+    // bir sonraki istekte yansısın diye — build-time'da (veya route cache'inde) donmasın.
+    const res = await fetch(`${GATEWAY_URL}/api/site-settings`, { cache: "no-store" });
     if (!res.ok) return null;
     return (await res.json()) as SiteSettings;
   } catch {

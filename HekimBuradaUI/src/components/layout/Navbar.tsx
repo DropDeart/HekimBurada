@@ -176,7 +176,7 @@ export function Navbar() {
           <Link href="/" className="flex items-center text-lg font-bold text-foreground">
             {logoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element -- admin panelden yüklenen keyfi harici görsel
-              <img src={`${GATEWAY_URL}${logoUrl}`} alt="HekimBurada" className="h-8 w-auto" />
+              <img src={`${GATEWAY_URL}${logoUrl}`} alt="HekimBurada" className="h-11 w-auto" />
             ) : (
               <>
                 Hekim<span className="text-brand">Burada</span>
