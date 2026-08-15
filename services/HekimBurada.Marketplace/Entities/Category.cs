@@ -19,6 +19,13 @@ public sealed class Category : BaseEntity
     [MaxLength(20)]
     public string ListingKind { get; set; } = "product";
     /// <summary>
+    /// Kategori kartında gösterilecek ikonun anahtarı (bkz. frontend src/lib/categoryIcons.tsx —
+    /// sabit bir react-icons seti, admin kategori formunda bu anahtarlardan birini seçer).
+    /// CodeGen dışı, elle eklendi.
+    /// </summary>
+    [MaxLength(30)]
+    public string Icon { get; set; } = "tag";
+    /// <summary>
     /// ParentId. Nullable — CodeGen ilişkileri hep zorunlu (non-nullable Guid) üretiyor, ama üst
     /// seviye kategorilerin ebeveyni olmaması gerektiğinden elle nullable'a çevrildi (bkz. plan
     /// Faz F duman testinde bulundu, proje hafızasındaki BaseForge gap'lerine eklenecek).

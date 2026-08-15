@@ -23,6 +23,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { marketplaceApi, type ListingKind, type MarketplaceCategory } from "@/lib/api";
+import { CATEGORY_ICON_KEYS, CategoryIcon } from "@/lib/categoryIcons";
+import { cn } from "@/lib/utils";
 
 const LISTING_KIND_LABELS: Record<ListingKind, string> = {
   product: "Ürün (durum + fiyat + ödeme yöntemi)",
@@ -37,6 +39,7 @@ export default function AdminKategorilerPage() {
   const [name, setName] = useState("");
   const [parentId, setParentId] = useState<string>("");
   const [listingKind, setListingKind] = useState<ListingKind>("product");
+  const [icon, setIcon] = useState<string>(CATEGORY_ICON_KEYS[0]);
   const [submitting, setSubmitting] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
 
@@ -72,11 +75,12 @@ export default function AdminKategorilerPage() {
     e.preventDefault();
     setSubmitting(true);
     try {
-      await marketplaceApi.createCategory({ name, parentId: parentId || null, listingKind });
+      await marketplaceApi.createCategory({ name, parentId: parentId || null, listingKind, icon });
       toast.success("Kategori eklendi.");
       setName("");
       setParentId("");
       setListingKind("product");
+      setIcon(CATEGORY_ICON_KEYS[0]);
       setOpen(false);
       await load();
     } catch (err) {
@@ -157,6 +161,27 @@ export default function AdminKategorilerPage() {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="grid gap-1.5">
+                <Label>İkon</Label>
+                <div className="grid grid-cols-8 gap-1.5">
+                  {CATEGORY_ICON_KEYS.map((key) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setIcon(key)}
+                      aria-label={key}
+                      className={cn(
+                        "flex size-9 items-center justify-center rounded-md border text-base",
+                        icon === key
+                          ? "border-brand bg-brand-soft text-brand"
+                          : "border-border bg-white text-muted-foreground hover:bg-muted"
+                      )}
+                    >
+                      <CategoryIcon icon={key} />
+                    </button>
+                  ))}
+                </div>
+              </div>
               <DialogFooter>
                 <Button type="submit" disabled={submitting}>
                   {submitting ? "Ekleniyor…" : "Ekle"}
@@ -171,6 +196,7 @@ export default function AdminKategorilerPage() {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead>İkon</TableHead>
               <TableHead>Ad</TableHead>
               <TableHead>Üst Kategori</TableHead>
               <TableHead>İlan Türü</TableHead>
@@ -180,13 +206,16 @@ export default function AdminKategorilerPage() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
+                <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
                   Yükleniyor…
                 </TableCell>
               </TableRow>
             ) : (
               [...orderedCategories, ...orphanCategories].map((c) => (
                 <TableRow key={c.id}>
+                  <TableCell className="text-muted-foreground">
+                    <CategoryIcon icon={c.icon} className="size-4" />
+                  </TableCell>
                   <TableCell className={c.parentId ? "pl-8" : "font-semibold"}>{c.name}</TableCell>
                   <TableCell>{categories.find((p) => p.id === c.parentId)?.name ?? "—"}</TableCell>
                   <TableCell className="text-xs text-muted-foreground">

@@ -13,6 +13,8 @@ public sealed class CategoryDto
     public Guid? ParentId { get; set; }
     /// <summary>ListingKind — "product" | "big_ticket" | "job".</summary>
     public string ListingKind { get; set; } = "product";
+    /// <summary>Kategori kartı ikonu anahtarı (bkz. frontend categoryIcons.tsx).</summary>
+    public string Icon { get; set; } = "tag";
 
     /// <summary>Bir Category entity'sinden DTO üretir.</summary>
     public static CategoryDto From(Category entity)
@@ -24,6 +26,7 @@ public sealed class CategoryDto
             Name = entity.Name,
             ParentId = entity.ParentId,
             ListingKind = entity.ListingKind,
+            Icon = entity.Icon,
         };
     }
 }

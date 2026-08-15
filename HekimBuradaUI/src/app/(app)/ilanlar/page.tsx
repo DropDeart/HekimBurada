@@ -6,6 +6,7 @@ import { Suspense, useEffect, useState } from "react";
 import { ListingImage } from "@/components/ListingImage";
 import { marketplaceApi, type Listing, type MarketplaceCategory } from "@/lib/api";
 import { useHasToken } from "@/lib/auth";
+import { CategoryIcon } from "@/lib/categoryIcons";
 import { cn } from "@/lib/utils";
 
 // ilan-ver sayfasındaki CONDITIONS ile birebir aynı olmalı — Listing.condition serbest metin
@@ -146,10 +147,11 @@ function IlanlarContent() {
                   key={c.id}
                   onClick={() => goCategory(c.id, null)}
                   className={cn(
-                    "py-1.5 text-left text-[13px]",
+                    "flex items-center gap-2 py-1.5 text-left text-[13px]",
                     kategoriId === c.id ? "font-bold text-brand" : "font-medium text-foreground"
                   )}
                 >
+                  <CategoryIcon icon={c.icon} className="size-3.5 shrink-0" />
                   {c.name}
                 </button>
               ))}

@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { identityApi, MARKETPLACE_URL, marketplaceApi, type ListingKind, type MarketplaceCategory } from "@/lib/api";
 import { auth } from "@/lib/auth";
+import { CategoryIcon } from "@/lib/categoryIcons";
 import { cn } from "@/lib/utils";
 
 type StepId = "category" | "info" | "payment" | "feature" | "preview";
@@ -206,12 +207,13 @@ export default function IlanVerPage() {
                       setSubId(null);
                     }}
                     className={cn(
-                      "rounded-lg border-[1.5px] p-3 text-left text-[13px] font-semibold",
+                      "flex items-center gap-2 rounded-lg border-[1.5px] p-3 text-left text-[13px] font-semibold",
                       categoryId === c.id
-                        ? "border-brand bg-[#F3FBF7]"
+                        ? "border-brand bg-[#F3FBF7] text-brand"
                         : "border-border bg-white"
                     )}
                   >
+                    <CategoryIcon icon={c.icon} className="size-4 shrink-0" />
                     {c.name}
                   </button>
                 ))}

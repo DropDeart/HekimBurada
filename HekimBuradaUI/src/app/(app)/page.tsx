@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ListingImage } from "@/components/ListingImage";
 import { GATEWAY_URL, gatewayApi, marketplaceApi, type CarouselSlide, type Listing, type MarketplaceCategory, type MarketplaceRequest } from "@/lib/api";
+import { CategoryIcon } from "@/lib/categoryIcons";
 import { useHasToken } from "@/lib/auth";
 
 /** Admin hiç carousel slaytı eklememişse gösterilecek tek statik varsayılan slayt. */
@@ -90,10 +91,16 @@ export default function Home() {
         }
       >
         {slide.backgroundType === "image" && slide.backgroundImageUrl && (
-          <div className="pointer-events-none absolute inset-0 bg-black/45" />
+          <div
+            className="pointer-events-none absolute inset-0"
+            style={{
+              background:
+                "linear-gradient(180deg, rgba(10,12,13,0.55) 0%, rgba(10,12,13,0.75) 100%)",
+            }}
+          />
         )}
-        <div className="relative container mx-auto flex flex-wrap items-center justify-between gap-8 px-6 py-14">
-          <div className="max-w-[520px] min-w-[280px] flex-1">
+        <div className="relative container mx-auto px-6 py-20 sm:py-24">
+          <div className="mx-auto max-w-[560px] text-center">
             <div className="mb-3 text-xs font-bold tracking-wider text-brand uppercase">
               {slide.eyebrow || "GÜVENİLİR PAZAR YERİ"}
             </div>
@@ -102,7 +109,7 @@ export default function Home() {
             </h1>
             {slide.description && (
               <div
-                className="mb-5 max-w-[440px] text-sm text-[#B7BCBE] [&_a]:underline [&_strong]:font-bold"
+                className="mx-auto mb-5 max-w-[440px] text-sm text-[#B7BCBE] [&_a]:underline [&_strong]:font-bold"
                 dangerouslySetInnerHTML={{ __html: slide.description }}
               />
             )}
@@ -112,21 +119,9 @@ export default function Home() {
               </Button>
             </Link>
           </div>
-          {slide.imageUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element -- admin panelden yüklenen keyfi harici görsel
-            <img
-              src={`${GATEWAY_URL}${slide.imageUrl}`}
-              alt={slide.title ?? ""}
-              className="h-[170px] w-[280px] min-w-[200px] shrink-0 rounded-xl object-cover"
-            />
-          ) : (
-            <div className="flex h-[170px] w-[280px] min-w-[200px] shrink-0 items-center justify-center rounded-xl bg-white/5 font-mono text-[11px] text-[#6C7275]">
-              GÖRSEL
-            </div>
-          )}
         </div>
 
-        <div className="flex justify-center gap-2 pb-5">
+        <div className="relative flex justify-center gap-2 pb-5">
           {slides.map((s, i) => (
             <button
               key={s.id}
@@ -161,6 +156,7 @@ export default function Home() {
                 href={`/ilanlar?kategori=${cat.id}`}
                 className="rounded-[10px] border border-border bg-white p-4.5 hover:border-brand/50"
               >
+                <CategoryIcon icon={cat.icon} className="mb-2 size-5 text-brand" />
                 <div className="mb-1 text-[15px] font-bold text-foreground">{cat.name}</div>
                 <div className="text-xs text-muted-foreground">İlanlara göz atın</div>
               </Link>

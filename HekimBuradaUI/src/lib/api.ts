@@ -462,6 +462,8 @@ export interface MarketplaceCategory {
   name: string;
   parentId: string | null;
   listingKind: ListingKind;
+  /** Kategori kartında gösterilen react-icons anahtarı — bkz. lib/categoryIcons.tsx. */
+  icon: string;
 }
 
 export type ListingStatus = "draft" | "pending" | "active" | "rejected" | "sold" | "removed" | "expired";
@@ -605,10 +607,10 @@ export const marketplaceApi = {
   listCategories: (params?: { page?: number; pageSize?: number; search?: string }) =>
     mAuthedReq<PagedResult<MarketplaceCategory>>(`/api/Categorys${toQuery(params)}`),
 
-  createCategory: (input: { name: string; parentId?: string | null; listingKind: ListingKind }) =>
+  createCategory: (input: { name: string; parentId?: string | null; listingKind: ListingKind; icon: string }) =>
     mAuthedReq<string>("/api/Categorys", { method: "POST", body: JSON.stringify(input) }),
 
-  updateCategory: (id: string, input: { name: string; parentId?: string | null; listingKind: ListingKind }) =>
+  updateCategory: (id: string, input: { name: string; parentId?: string | null; listingKind: ListingKind; icon: string }) =>
     mAuthedReq<void>(`/api/Categorys/${id}`, { method: "PUT", body: JSON.stringify(input) }),
 
   deleteCategory: (id: string) => mAuthedReq<void>(`/api/Categorys/${id}`, { method: "DELETE" }),

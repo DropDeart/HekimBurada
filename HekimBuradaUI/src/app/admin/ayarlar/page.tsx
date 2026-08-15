@@ -599,7 +599,6 @@ function MenuItemsSection({
 }
 
 interface SlideFormState {
-  imageUrl: string;
   eyebrow: string;
   title: string;
   description: string;
@@ -616,7 +615,6 @@ const DEFAULT_SLIDE_BACKGROUND = "#141718";
 
 function emptySlideForm(): SlideFormState {
   return {
-    imageUrl: "",
     eyebrow: "",
     title: "",
     description: "",
@@ -637,23 +635,19 @@ function CarouselTab() {
 
   const [createOpen, setCreateOpen] = useState(false);
   const [createForm, setCreateForm] = useState<SlideFormState>(emptySlideForm);
-  const [createUploading, setCreateUploading] = useState(false);
   const [createBgUploading, setCreateBgUploading] = useState(false);
   const [createSubmitting, setCreateSubmitting] = useState(false);
-  const createFileRef = useRef<HTMLInputElement>(null);
   const createBgFileRef = useRef<HTMLInputElement>(null);
 
   const [editing, setEditing] = useState<CarouselSlide | null>(null);
   const [editForm, setEditForm] = useState<SlideFormState>(emptySlideForm);
-  const [editUploading, setEditUploading] = useState(false);
   const [editBgUploading, setEditBgUploading] = useState(false);
   const [editSubmitting, setEditSubmitting] = useState(false);
-  const editFileRef = useRef<HTMLInputElement>(null);
   const editBgFileRef = useRef<HTMLInputElement>(null);
 
   const [deleteTarget, setDeleteTarget] = useState<CarouselSlide | null>(null);
   const [imageRemoveTarget, setImageRemoveTarget] = useState<
-    { scope: "create" | "edit"; field: "imageUrl" | "backgroundImageUrl" } | null
+    { scope: "create" | "edit"; field: "backgroundImageUrl" } | null
   >(null);
 
   const confirmRemoveImage = () => {
@@ -682,14 +676,14 @@ function CarouselTab() {
 
   const create = async (e: FormEvent) => {
     e.preventDefault();
-    if (!createForm.imageUrl) {
-      toast.error("Görsel gerekli.");
+    if (createForm.backgroundType === "image" && !createForm.backgroundImageUrl) {
+      toast.error("Arka plan görseli gerekli.");
       return;
     }
     setCreateSubmitting(true);
     try {
       await gatewayApi.createCarouselSlide({
-        imageUrl: createForm.imageUrl,
+        imageUrl: "",
         eyebrow: createForm.eyebrow.trim() || null,
         title: createForm.title.trim() || null,
         description: createForm.description.trim() || null,
@@ -715,7 +709,6 @@ function CarouselTab() {
   const startEdit = (slide: CarouselSlide) => {
     setEditing(slide);
     setEditForm({
-      imageUrl: slide.imageUrl,
       eyebrow: slide.eyebrow ?? "",
       title: slide.title ?? "",
       description: slide.description ?? "",
@@ -732,14 +725,14 @@ function CarouselTab() {
   const submitEdit = async (e: FormEvent) => {
     e.preventDefault();
     if (!editing) return;
-    if (!editForm.imageUrl) {
-      toast.error("Görsel gerekli.");
+    if (editForm.backgroundType === "image" && !editForm.backgroundImageUrl) {
+      toast.error("Arka plan görseli gerekli.");
       return;
     }
     setEditSubmitting(true);
     try {
       await gatewayApi.updateCarouselSlide(editing.id, {
-        imageUrl: editForm.imageUrl,
+        imageUrl: "",
         eyebrow: editForm.eyebrow.trim() || null,
         title: editForm.title.trim() || null,
         description: editForm.description.trim() || null,
@@ -789,52 +782,6 @@ function CarouselTab() {
               <DialogTitle>Yeni Slayt</DialogTitle>
             </DialogHeader>
             <form onSubmit={create} className="flex flex-col gap-3">
-              <div className="grid gap-1.5">
-                <Label>Görsel</Label>
-                <div className="flex items-center gap-3">
-                  {createForm.imageUrl ? (
-                    <div className="relative">
-                      {/* eslint-disable-next-line @next/next/no-img-element -- admin panelde yüklenen keyfi harici görsel */}
-                      <img src={`${GATEWAY_URL}${createForm.imageUrl}`} alt="" className="h-12 w-20 rounded border border-border object-cover" />
-                      <button
-                        type="button"
-                        onClick={() => setImageRemoveTarget({ scope: "create", field: "imageUrl" })}
-                        aria-label="Görseli kaldır"
-                        className="absolute -top-1.5 -right-1.5 flex size-4 items-center justify-center rounded-full bg-destructive text-white"
-                      >
-                        <X className="size-3" />
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex h-12 w-20 items-center justify-center rounded border border-dashed border-border text-[10px] text-muted-foreground">
-                      Yok
-                    </div>
-                  )}
-                  <input
-                    ref={createFileRef}
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp,image/gif"
-                    className="hidden"
-                    onChange={async (e) => {
-                      const file = e.target.files?.[0];
-                      e.target.value = "";
-                      if (!file) return;
-                      setCreateUploading(true);
-                      try {
-                        const url = await gatewayApi.uploadImage(file, "carousel");
-                        setCreateForm((f) => ({ ...f, imageUrl: url }));
-                      } catch (err) {
-                        toast.error(err instanceof Error ? err.message : "Görsel yüklenemedi.");
-                      } finally {
-                        setCreateUploading(false);
-                      }
-                    }}
-                  />
-                  <Button type="button" variant="outline" size="sm" disabled={createUploading} onClick={() => createFileRef.current?.click()}>
-                    {createUploading ? "Yükleniyor…" : "Görsel Seç"}
-                  </Button>
-                </div>
-              </div>
               <div className="grid gap-1.5">
                 <Label htmlFor="create-slide-eyebrow">Üst Etiket (opsiyonel)</Label>
                 <Input
@@ -1008,8 +955,15 @@ function CarouselTab() {
               slides.map((slide) => (
                 <TableRow key={slide.id}>
                   <TableCell>
-                    {/* eslint-disable-next-line @next/next/no-img-element -- admin panelde yüklenen keyfi harici görsel */}
-                    <img src={`${GATEWAY_URL}${slide.imageUrl}`} alt="" className="h-10 w-16 rounded border border-border object-cover" />
+                    {slide.backgroundType === "image" && slide.backgroundImageUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element -- admin panelde yüklenen keyfi harici görsel
+                      <img src={`${GATEWAY_URL}${slide.backgroundImageUrl}`} alt="" className="h-10 w-16 rounded border border-border object-cover" />
+                    ) : (
+                      <div
+                        className="h-10 w-16 rounded border border-border"
+                        style={{ backgroundColor: slide.backgroundColor ?? DEFAULT_SLIDE_BACKGROUND }}
+                      />
+                    )}
                   </TableCell>
                   <TableCell>{slide.title ?? "—"}</TableCell>
                   <TableCell>{slide.sortOrder}</TableCell>
@@ -1047,52 +1001,6 @@ function CarouselTab() {
             <DialogTitle>Slaytı Düzenle</DialogTitle>
           </DialogHeader>
           <form onSubmit={submitEdit} className="flex flex-col gap-3">
-            <div className="grid gap-1.5">
-              <Label>Görsel</Label>
-              <div className="flex items-center gap-3">
-                {editForm.imageUrl ? (
-                  <div className="relative">
-                    {/* eslint-disable-next-line @next/next/no-img-element -- admin panelde yüklenen keyfi harici görsel */}
-                    <img src={`${GATEWAY_URL}${editForm.imageUrl}`} alt="" className="h-12 w-20 rounded border border-border object-cover" />
-                    <button
-                      type="button"
-                      onClick={() => setImageRemoveTarget({ scope: "edit", field: "imageUrl" })}
-                      aria-label="Görseli kaldır"
-                      className="absolute -top-1.5 -right-1.5 flex size-4 items-center justify-center rounded-full bg-destructive text-white"
-                    >
-                      <X className="size-3" />
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex h-12 w-20 items-center justify-center rounded border border-dashed border-border text-[10px] text-muted-foreground">
-                    Yok
-                  </div>
-                )}
-                <input
-                  ref={editFileRef}
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp,image/gif"
-                  className="hidden"
-                  onChange={async (e) => {
-                    const file = e.target.files?.[0];
-                    e.target.value = "";
-                    if (!file) return;
-                    setEditUploading(true);
-                    try {
-                      const url = await gatewayApi.uploadImage(file, "carousel");
-                      setEditForm((f) => ({ ...f, imageUrl: url }));
-                    } catch (err) {
-                      toast.error(err instanceof Error ? err.message : "Görsel yüklenemedi.");
-                    } finally {
-                      setEditUploading(false);
-                    }
-                  }}
-                />
-                <Button type="button" variant="outline" size="sm" disabled={editUploading} onClick={() => editFileRef.current?.click()}>
-                  {editUploading ? "Yükleniyor…" : "Değiştir"}
-                </Button>
-              </div>
-            </div>
             <div className="grid gap-1.5">
               <Label htmlFor="edit-slide-eyebrow">Üst Etiket (opsiyonel)</Label>
               <Input

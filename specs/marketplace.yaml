@@ -15,6 +15,11 @@ entities:
         type: string
         maxLength: 20
         default: product
+      icon:
+        # Kategori kartında gösterilecek react-icons anahtarı (bkz. frontend categoryIcons.tsx).
+        type: string
+        maxLength: 30
+        default: tag
     relations:
       parent:
         kind: many-to-one
