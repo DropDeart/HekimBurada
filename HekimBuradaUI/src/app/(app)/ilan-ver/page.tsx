@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { X } from "lucide-react";
+import { Info, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,7 +12,9 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { ListingImage } from "@/components/ListingImage";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { ListingPreviewCard } from "@/components/listing/ListingPreviewCard";
 import {
   identityApi,
   MARKETPLACE_URL,
@@ -46,11 +48,31 @@ function stepsForKind(kind: ListingKind): { id: StepId; label: string }[] {
 }
 
 const PAYMENT_METHODS = [
-  { id: "bagis", label: "Bağış ile Ödeme" },
-  { id: "bedelsiz", label: "Bedelsiz Ürün" },
-  { id: "referans", label: "Referans Linkli %50+ İndirim" },
-  { id: "kart", label: "Kredi Kartı" },
-  { id: "elden", label: "Elden Teslim" },
+  {
+    id: "bagis",
+    label: "Bağış ile Ödeme",
+    hint: "Ürün bedeli kadar belirli bir noktaya bağış yapıp dekontunu paylaşınız.",
+  },
+  {
+    id: "bedelsiz",
+    label: "Bedelsiz Ürün",
+    hint: "Bu ürün için fiyat bilgisi bulunmamaktadır. İhtiyaç sahibine devredilecektir.",
+  },
+  {
+    id: "referans",
+    label: "Referans Linkli %50+ İndirim",
+    hint: "Ürünün orijinal fiyatı belirtilmeli, belirlenecek satış fiyatı bu fiyatın en fazla yarısı (%50 veya daha fazla indirim) olmalıdır.",
+  },
+  {
+    id: "kart",
+    label: "Kredi Kartı",
+    hint: "Alıcı, ödemeyi kredi kartıyla yapar.",
+  },
+  {
+    id: "elden",
+    label: "Elden Teslim",
+    hint: "Teklif sonucu taraflar ücretleri elden teslim edeceklerdir.",
+  },
 ];
 
 const CONDITIONS = ["Yeni", "Az Kullanılmış", "Kullanılmış"];
@@ -189,32 +211,6 @@ export default function IlanVerPage() {
     );
   }
 
-  const previewBody = (
-    <>
-      {imageUrls.length > 0 ? (
-        // eslint-disable-next-line @next/next/no-img-element -- kullanıcı tarafından yüklenen keyfi harici görsel
-        <img src={`${MARKETPLACE_URL}${imageUrls[0]}`} alt="" className="h-[140px] w-full object-cover" />
-      ) : (
-        <div className="flex h-[140px] items-center justify-center bg-[repeating-linear-gradient(135deg,#EEF1F2,#EEF1F2_12px,#E4E8EA_12px,#E4E8EA_24px)] font-mono text-[11px] text-[#9AA1A5]">
-          İLAN GÖRSELİ
-        </div>
-      )}
-      <div className="p-3.5">
-        <div className="mb-1 text-[11px] font-bold text-brand">
-          {selectedCategory?.name ?? "Kategori seçilmedi"}
-        </div>
-        <div className="mb-1 text-sm font-bold text-foreground">{title || "İlan Başlığı"}</div>
-        {kind === "job" ? (
-          <div className="text-[13px] text-muted-foreground">İlan (fiyatsız)</div>
-        ) : (
-          <div className="text-[15px] font-bold text-brand">
-            {price ? currency(Number(price)) : "Fiyat belirtilmedi"}
-          </div>
-        )}
-      </div>
-    </>
-  );
-
   return (
     <div className="px-6 py-7 sm:px-10">
       <div className="mb-7 flex items-center justify-center">
@@ -283,18 +279,18 @@ export default function IlanVerPage() {
                 {categoryId && subCategories.length > 0 && (
                   <div className="max-w-xs">
                     <h4 className="mb-2.5 text-xs font-bold text-muted-foreground">Alt Kategori</h4>
-                    <select
-                      value={subId ?? ""}
-                      onChange={(e) => setSubId(e.target.value || null)}
-                      className="w-full rounded-lg border border-input bg-white px-3 py-2 text-[13px]"
-                    >
-                      <option value="">Alt kategori seçin</option>
-                      {subCategories.map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.name}
-                        </option>
-                      ))}
-                    </select>
+                    <Select value={subId ?? ""} onValueChange={(v) => setSubId(v || null)}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Alt kategori seçin" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {subCategories.map((s) => (
+                          <SelectItem key={s.id} value={s.id}>
+                            {s.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 )}
               </div>
@@ -327,33 +323,34 @@ export default function IlanVerPage() {
                   {kind !== "job" && (
                     <div>
                       <label className="text-xs text-muted-foreground">Durum</label>
-                      <select
-                        value={condition}
-                        onChange={(e) => setCondition(e.target.value)}
-                        className="w-full border-0 border-b border-input bg-transparent py-2 text-sm outline-none"
-                      >
-                        {CONDITIONS.map((c) => (
-                          <option key={c} value={c}>
-                            {c}
-                          </option>
-                        ))}
-                      </select>
+                      <Select value={condition} onValueChange={setCondition}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {CONDITIONS.map((c) => (
+                            <SelectItem key={c} value={c}>
+                              {c}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                   )}
                   <div>
                     <label className="text-xs text-muted-foreground">Şehir</label>
-                    <select
-                      value={city}
-                      onChange={(e) => setCity(e.target.value)}
-                      className="w-full border-0 border-b border-input bg-transparent py-2 text-sm outline-none"
-                    >
-                      <option value="">Seçiniz</option>
-                      {provinces.map((p) => (
-                        <option key={p.id} value={p.name}>
-                          {p.name}
-                        </option>
-                      ))}
-                    </select>
+                    <Select value={city} onValueChange={setCity}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Seçiniz" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {provinces.map((p) => (
+                          <SelectItem key={p.id} value={p.name}>
+                            {p.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
                 {kind === "big_ticket" && (
@@ -417,13 +414,26 @@ export default function IlanVerPage() {
                       key={p.id}
                       onClick={() => setPaymentMethod(p.id)}
                       className={cn(
-                        "rounded-lg border-[1.5px] px-3.5 py-3 text-left text-[13px] font-semibold",
+                        "flex items-center justify-between gap-2 rounded-lg border-[1.5px] px-3.5 py-3 text-left text-[13px] font-semibold",
                         paymentMethod === p.id
                           ? "border-brand bg-[#F3FBF7]"
                           : "border-border bg-white"
                       )}
                     >
                       {p.label}
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span
+                            role="button"
+                            tabIndex={0}
+                            onClick={(e) => e.stopPropagation()}
+                            className="flex size-5 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+                          >
+                            <Info className="size-4" />
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent side="top">{p.hint}</TooltipContent>
+                      </Tooltip>
                     </button>
                   ))}
                 </div>
@@ -498,17 +508,21 @@ export default function IlanVerPage() {
 
                 <div>
                   <label className="text-xs text-muted-foreground">İlan Süresi</label>
-                  <select
-                    value={durationDays}
-                    onChange={(e) => setDurationDays(Number(e.target.value) as (typeof DURATION_OPTIONS)[number])}
-                    className="w-full border-0 border-b border-input bg-transparent py-2 text-sm outline-none"
+                  <Select
+                    value={String(durationDays)}
+                    onValueChange={(v) => setDurationDays(Number(v) as (typeof DURATION_OPTIONS)[number])}
                   >
-                    {DURATION_OPTIONS.map((d) => (
-                      <option key={d} value={d}>
-                        {d} gün
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {DURATION_OPTIONS.map((d) => (
+                        <SelectItem key={d} value={String(d)}>
+                          {d} gün
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <p className="mt-1 text-[11px] text-muted-foreground">
                     İlanınız bu süre sonunda otomatik olarak süresi dolmuş sayılır.
                   </p>
@@ -530,40 +544,22 @@ export default function IlanVerPage() {
                       Önizle
                     </Button>
                   </DialogTrigger>
-                  <DialogContent>
+                  <DialogContent className="sm:max-w-2xl">
                     <DialogHeader>
                       <DialogTitle>İlan Önizlemesi</DialogTitle>
                     </DialogHeader>
-                    <div className="overflow-hidden rounded-[10px] border border-border">
-                      {imageUrls.length > 0 ? (
-                        <ListingImage images={JSON.stringify(imageUrls)} alt={title} className="h-[220px] w-full" />
-                      ) : (
-                        <div className="flex h-[220px] items-center justify-center bg-[repeating-linear-gradient(135deg,#EEF1F2,#EEF1F2_12px,#E4E8EA_12px,#E4E8EA_24px)] font-mono text-[11px] text-[#9AA1A5]">
-                          İLAN GÖRSELİ
-                        </div>
-                      )}
-                      <div className="p-4">
-                        <div className="mb-1 text-[11px] font-bold text-brand">
-                          {selectedCategory?.name ?? "Kategori seçilmedi"}
-                        </div>
-                        <div className="mb-1.5 text-lg font-bold text-foreground">
-                          {title || "İlan Başlığı"}
-                        </div>
-                        {kind !== "job" && (
-                          <div className="mb-2 text-lg font-bold text-brand">
-                            {price ? currency(Number(price)) : "Fiyat belirtilmedi"}
-                          </div>
-                        )}
-                        <div className="mb-3 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                          {kind !== "job" && <span>{condition}</span>}
-                          {city && <span>· {city}</span>}
-                          {isFeatured && <span className="font-semibold text-brand">· Öne Çıkan</span>}
-                        </div>
-                        <p className="text-sm whitespace-pre-wrap text-foreground">
-                          {description || "Açıklama girilmedi."}
-                        </p>
-                      </div>
-                    </div>
+                    <ListingPreviewCard
+                      variant="full"
+                      images={imageUrls}
+                      title={title}
+                      categoryName={selectedCategory?.name ?? ""}
+                      price={price ? Number(price) : null}
+                      showPrice={kind !== "job"}
+                      condition={kind !== "job" ? condition : undefined}
+                      city={city}
+                      description={description}
+                      isFeatured={isFeatured}
+                    />
                   </DialogContent>
                 </Dialog>
 
@@ -597,7 +593,17 @@ export default function IlanVerPage() {
           <div className="mb-2 text-xs font-semibold text-muted-foreground">
             CANLI ÖNİZLEME
           </div>
-          <div className="overflow-hidden rounded-[10px] border border-border bg-white">{previewBody}</div>
+          <ListingPreviewCard
+            variant="compact"
+            images={imageUrls}
+            title={title}
+            categoryName={selectedCategory?.name ?? ""}
+            price={price ? Number(price) : null}
+            showPrice={kind !== "job"}
+            city={city}
+            description={description}
+            isFeatured={isFeatured}
+          />
         </div>
       </div>
     </div>

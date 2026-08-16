@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { ListingImage } from "@/components/ListingImage";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { marketplaceApi, type Listing, type MarketplaceCategory } from "@/lib/api";
 import { useHasToken } from "@/lib/auth";
 import { CategoryIcon } from "@/lib/categoryIcons";
@@ -240,17 +241,18 @@ function IlanlarContent() {
             <div className="text-[13px] text-muted-foreground">
               {loading ? "Yükleniyor…" : `${filtered.length} ilan bulundu`}
             </div>
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as SortOption)}
-              className="rounded-md border border-input px-2 py-1.5 text-xs outline-none"
-            >
-              {(Object.keys(SORT_LABELS) as SortOption[]).map((opt) => (
-                <option key={opt} value={opt}>
-                  {SORT_LABELS[opt]}
-                </option>
-              ))}
-            </select>
+            <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
+              <SelectTrigger className="h-auto w-auto gap-1.5 px-2 py-1.5 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {(Object.keys(SORT_LABELS) as SortOption[]).map((opt) => (
+                  <SelectItem key={opt} value={opt}>
+                    {SORT_LABELS[opt]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {!loading && filtered.length === 0 ? (
