@@ -594,10 +594,10 @@ export default function ListingDetailPage() {
                         />
                       </div>
                       <div>
-                        <label className="mb-1 block text-xs text-muted-foreground">Bağış Dekontu (görsel)</label>
+                        <label className="mb-1 block text-xs text-muted-foreground">Bağış Dekontu (JPEG, PNG veya PDF)</label>
                         <input
                           type="file"
-                          accept="image/jpeg,image/png,image/webp,image/gif"
+                          accept="image/jpeg,image/png,application/pdf"
                           disabled={donationUploading}
                           onChange={async (e) => {
                             const file = e.target.files?.[0];

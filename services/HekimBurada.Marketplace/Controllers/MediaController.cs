@@ -11,7 +11,9 @@ public sealed class MediaController : BaseController
 {
     private static readonly HashSet<string> AllowedContentTypes = new(StringComparer.OrdinalIgnoreCase)
     {
-        "image/jpeg", "image/png", "image/webp", "image/gif",
+        // application/pdf: bağış dekontu gibi belgeler için — görsel dışı tek istisna, bkz.
+        // ilanlar/[id]/page.tsx'teki dekont yükleme alanı.
+        "image/jpeg", "image/png", "image/webp", "image/gif", "application/pdf",
     };
 
     private const long MaxFileBytes = 5 * 1024 * 1024; // 5 MB
@@ -37,7 +39,7 @@ public sealed class MediaController : BaseController
 
         if (!AllowedContentTypes.Contains(file.ContentType))
         {
-            return BadRequest(new { error = "Sadece JPEG, PNG, WEBP veya GIF yükleyebilirsiniz." });
+            return BadRequest(new { error = "Sadece JPEG, PNG, WEBP, GIF veya PDF yükleyebilirsiniz." });
         }
 
         var extension = file.ContentType switch
@@ -46,6 +48,7 @@ public sealed class MediaController : BaseController
             "image/png" => ".png",
             "image/webp" => ".webp",
             "image/gif" => ".gif",
+            "application/pdf" => ".pdf",
             _ => ".bin",
         };
 
