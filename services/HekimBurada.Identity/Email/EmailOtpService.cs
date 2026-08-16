@@ -56,7 +56,7 @@ public sealed class EmailOtpService
     private static string BuildOtpEmailHtml(string greeting, string code, int lifetimeMinutes)
     {
         var formattedCode = code.Length == 6 ? $"{code[..3]} {code[3..]}" : code;
-        const string logoUrl = "https://gateway.hekimburada.com/uploads/site/7c12a230492a435f9df2d0c524cd6da1.png";
+        const string logoUrl = "https://gateway.hekimburada.com/uploads/site/b2da57bafaef4f749ba4a1d45a28e2bd.png";
 
         return $"""
             <!DOCTYPE html>
@@ -72,8 +72,7 @@ public sealed class EmailOtpService
             <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" width="600" style="width:600px; max-width:600px; margin:0 auto; background:#ffffff; border-collapse:collapse;">
             <tr>
             <td width="600" style="padding:32px 40px 24px 40px; border-bottom:2px solid #201e1d;">
-            <img src="{logoUrl}" alt="HekimBurada" width="136" height="32" style="display:block; width:136px; height:32px;">
-            <div style="padding-top:8px; font-family:Arial,Helvetica,sans-serif; font-size:11px; line-height:14px; font-weight:bold; letter-spacing:3px; color:#1f7a56;">PAZARYERİ &amp; TOPLULUK</div>
+            <img src="{logoUrl}" alt="HekimBurada" width="185" height="44" style="display:block; width:185px; height:44px;">
             </td>
             </tr>
             <tr>
