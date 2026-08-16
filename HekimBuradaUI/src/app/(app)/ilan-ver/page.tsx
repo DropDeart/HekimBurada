@@ -5,7 +5,23 @@ import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { identityApi, MARKETPLACE_URL, marketplaceApi, type ListingKind, type MarketplaceCategory } from "@/lib/api";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { ListingImage } from "@/components/ListingImage";
+import {
+  identityApi,
+  MARKETPLACE_URL,
+  marketplaceApi,
+  regionsApi,
+  type ListingKind,
+  type MarketplaceCategory,
+  type Province,
+} from "@/lib/api";
 import { auth } from "@/lib/auth";
 import { CategoryIcon } from "@/lib/categoryIcons";
 import { cn } from "@/lib/utils";
@@ -39,6 +55,15 @@ const PAYMENT_METHODS = [
 
 const CONDITIONS = ["Yeni", "Az Kullanılmış", "Kullanılmış"];
 
+// BaseForge CodeGen'in ürettiği Listing.durationDays alanı yalnızca bu dört değeri kabul ediyor
+// (bkz. api.ts CreateListingInput — durationDays: 15 | 30 | 60 | 90).
+const DURATION_OPTIONS = [15, 30, 60, 90] as const;
+
+// Öne çıkarma şu an bilgilendirme amaçlı — platformda henüz gerçek bir ödeme altyapısı (ör. iyzico)
+// yok, bu yüzden burada gösterilen ücret tahsil edilmiyor (bkz. proje kararı). Ödeme sağlayıcı
+// entegre edildiğinde bu sabit değer gerçek bir tahsilat akışına bağlanmalı.
+const FEATURED_PRICE_TL = 49;
+
 function currency(n: number) {
   return `${n.toLocaleString("tr-TR")} ₺`;
 }
@@ -50,6 +75,7 @@ export default function IlanVerPage() {
 
   const [stepIndex, setStepIndex] = useState(0);
   const [categories, setCategories] = useState<MarketplaceCategory[]>([]);
+  const [provinces, setProvinces] = useState<Province[]>([]);
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [subId, setSubId] = useState<string | null>(null);
   const [title, setTitle] = useState("");
@@ -63,6 +89,7 @@ export default function IlanVerPage() {
   const [originalPrice, setOriginalPrice] = useState("");
   const [referansUrl, setReferansUrl] = useState("");
   const [isFeatured, setIsFeatured] = useState(false);
+  const [durationDays, setDurationDays] = useState<(typeof DURATION_OPTIONS)[number]>(30);
   const [publishing, setPublishing] = useState(false);
 
   useEffect(() => {
@@ -80,6 +107,8 @@ export default function IlanVerPage() {
       .listCategories({ pageSize: 100 })
       .then((r) => setCategories(r.items))
       .catch(() => {});
+
+    regionsApi.list().then(setProvinces).catch(() => {});
   }, []);
 
   const topCategories = categories.filter((c) => !c.parentId);
@@ -130,12 +159,12 @@ export default function IlanVerPage() {
         referansUrl: effectiveReferansUrl,
         city,
         images: JSON.stringify(imageUrls),
-        durationDays: 30,
+        durationDays,
         isFeatured,
         categoryId: subId ?? categoryId,
         sellerId: userId,
       });
-      toast.success("İlanınız yayınlandı.");
+      toast.success("İlanınız onaya gönderildi — admin onayladıktan sonra yayına alınacak.");
       router.push("/ilanlarim");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "İlan yayınlanamadı.");
@@ -160,20 +189,52 @@ export default function IlanVerPage() {
     );
   }
 
+  const previewBody = (
+    <>
+      {imageUrls.length > 0 ? (
+        // eslint-disable-next-line @next/next/no-img-element -- kullanıcı tarafından yüklenen keyfi harici görsel
+        <img src={`${MARKETPLACE_URL}${imageUrls[0]}`} alt="" className="h-[140px] w-full object-cover" />
+      ) : (
+        <div className="flex h-[140px] items-center justify-center bg-[repeating-linear-gradient(135deg,#EEF1F2,#EEF1F2_12px,#E4E8EA_12px,#E4E8EA_24px)] font-mono text-[11px] text-[#9AA1A5]">
+          İLAN GÖRSELİ
+        </div>
+      )}
+      <div className="p-3.5">
+        <div className="mb-1 text-[11px] font-bold text-brand">
+          {selectedCategory?.name ?? "Kategori seçilmedi"}
+        </div>
+        <div className="mb-1 text-sm font-bold text-foreground">{title || "İlan Başlığı"}</div>
+        {kind === "job" ? (
+          <div className="text-[13px] text-muted-foreground">İlan (fiyatsız)</div>
+        ) : (
+          <div className="text-[15px] font-bold text-brand">
+            {price ? currency(Number(price)) : "Fiyat belirtilmedi"}
+          </div>
+        )}
+      </div>
+    </>
+  );
+
   return (
     <div className="px-6 py-7 sm:px-10">
-      <div className="mb-7 flex flex-wrap justify-center gap-3.5">
-        {steps.map((s, i) => {
-          const isDone = safeStepIndex > i;
-          const isActive = safeStepIndex === i;
-          return (
-            <div key={s.id} className="flex items-center gap-2">
+      <div className="mb-7 flex items-center justify-center">
+        {steps.map((s, i) => (
+          <div key={s.id} className="flex items-center">
+            {i > 0 && (
               <div
                 className={cn(
-                  "flex size-6.5 items-center justify-center rounded-full text-xs font-bold",
-                  isDone
+                  "h-0.5 w-6 shrink-0 transition-colors duration-300 sm:w-10",
+                  safeStepIndex >= i ? "bg-brand" : "bg-border"
+                )}
+              />
+            )}
+            <div className="flex items-center gap-2 px-1">
+              <div
+                className={cn(
+                  "flex size-6.5 shrink-0 items-center justify-center rounded-full text-xs font-bold transition-colors duration-300",
+                  safeStepIndex > i
                     ? "bg-brand text-white"
-                    : isActive
+                    : safeStepIndex === i
                       ? "bg-[#141718] text-white"
                       : "bg-border text-muted-foreground"
                 )}
@@ -182,259 +243,336 @@ export default function IlanVerPage() {
               </div>
               <span
                 className={cn(
-                  "text-sm font-semibold",
-                  isActive ? "text-foreground" : "text-muted-foreground"
+                  "hidden text-sm font-semibold whitespace-nowrap transition-colors duration-300 sm:inline",
+                  safeStepIndex === i ? "text-foreground" : "text-muted-foreground"
                 )}
               >
                 {s.label}
               </span>
             </div>
-          );
-        })}
+          </div>
+        ))}
       </div>
 
       <div className="mx-auto grid max-w-4xl grid-cols-1 gap-8 lg:grid-cols-[1.3fr_1fr]">
         <div className="min-h-[360px] rounded-[10px] border border-border bg-white p-7">
-          {currentStepId === "category" && (
-            <div>
-              <h3 className="mb-5 text-lg font-bold text-foreground">Kategori Seçin</h3>
-              <div className="mb-5 grid grid-cols-2 gap-2.5">
-                {topCategories.map((c) => (
-                  <button
-                    key={c.id}
-                    onClick={() => {
-                      setCategoryId(c.id);
-                      setSubId(null);
-                    }}
-                    className={cn(
-                      "flex items-center gap-2 rounded-lg border-[1.5px] p-3 text-left text-[13px] font-semibold",
-                      categoryId === c.id
-                        ? "border-brand bg-[#F3FBF7] text-brand"
-                        : "border-border bg-white"
-                    )}
-                  >
-                    <CategoryIcon icon={c.icon} className="size-4 shrink-0" />
-                    {c.name}
-                  </button>
-                ))}
-              </div>
-              {categoryId && subCategories.length > 0 && (
-                <div className="max-w-xs">
-                  <h4 className="mb-2.5 text-xs font-bold text-muted-foreground">Alt Kategori</h4>
-                  <select
-                    value={subId ?? ""}
-                    onChange={(e) => setSubId(e.target.value || null)}
-                    className="w-full rounded-lg border border-input bg-white px-3 py-2 text-[13px]"
-                  >
-                    <option value="">Alt kategori seçin</option>
-                    {subCategories.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-            </div>
-          )}
-
-          {currentStepId === "info" && (
-            <div className="flex flex-col gap-4">
-              <h3 className="text-lg font-bold text-foreground">
-                {kind === "product" ? "Ürün Bilgileri" : "İlan Bilgileri"}
-              </h3>
+          <div key={currentStepId} className="animate-in fade-in slide-in-from-right-4 duration-300">
+            {currentStepId === "category" && (
               <div>
-                <label className="text-xs text-muted-foreground">İlan Başlığı</label>
-                <input
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder={kind === "job" ? "Örn. Aile Hekimliği Uzmanı Aranıyor" : "Örn. Portatif Ultrason Cihazı"}
-                  className="w-full border-0 border-b border-input bg-transparent py-2 text-sm outline-none"
-                />
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground">Açıklama</label>
-                <textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder={kind === "job" ? "Pozisyon, çalışma şartları vb." : "Ürün durumu, kullanım süresi vb."}
-                  className="min-h-[90px] w-full rounded-lg border border-input p-2.5 text-[13px] outline-none"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3.5">
-                {kind !== "job" && (
-                  <div>
-                    <label className="text-xs text-muted-foreground">Durum</label>
-                    <select
-                      value={condition}
-                      onChange={(e) => setCondition(e.target.value)}
-                      className="w-full border-0 border-b border-input bg-transparent py-2 text-sm outline-none"
+                <h3 className="mb-5 text-lg font-bold text-foreground">Kategori Seçin</h3>
+                <div className="mb-5 grid grid-cols-2 gap-2.5">
+                  {topCategories.map((c) => (
+                    <button
+                      key={c.id}
+                      onClick={() => {
+                        setCategoryId(c.id);
+                        setSubId(null);
+                      }}
+                      className={cn(
+                        "flex items-center gap-2 rounded-lg border-[1.5px] p-3 text-left text-[13px] font-semibold",
+                        categoryId === c.id
+                          ? "border-brand bg-[#F3FBF7] text-brand"
+                          : "border-border bg-white"
+                      )}
                     >
-                      {CONDITIONS.map((c) => (
-                        <option key={c} value={c}>
-                          {c}
+                      <CategoryIcon icon={c.icon} className="size-4 shrink-0" />
+                      {c.name}
+                    </button>
+                  ))}
+                </div>
+                {categoryId && subCategories.length > 0 && (
+                  <div className="max-w-xs">
+                    <h4 className="mb-2.5 text-xs font-bold text-muted-foreground">Alt Kategori</h4>
+                    <select
+                      value={subId ?? ""}
+                      onChange={(e) => setSubId(e.target.value || null)}
+                      className="w-full rounded-lg border border-input bg-white px-3 py-2 text-[13px]"
+                    >
+                      <option value="">Alt kategori seçin</option>
+                      {subCategories.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name}
                         </option>
                       ))}
                     </select>
                   </div>
                 )}
-                <div>
-                  <label className="text-xs text-muted-foreground">Şehir</label>
-                  <input
-                    value={city}
-                    onChange={(e) => setCity(e.target.value)}
-                    placeholder="Örn. İstanbul"
-                    className="w-full border-0 border-b border-input bg-transparent py-2 text-sm outline-none"
-                  />
-                </div>
               </div>
-              {kind === "big_ticket" && (
-                <div>
-                  <label className="text-xs text-muted-foreground">Fiyat</label>
-                  <input
-                    type="number"
-                    value={price}
-                    onChange={(e) => setPrice(e.target.value)}
-                    placeholder="₺"
-                    className="w-full border-0 border-b border-input bg-transparent py-2 text-sm outline-none"
-                  />
-                  <p className="mt-1 text-[11px] text-muted-foreground">
-                    Teslim ve ödeme alıcı-satıcı arasında elden gerçekleşir.
-                  </p>
-                </div>
-              )}
-              <div className="rounded-[10px] border-[1.5px] border-dashed border-[#C9CFD2] bg-[#FAFBFB] p-4.5 text-center">
-                <div className="mb-2 text-sm font-semibold text-foreground">Fotoğraflar</div>
-                {imageUrls.length > 0 && (
-                  <div className="mb-3 flex flex-wrap justify-center gap-2">
-                    {imageUrls.map((url) => (
-                      <div key={url} className="relative h-14 w-20 overflow-hidden rounded-md bg-white">
-                        {/* eslint-disable-next-line @next/next/no-img-element -- kullanıcı tarafından yüklenen keyfi harici görsel */}
-                        <img src={`${MARKETPLACE_URL}${url}`} alt="" className="h-full w-full object-cover" />
-                        <button
-                          type="button"
-                          onClick={() => setImageUrls((prev) => prev.filter((u) => u !== url))}
-                          aria-label="Görseli kaldır"
-                          className="absolute -top-1 -right-1 flex size-4 items-center justify-center rounded-full bg-destructive text-white"
-                        >
-                          <X className="size-3" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <label className="inline-block cursor-pointer rounded-md border border-input bg-white px-3.5 py-1.5 text-[13px] font-semibold">
-                  {uploading ? "Yükleniyor…" : "Fotoğraf Ekle"}
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp,image/gif"
-                    className="hidden"
-                    disabled={uploading}
-                    onChange={handlePhotoSelect}
-                  />
-                </label>
-              </div>
-            </div>
-          )}
+            )}
 
-          {currentStepId === "payment" && (
-            <div>
-              <h3 className="mb-1.5 text-lg font-bold text-foreground">Ödeme Yöntemi</h3>
-              <p className="mb-4.5 text-xs text-muted-foreground">
-                Bu ilan için alıcıların kullanabileceği ödeme yöntemini seçin.
-              </p>
-              <div className="mb-4 flex flex-col gap-2.5">
-                {PAYMENT_METHODS.map((p) => (
-                  <button
-                    key={p.id}
-                    onClick={() => setPaymentMethod(p.id)}
-                    className={cn(
-                      "rounded-lg border-[1.5px] px-3.5 py-3 text-left text-[13px] font-semibold",
-                      paymentMethod === p.id
-                        ? "border-brand bg-[#F3FBF7]"
-                        : "border-border bg-white"
-                    )}
-                  >
-                    {p.label}
-                  </button>
-                ))}
-              </div>
-              <div className="grid grid-cols-2 gap-3.5">
+            {currentStepId === "info" && (
+              <div className="flex flex-col gap-4">
+                <h3 className="text-lg font-bold text-foreground">
+                  {kind === "product" ? "Ürün Bilgileri" : "İlan Bilgileri"}
+                </h3>
                 <div>
-                  <label className="text-xs text-muted-foreground">Fiyat</label>
+                  <label className="text-xs text-muted-foreground">İlan Başlığı</label>
                   <input
-                    type="number"
-                    value={price}
-                    onChange={(e) => setPrice(e.target.value)}
-                    placeholder="₺"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder={kind === "job" ? "Örn. Aile Hekimliği Uzmanı Aranıyor" : "Örn. Portatif Ultrason Cihazı"}
                     className="w-full border-0 border-b border-input bg-transparent py-2 text-sm outline-none"
                   />
                 </div>
-                {paymentMethod === "referans" && (
+                <div>
+                  <label className="text-xs text-muted-foreground">Açıklama</label>
+                  <textarea
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder={kind === "job" ? "Pozisyon, çalışma şartları vb." : "Ürün durumu, kullanım süresi vb."}
+                    className="min-h-[90px] w-full rounded-lg border border-input p-2.5 text-[13px] outline-none"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3.5">
+                  {kind !== "job" && (
+                    <div>
+                      <label className="text-xs text-muted-foreground">Durum</label>
+                      <select
+                        value={condition}
+                        onChange={(e) => setCondition(e.target.value)}
+                        className="w-full border-0 border-b border-input bg-transparent py-2 text-sm outline-none"
+                      >
+                        {CONDITIONS.map((c) => (
+                          <option key={c} value={c}>
+                            {c}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                   <div>
-                    <label className="text-xs text-muted-foreground">Orijinal Fiyat</label>
+                    <label className="text-xs text-muted-foreground">Şehir</label>
+                    <select
+                      value={city}
+                      onChange={(e) => setCity(e.target.value)}
+                      className="w-full border-0 border-b border-input bg-transparent py-2 text-sm outline-none"
+                    >
+                      <option value="">Seçiniz</option>
+                      {provinces.map((p) => (
+                        <option key={p.id} value={p.name}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                {kind === "big_ticket" && (
+                  <div>
+                    <label className="text-xs text-muted-foreground">Fiyat</label>
                     <input
                       type="number"
-                      value={originalPrice}
-                      onChange={(e) => setOriginalPrice(e.target.value)}
+                      value={price}
+                      onChange={(e) => setPrice(e.target.value)}
                       placeholder="₺"
+                      className="w-full border-0 border-b border-input bg-transparent py-2 text-sm outline-none"
+                    />
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      Teslim ve ödeme alıcı-satıcı arasında elden gerçekleşir.
+                    </p>
+                  </div>
+                )}
+                <div className="rounded-[10px] border-[1.5px] border-dashed border-[#C9CFD2] bg-[#FAFBFB] p-4.5 text-center">
+                  <div className="mb-2 text-sm font-semibold text-foreground">Fotoğraflar</div>
+                  {imageUrls.length > 0 && (
+                    <div className="mb-3 flex flex-wrap justify-center gap-2">
+                      {imageUrls.map((url) => (
+                        <div key={url} className="relative h-14 w-20 overflow-hidden rounded-md bg-white">
+                          {/* eslint-disable-next-line @next/next/no-img-element -- kullanıcı tarafından yüklenen keyfi harici görsel */}
+                          <img src={`${MARKETPLACE_URL}${url}`} alt="" className="h-full w-full object-cover" />
+                          <button
+                            type="button"
+                            onClick={() => setImageUrls((prev) => prev.filter((u) => u !== url))}
+                            aria-label="Görseli kaldır"
+                            className="absolute -top-1 -right-1 flex size-4 items-center justify-center rounded-full bg-destructive text-white"
+                          >
+                            <X className="size-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <label className="inline-block cursor-pointer rounded-md border border-input bg-white px-3.5 py-1.5 text-[13px] font-semibold">
+                    {uploading ? "Yükleniyor…" : "Fotoğraf Ekle"}
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/gif"
+                      className="hidden"
+                      disabled={uploading}
+                      onChange={handlePhotoSelect}
+                    />
+                  </label>
+                </div>
+              </div>
+            )}
+
+            {currentStepId === "payment" && (
+              <div>
+                <h3 className="mb-1.5 text-lg font-bold text-foreground">Ödeme Yöntemi</h3>
+                <p className="mb-4.5 text-xs text-muted-foreground">
+                  Bu ilan için alıcıların kullanabileceği ödeme yöntemini seçin.
+                </p>
+                <div className="mb-4 flex flex-col gap-2.5">
+                  {PAYMENT_METHODS.map((p) => (
+                    <button
+                      key={p.id}
+                      onClick={() => setPaymentMethod(p.id)}
+                      className={cn(
+                        "rounded-lg border-[1.5px] px-3.5 py-3 text-left text-[13px] font-semibold",
+                        paymentMethod === p.id
+                          ? "border-brand bg-[#F3FBF7]"
+                          : "border-border bg-white"
+                      )}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="grid grid-cols-2 gap-3.5">
+                  <div>
+                    <label className="text-xs text-muted-foreground">Fiyat</label>
+                    <input
+                      type="number"
+                      value={price}
+                      onChange={(e) => setPrice(e.target.value)}
+                      placeholder="₺"
+                      className="w-full border-0 border-b border-input bg-transparent py-2 text-sm outline-none"
+                    />
+                  </div>
+                  {paymentMethod === "referans" && (
+                    <div>
+                      <label className="text-xs text-muted-foreground">Orijinal Fiyat</label>
+                      <input
+                        type="number"
+                        value={originalPrice}
+                        onChange={(e) => setOriginalPrice(e.target.value)}
+                        placeholder="₺"
+                        className="w-full border-0 border-b border-input bg-transparent py-2 text-sm outline-none"
+                      />
+                    </div>
+                  )}
+                </div>
+                {paymentMethod === "referans" && (
+                  <div className="mt-3.5">
+                    <label className="text-xs text-muted-foreground">
+                      Referans / Satın Alma Linki
+                    </label>
+                    <input
+                      value={referansUrl}
+                      onChange={(e) => setReferansUrl(e.target.value)}
+                      placeholder="https://..."
                       className="w-full border-0 border-b border-input bg-transparent py-2 text-sm outline-none"
                     />
                   </div>
                 )}
               </div>
-              {paymentMethod === "referans" && (
-                <div className="mt-3.5">
-                  <label className="text-xs text-muted-foreground">
-                    Referans / Satın Alma Linki
-                  </label>
-                  <input
-                    value={referansUrl}
-                    onChange={(e) => setReferansUrl(e.target.value)}
-                    placeholder="https://..."
-                    className="w-full border-0 border-b border-input bg-transparent py-2 text-sm outline-none"
-                  />
-                </div>
-              )}
-            </div>
-          )}
+            )}
 
-          {currentStepId === "feature" && (
-            <div>
-              <h3 className="mb-5 text-lg font-bold text-foreground">Öne Çıkar</h3>
-              <button
-                onClick={() => setIsFeatured((v) => !v)}
-                className="flex w-full items-center gap-3.5 rounded-[10px] border-[1.5px] border-border p-4 text-left"
-              >
-                <div
-                  className={cn(
-                    "size-5 shrink-0 rounded-[5px]",
-                    isFeatured ? "bg-brand" : "bg-border"
-                  )}
-                />
+            {currentStepId === "feature" && (
+              <div className="flex flex-col gap-5">
                 <div>
-                  <div className="text-sm font-bold text-foreground">
-                    İlanımı 7 Gün Öne Çıkar
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    Ana sayfada &quot;Öne Çıkan İlanlar&quot; bölümünde üstte gösterilir.
-                  </div>
+                  <h3 className="mb-3 text-lg font-bold text-foreground">Öne Çıkar</h3>
+                  <button
+                    onClick={() => setIsFeatured((v) => !v)}
+                    className="flex w-full items-center gap-3.5 rounded-[10px] border-[1.5px] border-border p-4 text-left"
+                  >
+                    <div
+                      className={cn(
+                        "size-5 shrink-0 rounded-[5px]",
+                        isFeatured ? "bg-brand" : "bg-border"
+                      )}
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="text-sm font-bold text-foreground">İlanımı 7 Gün Öne Çıkar</div>
+                        <div className="text-sm font-bold text-brand">{currency(FEATURED_PRICE_TL)}</div>
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Ana sayfada &quot;Öne Çıkan İlanlar&quot; bölümünde üstte gösterilir.
+                      </div>
+                    </div>
+                  </button>
+                  <p className="mt-2 text-[11px] text-muted-foreground">
+                    Ödeme altyapımız henüz devreye alınmadı, bu ücret şu an tahsil edilmiyor.
+                  </p>
                 </div>
-              </button>
-            </div>
-          )}
 
-          {currentStepId === "preview" && (
-            <div>
-              <h3 className="mb-5 text-lg font-bold text-foreground">Önizleme ve Yayınla</h3>
-              <p className="mb-5 text-[13px] text-muted-foreground">
-                İlanınız yayınlandıktan sonra herkese açık hale gelecektir.
-              </p>
-              <Button onClick={publish} disabled={publishing} className="w-full">
-                {publishing ? "Yayınlanıyor…" : "İlanı Yayınla"}
-              </Button>
-            </div>
-          )}
+                <div>
+                  <label className="text-xs text-muted-foreground">İlan Süresi</label>
+                  <select
+                    value={durationDays}
+                    onChange={(e) => setDurationDays(Number(e.target.value) as (typeof DURATION_OPTIONS)[number])}
+                    className="w-full border-0 border-b border-input bg-transparent py-2 text-sm outline-none"
+                  >
+                    {DURATION_OPTIONS.map((d) => (
+                      <option key={d} value={d}>
+                        {d} gün
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    İlanınız bu süre sonunda otomatik olarak süresi dolmuş sayılır.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {currentStepId === "preview" && (
+              <div>
+                <h3 className="mb-5 text-lg font-bold text-foreground">Önizleme ve Yayınla</h3>
+                <p className="mb-5 text-[13px] text-muted-foreground">
+                  İlanınız yayınlandıktan sonra admin onayına gönderilecek, onaylandığında herkese
+                  açık hale gelecektir.
+                </p>
+
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" className="mb-3 w-full">
+                      Önizle
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>İlan Önizlemesi</DialogTitle>
+                    </DialogHeader>
+                    <div className="overflow-hidden rounded-[10px] border border-border">
+                      {imageUrls.length > 0 ? (
+                        <ListingImage images={JSON.stringify(imageUrls)} alt={title} className="h-[220px] w-full" />
+                      ) : (
+                        <div className="flex h-[220px] items-center justify-center bg-[repeating-linear-gradient(135deg,#EEF1F2,#EEF1F2_12px,#E4E8EA_12px,#E4E8EA_24px)] font-mono text-[11px] text-[#9AA1A5]">
+                          İLAN GÖRSELİ
+                        </div>
+                      )}
+                      <div className="p-4">
+                        <div className="mb-1 text-[11px] font-bold text-brand">
+                          {selectedCategory?.name ?? "Kategori seçilmedi"}
+                        </div>
+                        <div className="mb-1.5 text-lg font-bold text-foreground">
+                          {title || "İlan Başlığı"}
+                        </div>
+                        {kind !== "job" && (
+                          <div className="mb-2 text-lg font-bold text-brand">
+                            {price ? currency(Number(price)) : "Fiyat belirtilmedi"}
+                          </div>
+                        )}
+                        <div className="mb-3 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                          {kind !== "job" && <span>{condition}</span>}
+                          {city && <span>· {city}</span>}
+                          {isFeatured && <span className="font-semibold text-brand">· Öne Çıkan</span>}
+                        </div>
+                        <p className="text-sm whitespace-pre-wrap text-foreground">
+                          {description || "Açıklama girilmedi."}
+                        </p>
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+
+                <Button onClick={publish} disabled={publishing} className="w-full">
+                  {publishing ? "Yayınlanıyor…" : "İlanı Yayınla"}
+                </Button>
+              </div>
+            )}
+          </div>
 
           <div className="mt-7 flex justify-between">
             {safeStepIndex > 0 ? (
@@ -459,31 +597,7 @@ export default function IlanVerPage() {
           <div className="mb-2 text-xs font-semibold text-muted-foreground">
             CANLI ÖNİZLEME
           </div>
-          <div className="overflow-hidden rounded-[10px] border border-border bg-white">
-            {imageUrls.length > 0 ? (
-              // eslint-disable-next-line @next/next/no-img-element -- kullanıcı tarafından yüklenen keyfi harici görsel
-              <img src={`${MARKETPLACE_URL}${imageUrls[0]}`} alt="" className="h-[140px] w-full object-cover" />
-            ) : (
-              <div className="flex h-[140px] items-center justify-center bg-[repeating-linear-gradient(135deg,#EEF1F2,#EEF1F2_12px,#E4E8EA_12px,#E4E8EA_24px)] font-mono text-[11px] text-[#9AA1A5]">
-                İLAN GÖRSELİ
-              </div>
-            )}
-            <div className="p-3.5">
-              <div className="mb-1 text-[11px] font-bold text-brand">
-                {selectedCategory?.name ?? "Kategori seçilmedi"}
-              </div>
-              <div className="mb-1 text-sm font-bold text-foreground">
-                {title || "İlan Başlığı"}
-              </div>
-              {kind === "job" ? (
-                <div className="text-[13px] text-muted-foreground">İlan (fiyatsız)</div>
-              ) : (
-                <div className="text-[15px] font-bold text-brand">
-                  {price ? currency(Number(price)) : "Fiyat belirtilmedi"}
-                </div>
-              )}
-            </div>
-          </div>
+          <div className="overflow-hidden rounded-[10px] border border-border bg-white">{previewBody}</div>
         </div>
       </div>
     </div>
