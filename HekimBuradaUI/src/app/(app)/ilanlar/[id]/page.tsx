@@ -5,6 +5,9 @@ import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { Heart, Star } from "lucide-react";
 import { toast } from "sonner";
+import Lightbox from "yet-another-react-lightbox";
+import Zoom from "yet-another-react-lightbox/plugins/zoom";
+import "yet-another-react-lightbox/styles.css";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -62,6 +65,7 @@ export default function ListingDetailPage() {
   const [myRegion, setMyRegion] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   const [reviews, setReviews] = useState<ListingReview[]>([]);
   const [reviewAuthors, setReviewAuthors] = useState<Map<string, UserLookupRow>>(new Map());
   const [newReviewRating, setNewReviewRating] = useState(5);
@@ -290,12 +294,19 @@ export default function ListingDetailPage() {
       <div className="mx-auto grid max-w-5xl grid-cols-1 gap-10 px-6 py-6 sm:px-10 lg:grid-cols-2">
         <div>
           {images.length > 0 ? (
-            // eslint-disable-next-line @next/next/no-img-element -- kullanıcı tarafından yüklenen keyfi harici görsel
-            <img
-              src={`${MARKETPLACE_URL}${images[activeImageIndex] ?? images[0]}`}
-              alt={listing.title}
-              className="h-[360px] w-full rounded-[10px] object-cover"
-            />
+            <button
+              type="button"
+              onClick={() => setLightboxOpen(true)}
+              className="block w-full cursor-zoom-in"
+              aria-label="Görseli büyüt"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element -- kullanıcı tarafından yüklenen keyfi harici görsel */}
+              <img
+                src={`${MARKETPLACE_URL}${images[activeImageIndex] ?? images[0]}`}
+                alt={listing.title}
+                className="h-[360px] w-full rounded-[10px] object-cover"
+              />
+            </button>
           ) : (
             <div className="flex h-[360px] items-center justify-center rounded-[10px] bg-[repeating-linear-gradient(135deg,#EEF1F2,#EEF1F2_14px,#E4E8EA_14px,#E4E8EA_28px)] font-mono text-xs text-[#9AA1A5]">
               ÜRÜN GÖRSELİ
@@ -319,6 +330,16 @@ export default function ListingDetailPage() {
               ))}
             </div>
           )}
+
+          <Lightbox
+            open={lightboxOpen}
+            close={() => setLightboxOpen(false)}
+            index={activeImageIndex}
+            on={{ view: ({ index }) => setActiveImageIndex(index) }}
+            slides={images.map((url) => ({ src: `${MARKETPLACE_URL}${url}` }))}
+            plugins={[Zoom]}
+            zoom={{ maxZoomPixelRatio: 4, doubleTapDelay: 300, doubleClickDelay: 300 }}
+          />
 
           <div className="mt-8">
             <h2 className="mb-3 text-base font-bold text-foreground">Yorumlar</h2>
