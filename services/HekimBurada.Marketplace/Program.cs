@@ -72,7 +72,7 @@ builder.Services.AddBaseForge(options =>
     options.EnableAuditLog();
     options.EnableJwt(jwt =>
     {
-        jwt.Authority = "http://host.docker.internal:5090";          // merkez Identity (discovery/JWKS)
+        jwt.Authority = builder.Configuration["Auth:Authority"] ?? "http://host.docker.internal:5090"; // merkez Identity (discovery/JWKS)
         jwt.Audience = "hekimburada-api";
         jwt.RequireHttpsMetadata = false;
     });
@@ -128,20 +128,19 @@ forwardedHeadersOptions.KnownNetworks.Clear();
 forwardedHeadersOptions.KnownProxies.Clear();
 app.UseForwardedHeaders(forwardedHeadersOptions);
 
+// Hızlı başlangıç: migration yerine şemayı oluştur (repo'da EF Core migration yok, prod dahil her ortamda bu yol kullanılıyor).
+try
+{
+    using var scope = app.Services.CreateScope();
+    scope.ServiceProvider.GetRequiredService<MarketplaceDbContext>().Database.EnsureCreated();
+}
+catch (Exception ex)
+{
+    app.Logger.LogWarning(ex, "Veritabanı şeması oluşturulamadı (Postgres çalışıyor mu?). API arayüzü yine de açık.");
+}
+
 if (app.Environment.IsDevelopment())
 {
-    // Hızlı başlangıç: migration yerine şemayı oluştur (yalnızca geliştirme).
-    // Postgres erişilemezse uygulama yine de açılır; API arayüzü görülebilir.
-    try
-    {
-        using var scope = app.Services.CreateScope();
-        scope.ServiceProvider.GetRequiredService<MarketplaceDbContext>().Database.EnsureCreated();
-    }
-    catch (Exception ex)
-    {
-        app.Logger.LogWarning(ex, "Veritabanı şeması oluşturulamadı (Postgres çalışıyor mu?). API arayüzü yine de açık.");
-    }
-
     // API arayüzü: /scalar/v1 (OpenAPI: /openapi/v1.json)
     app.MapOpenApi();
     app.MapScalarApiReference(options =>

@@ -213,6 +213,9 @@ export const regionsApi = {
 };
 
 export const identityApi = {
+  /** Aktif dış kimlik sağlayıcıları (Google/Facebook/vb.) — sadece config'te ClientId dolu olanlar döner. Anonim. */
+  providers: () => req<string[]>("/api/account/providers"),
+
   register: (input: RegisterInput) =>
     req<RegisterResult>("/api/account/register", {
       method: "POST",
@@ -260,11 +263,11 @@ export const identityApi = {
 
   doctorProfile: () => authedReq<DoctorProfile>("/api/account/doctor-profile"),
 
+  /** Sosyal girişle (Google/Facebook) oluşan hesaplarda specialty/diplomaNo/region boş kalıyor —
+   * belge yüklemeden önce bunları tamamlamak için (bkz. kayit-ol/belge-yukle sayfası). */
   updateDoctorProfile: (input: { specialty: string; diplomaNo: string; districtId: string }) =>
     authedReq<void>("/api/account/doctor-profile", { method: "PUT", body: JSON.stringify(input) }),
 
-  /** Aktif dış giriş sağlayıcılarını (Google/Facebook/...) listeler — bkz. SocialLoginButtons. */
-  providers: () => req<string[]>("/api/account/providers"),
 
   updateEducation: (input: { graduationSchool: string | null; graduationYear: number | null }) =>
     authedReq<void>("/api/account/doctor-profile/education", { method: "PUT", body: JSON.stringify(input) }),
@@ -450,6 +453,9 @@ export const adminUsersApi = {
 const mReq = <T>(path: string, init?: RequestInit) => reqAt<T>(MARKETPLACE_URL, path, init);
 const mAuthedReq = <T>(path: string, init?: RequestInit) => authedReqAt<T>(MARKETPLACE_URL, path, init);
 
+/** "product": durum+fiyat+ödeme yöntemi (mevcut/varsayılan). "big_ticket": konut/araba gibi —
+ * sadece fiyat, ödeme yöntemi sabit "elden". "job": iş ilanı gibi — fiyat/ödeme/durum hiç yok,
+ * düz ilan. ilan-ver sihirbazı bu değere göre adımlarını gösterir/gizler. */
 export type ListingKind = "product" | "big_ticket" | "job";
 
 export interface MarketplaceCategory {
@@ -457,6 +463,7 @@ export interface MarketplaceCategory {
   name: string;
   parentId: string | null;
   listingKind: ListingKind;
+  /** Kategori kartında gösterilen react-icons anahtarı — bkz. lib/categoryIcons.tsx. */
   icon: string;
 }
 
@@ -612,13 +619,11 @@ export const marketplaceApi = {
   listCategories: (params?: { page?: number; pageSize?: number; search?: string }) =>
     mAuthedReq<PagedResult<MarketplaceCategory>>(`/api/Categorys${toQuery(params)}`),
 
-  createCategory: (input: { name: string; parentId?: string | null; listingKind?: ListingKind; icon?: string }) =>
+  createCategory: (input: { name: string; parentId?: string | null; listingKind: ListingKind; icon: string }) =>
     mAuthedReq<string>("/api/Categorys", { method: "POST", body: JSON.stringify(input) }),
 
-  updateCategory: (
-    id: string,
-    input: { name: string; parentId?: string | null; listingKind?: ListingKind; icon?: string }
-  ) => mAuthedReq<void>(`/api/Categorys/${id}`, { method: "PUT", body: JSON.stringify(input) }),
+  updateCategory: (id: string, input: { name: string; parentId?: string | null; listingKind: ListingKind; icon: string }) =>
+    mAuthedReq<void>(`/api/Categorys/${id}`, { method: "PUT", body: JSON.stringify(input) }),
 
   deleteCategory: (id: string) => mAuthedReq<void>(`/api/Categorys/${id}`, { method: "DELETE" }),
 
