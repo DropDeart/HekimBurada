@@ -13,6 +13,8 @@ public sealed class CommentDto
     public Guid TopicId { get; set; }
     /// <summary>AuthorId.</summary>
     public Guid AuthorId { get; set; }
+    /// <summary>Yanıtladığı yorum — null ise üst seviye yorum. CodeGen dışı, elle eklendi.</summary>
+    public Guid? ParentId { get; set; }
     /// <summary>Oluşturulma zamanı — elle eklendi.</summary>
     public DateTimeOffset CreatedAt { get; set; }
 
@@ -26,6 +28,7 @@ public sealed class CommentDto
             Body = entity.Body,
             TopicId = entity.TopicId,
             AuthorId = entity.AuthorId,
+            ParentId = entity.ParentId,
             CreatedAt = entity.CreatedAt,
         };
     }

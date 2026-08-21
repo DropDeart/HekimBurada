@@ -260,6 +260,12 @@ export const identityApi = {
 
   doctorProfile: () => authedReq<DoctorProfile>("/api/account/doctor-profile"),
 
+  updateDoctorProfile: (input: { specialty: string; diplomaNo: string; districtId: string }) =>
+    authedReq<void>("/api/account/doctor-profile", { method: "PUT", body: JSON.stringify(input) }),
+
+  /** Aktif dış giriş sağlayıcılarını (Google/Facebook/...) listeler — bkz. SocialLoginButtons. */
+  providers: () => req<string[]>("/api/account/providers"),
+
   updateEducation: (input: { graduationSchool: string | null; graduationYear: number | null }) =>
     authedReq<void>("/api/account/doctor-profile/education", { method: "PUT", body: JSON.stringify(input) }),
 
@@ -444,10 +450,14 @@ export const adminUsersApi = {
 const mReq = <T>(path: string, init?: RequestInit) => reqAt<T>(MARKETPLACE_URL, path, init);
 const mAuthedReq = <T>(path: string, init?: RequestInit) => authedReqAt<T>(MARKETPLACE_URL, path, init);
 
+export type ListingKind = "product" | "big_ticket" | "job";
+
 export interface MarketplaceCategory {
   id: string;
   name: string;
   parentId: string | null;
+  listingKind: ListingKind;
+  icon: string;
 }
 
 export type ListingStatus = "draft" | "pending" | "active" | "rejected" | "sold" | "removed" | "expired";
@@ -587,15 +597,28 @@ async function uploadMedia(baseUrl: string, file: File, category: string): Promi
   return ((await res.json()) as { url: string }).url;
 }
 
+/** Marketplace/Community'nin ortak bildirim şekli — her servis kendi tablosunu tutar, frontend
+ * ikisini birleştirip tek listede gösterir (bkz. Navbar.tsx bildirim zili). */
+export interface AppNotification {
+  id: string;
+  title: string;
+  body: string;
+  linkPath: string;
+  isRead: boolean;
+  createdAt: string;
+}
+
 export const marketplaceApi = {
   listCategories: (params?: { page?: number; pageSize?: number; search?: string }) =>
     mAuthedReq<PagedResult<MarketplaceCategory>>(`/api/Categorys${toQuery(params)}`),
 
-  createCategory: (input: { name: string; parentId?: string | null }) =>
+  createCategory: (input: { name: string; parentId?: string | null; listingKind?: ListingKind; icon?: string }) =>
     mAuthedReq<string>("/api/Categorys", { method: "POST", body: JSON.stringify(input) }),
 
-  updateCategory: (id: string, input: { name: string; parentId?: string | null }) =>
-    mAuthedReq<void>(`/api/Categorys/${id}`, { method: "PUT", body: JSON.stringify(input) }),
+  updateCategory: (
+    id: string,
+    input: { name: string; parentId?: string | null; listingKind?: ListingKind; icon?: string }
+  ) => mAuthedReq<void>(`/api/Categorys/${id}`, { method: "PUT", body: JSON.stringify(input) }),
 
   deleteCategory: (id: string) => mAuthedReq<void>(`/api/Categorys/${id}`, { method: "DELETE" }),
 
@@ -695,6 +718,11 @@ export const marketplaceApi = {
 
   uploadImage: (file: File) => uploadMedia(MARKETPLACE_URL, file, "listings"),
 
+  listNotifications: () => mAuthedReq<AppNotification[]>("/api/notifications"),
+
+  markAllNotificationsRead: () =>
+    mAuthedReq<void>("/api/notifications/mark-all-read", { method: "POST" }),
+
   /** Anonim — ilan detay sayfası girişsiz de görüntülenebildiğinden auth gerektirmez. listingId verilmezse tüm yorumlar döner. */
   listListingReviews: (params?: { listingId?: string; page?: number; pageSize?: number }) =>
     mReq<PagedResult<ListingReview>>(`/api/listing-reviews${toQuery(params)}`),
@@ -726,6 +754,10 @@ const cAuthedReq = <T>(path: string, init?: RequestInit) => authedReqAt<T>(COMMU
 export interface CommunityCategory {
   id: string;
   name: string;
+  kind: string;
+  description: string;
+  isClosed: boolean;
+  rules: string;
 }
 
 export interface Membership {
@@ -746,6 +778,7 @@ export interface Topic {
   isLocked: boolean;
   categoryId: string;
   authorId: string;
+  createdAt: string;
 }
 
 export interface CommunityComment {
@@ -753,12 +786,17 @@ export interface CommunityComment {
   body: string;
   topicId: string;
   authorId: string;
+  /** Yanıtladığı yorum — yoksa üst seviye yorumdur. */
+  parentId: string | null;
   createdAt: string;
 }
 
 export interface Like {
   id: string;
-  topicId: string;
+  /** Konu beğenisiyse dolu. */
+  topicId: string | null;
+  /** Yorum/yanıt beğenisiyse dolu. */
+  commentId: string | null;
   authorId: string;
 }
 
@@ -766,8 +804,17 @@ export const communityApi = {
   listCategories: (params?: { page?: number; pageSize?: number }) =>
     cAuthedReq<PagedResult<CommunityCategory>>(`/api/communitycategorys${toQuery(params)}`),
 
-  createCategory: (name: string) =>
-    cAuthedReq<string>("/api/communitycategorys", { method: "POST", body: JSON.stringify({ name }) }),
+  getCategory: (id: string) => cAuthedReq<CommunityCategory>(`/api/communitycategorys/${id}`),
+
+  /** Yeni bir topluluk kurar — backend CreatorId'yi çağıranın kimliğiyle ezer ve kurucuyu otomatik
+   * ilk üye + moderatör yapar. */
+  createCategory: (input: { name: string; kind: string; description: string; isClosed: boolean; rules: string }) =>
+    cAuthedReq<string>("/api/communitycategorys", { method: "POST", body: JSON.stringify(input) }),
+
+  updateCategory: (
+    id: string,
+    input: { name: string; kind: string; description: string; isClosed: boolean; rules: string }
+  ) => cAuthedReq<void>(`/api/communitycategorys/${id}`, { method: "PUT", body: JSON.stringify(input) }),
 
   deleteCategory: (id: string) =>
     cAuthedReq<void>(`/api/communitycategorys/${id}`, { method: "DELETE" }),
@@ -800,10 +847,13 @@ export const communityApi = {
 
   deleteTopic: (id: string) => cAuthedReq<void>(`/api/topics/${id}`, { method: "DELETE" }),
 
+  incrementTopicViewCount: (id: string) =>
+    cAuthedReq<void>(`/api/topics/${id}/increment-viewcount`, { method: "POST" }),
+
   listComments: (params?: { page?: number; pageSize?: number }) =>
     cAuthedReq<PagedResult<CommunityComment>>(`/api/comments${toQuery(params)}`),
 
-  createComment: (input: { body: string; topicId: string; authorId: string }) =>
+  createComment: (input: { body: string; topicId: string; authorId: string; parentId?: string | null }) =>
     cAuthedReq<string>("/api/comments", { method: "POST", body: JSON.stringify(input) }),
 
   deleteComment: (id: string) => cAuthedReq<void>(`/api/comments/${id}`, { method: "DELETE" }),
@@ -811,12 +861,18 @@ export const communityApi = {
   listLikes: (params?: { page?: number; pageSize?: number }) =>
     cAuthedReq<PagedResult<Like>>(`/api/likes${toQuery(params)}`),
 
-  createLike: (input: { topicId: string; authorId: string }) =>
+  /** Bir Like tam olarak topicId YA DA commentId ile oluşturulmalı (backend doğrular). */
+  createLike: (input: { topicId?: string | null; commentId?: string | null; authorId: string }) =>
     cAuthedReq<string>("/api/likes", { method: "POST", body: JSON.stringify(input) }),
 
   removeLike: (id: string) => cAuthedReq<void>(`/api/likes/${id}`, { method: "DELETE" }),
 
   uploadImage: (file: File) => uploadMedia(COMMUNITY_URL, file, "topics"),
+
+  listNotifications: () => cAuthedReq<AppNotification[]>("/api/notifications"),
+
+  markAllNotificationsRead: () =>
+    cAuthedReq<void>("/api/notifications/mark-all-read", { method: "POST" }),
 };
 
 function toQuery(params?: Record<string, string | number | undefined>): string {

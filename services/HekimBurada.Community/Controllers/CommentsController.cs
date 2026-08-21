@@ -26,7 +26,8 @@ public sealed class CommentsController : BaseController
         => Ok(await Mediator.Send(query, cancellationToken));
 
     /// <summary>Yeni bir Comment oluşturur — CodeGen dışı: AuthorId sahtekarlığını önlemek için
-    /// çağıranın kendi kimliğiyle elle ezildi (client-supplied değerine güvenilmiyor).</summary>
+    /// çağıranın kendi kimliğiyle elle ezildi (client-supplied değerine güvenilmiyor). ParentId
+    /// verilmişse bu bir yanıttır (tek seviye iç içelik).</summary>
     [HttpPost]
     public async Task<ActionResult<Guid>> Create(CreateCommentCommand command, CancellationToken cancellationToken)
     {

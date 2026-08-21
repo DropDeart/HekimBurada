@@ -26,7 +26,8 @@ public sealed class LikesController : BaseController
         => Ok(await Mediator.Send(query, cancellationToken));
 
     /// <summary>Yeni bir Like oluşturur — CodeGen dışı: AuthorId sahtekarlığını önlemek için
-    /// çağıranın kendi kimliğiyle elle ezildi (client-supplied değerine güvenilmiyor).</summary>
+    /// çağıranın kendi kimliğiyle elle ezildi (client-supplied değerine güvenilmiyor). TopicId/CommentId'den
+    /// tam biri set edilmeli (bkz. CreateLikeHandler.EnsureExactlyOneTarget).</summary>
     [HttpPost]
     public async Task<ActionResult<Guid>> Create(CreateLikeCommand command, CancellationToken cancellationToken)
     {

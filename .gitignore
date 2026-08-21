@@ -30,6 +30,9 @@ coverage*.info
 .env.*
 !.env.example
 
+# Prod TLS/imzalama sertifikaları (OpenIddict signing/encryption .pfx — gerçek parola içerir)
+certs/
+
 # OS
 .DS_Store
 Thumbs.db

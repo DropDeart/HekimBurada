@@ -1,0 +1,17 @@
+# HekimBuradaUI (Next.js) prod deploy — backend URL'leri BUILD-TIME'da bundle'a gömülür
+# (NEXT_PUBLIC_* değişkenleri), bu yüzden build.args ile geçiriliyor. Değiştirirseniz yeniden build gerekir.
+services:
+  ui:
+    build:
+      context: .
+      args:
+        NEXT_PUBLIC_IDENTITY_URL: https://identity.hekimburada.com
+        NEXT_PUBLIC_MARKETPLACE_URL: https://marketplace.hekimburada.com
+        NEXT_PUBLIC_COMMUNITY_URL: https://community.hekimburada.com
+        NEXT_PUBLIC_MESSAGING_URL: https://messaging.hekimburada.com
+        NEXT_PUBLIC_GATEWAY_URL: https://gateway.hekimburada.com
+    image: hekimburada-ui:local
+    container_name: hekimburada-ui
+    ports:
+      - "127.0.0.1:8350:3000"
+    restart: unless-stopped

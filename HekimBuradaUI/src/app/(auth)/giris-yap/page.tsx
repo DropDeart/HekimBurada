@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { AuthShell } from "@/components/auth/AuthShell";
+import { SocialLoginButtons } from "@/components/auth/SocialLoginButtons";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -120,6 +121,8 @@ export default function GirisYapPage() {
           {loading ? "Giriş yapılıyor…" : "Giriş Yap"}
         </Button>
       </form>
+
+      <SocialLoginButtons remember={rememberMe} />
 
       <p className="mt-6 text-center text-xs text-muted-foreground">
         Hesabın yok mu?{" "}

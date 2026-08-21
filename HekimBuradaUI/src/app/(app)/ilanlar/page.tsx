@@ -4,9 +4,24 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { ListingImage } from "@/components/ListingImage";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { marketplaceApi, type Listing, type MarketplaceCategory } from "@/lib/api";
 import { useHasToken } from "@/lib/auth";
+import { CategoryIcon } from "@/lib/categoryIcons";
 import { cn } from "@/lib/utils";
+
+// ilan-ver sayfasındaki CONDITIONS ile birebir aynı olmalı — Listing.condition serbest metin
+// değil, o ekrandaki sabit listeden seçiliyor (bkz. ilan-ver/page.tsx).
+const CONDITIONS = ["Yeni", "Az Kullanılmış", "Kullanılmış"];
+
+type SortOption = "newest" | "oldest" | "price-asc" | "price-desc";
+
+const SORT_LABELS: Record<SortOption, string> = {
+  newest: "En Yeni",
+  oldest: "En Eski",
+  "price-asc": "Fiyat: Artan",
+  "price-desc": "Fiyat: Azalan",
+};
 
 function currency(n: number) {
   return `${n.toLocaleString("tr-TR")} ₺`;
@@ -25,6 +40,8 @@ function IlanlarContent() {
   const [loading, setLoading] = useState(true);
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
+  const [selectedConditions, setSelectedConditions] = useState<string[]>([]);
+  const [sortBy, setSortBy] = useState<SortOption>("newest");
 
   useEffect(() => {
     if (!hasToken) {
@@ -56,20 +73,39 @@ function IlanlarContent() {
     router.push(`/ilanlar${params.size ? `?${params}` : ""}`);
   };
 
+  const toggleCondition = (c: string) => {
+    setSelectedConditions((prev) => (prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c]));
+  };
+
   const min = minPrice ? Number(minPrice) : null;
   const max = maxPrice ? Number(maxPrice) : null;
-  const filtered = listings.filter((l) => {
-    if (altId) {
-      if (l.categoryId !== altId) return false;
-    } else if (kategoriId) {
-      const inCategory =
-        l.categoryId === kategoriId || subCategories.some((s) => s.id === l.categoryId);
-      if (!inCategory) return false;
-    }
-    if (min !== null && (l.price ?? 0) < min) return false;
-    if (max !== null && l.price !== null && l.price > max) return false;
-    return true;
-  });
+  const filtered = listings
+    .filter((l) => {
+      if (altId) {
+        if (l.categoryId !== altId) return false;
+      } else if (kategoriId) {
+        const inCategory =
+          l.categoryId === kategoriId || subCategories.some((s) => s.id === l.categoryId);
+        if (!inCategory) return false;
+      }
+      if (min !== null && (l.price ?? 0) < min) return false;
+      if (max !== null && l.price !== null && l.price > max) return false;
+      if (selectedConditions.length > 0 && !selectedConditions.includes(l.condition)) return false;
+      return true;
+    })
+    .sort((a, b) => {
+      switch (sortBy) {
+        case "price-asc":
+          return (a.price ?? 0) - (b.price ?? 0);
+        case "price-desc":
+          return (b.price ?? 0) - (a.price ?? 0);
+        case "oldest":
+          return (a.publishedAt ?? "").localeCompare(b.publishedAt ?? "");
+        case "newest":
+        default:
+          return (b.publishedAt ?? "").localeCompare(a.publishedAt ?? "");
+      }
+    });
 
   if (!hasToken) {
     return (
@@ -112,10 +148,11 @@ function IlanlarContent() {
                   key={c.id}
                   onClick={() => goCategory(c.id, null)}
                   className={cn(
-                    "py-1.5 text-left text-[13px]",
+                    "flex items-center gap-2 py-1.5 text-left text-[13px]",
                     kategoriId === c.id ? "font-bold text-brand" : "font-medium text-foreground"
                   )}
                 >
+                  <CategoryIcon icon={c.icon} className="size-3.5 shrink-0" />
                   {c.name}
                 </button>
               ))}
@@ -180,11 +217,42 @@ function IlanlarContent() {
               />
             </div>
           </div>
+
+          <div className="rounded-[10px] border border-border bg-white p-4.5">
+            <div className="mb-3 text-[13px] font-bold text-foreground">Durum</div>
+            <div className="flex flex-col gap-1.5">
+              {CONDITIONS.map((c) => (
+                <label key={c} className="flex items-center gap-2 text-[13px] text-foreground">
+                  <input
+                    type="checkbox"
+                    checked={selectedConditions.includes(c)}
+                    onChange={() => toggleCondition(c)}
+                    className="size-3.5"
+                  />
+                  {c}
+                </label>
+              ))}
+            </div>
+          </div>
         </aside>
 
         <div className="min-w-0 flex-1">
-          <div className="mb-3.5 text-[13px] text-muted-foreground">
-            {loading ? "Yükleniyor…" : `${filtered.length} ilan bulundu`}
+          <div className="mb-3.5 flex items-center justify-between gap-3">
+            <div className="text-[13px] text-muted-foreground">
+              {loading ? "Yükleniyor…" : `${filtered.length} ilan bulundu`}
+            </div>
+            <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
+              <SelectTrigger className="h-auto w-auto gap-1.5 px-2 py-1.5 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {(Object.keys(SORT_LABELS) as SortOption[]).map((opt) => (
+                  <SelectItem key={opt} value={opt}>
+                    {SORT_LABELS[opt]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {!loading && filtered.length === 0 ? (

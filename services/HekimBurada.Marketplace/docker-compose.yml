@@ -27,6 +27,12 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ConnectionStrings__Default: "Host=postgres;Port=5432;Database=hekimburada_marketplace_db;Username=baseforge;Password=change_me"
+    # Container'a üst sınır verilmezse .NET Server GC heap'i host'un tüm RAM'ine göre büyütüp
+    # geri vermiyor (prod'da 3.3GB'a kadar çıktığı gözlendi, restart sonrası ~50MB'a düşüyor) —
+    # bkz. proje hafızası "RAM'i incele" konuşması. Sınır aşılırsa OOM ile restart olur, tüm host'u
+    # aç bırakmaz.
+    mem_limit: 1536m
+    restart: unless-stopped
     ports:
       - "5100:8080"   # REST (HTTP/1.1) — appsettings.json Kestrel:Endpoints:Http
       - "5101:8081"   # gRPC (h2c, TLS'siz HTTP/2)  — Kestrel:Endpoints:Grpc

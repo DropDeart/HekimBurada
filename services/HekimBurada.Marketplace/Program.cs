@@ -1,4 +1,5 @@
 using BaseForge.API.Extensions;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi;
@@ -89,6 +90,26 @@ builder.Services.AddGrpcClient<Identity.Grpc.UserService.UserServiceClient>(o =>
     .AddInterceptor<BaseForge.API.Grpc.CorrelationIdClientInterceptor>();
 builder.Services.AddScoped<Marketplace.Integration.IUserClient, Marketplace.Integration.UserClient>();
 
+// İlan yorumu bildirim e-postası için (bkz. Email/, Features/Notifications/).
+var smtpOptions = builder.Configuration.GetSection(Marketplace.Email.SmtpOptions.SectionName).Get<Marketplace.Email.SmtpOptions>()
+    ?? new Marketplace.Email.SmtpOptions();
+builder.Services.AddSingleton(smtpOptions);
+builder.Services.AddTransient<Marketplace.Email.IEmailSender, Marketplace.Email.SmtpEmailSender>();
+
+// JWT issuer'ı elle sabitle — Authority/metadata-tabanlı otomatik keşif (BaseForge.EnableJwt'in
+// varsayılanı) container restart sonrası ilk isteklerde bazen boş/eksik konfigürasyon
+// döndürebiliyor ("IDX10204: ValidIssuer is null"), tüm istekleri 401'e düşürüyor — CodeGen dışı,
+// prod olayı sonrası elle eklendi. "Auth:Issuer" tanımlıysa (prod'da Identity'nin kendi Issuer'ıyla
+// aynı) metadata'ya bağımlılığı tamamen ortadan kaldırır; tanımlı değilse (yerel dev) eski davranış
+// (Authority/metadata) korunur.
+var jwtValidIssuer = builder.Configuration["Auth:Issuer"];
+if (!string.IsNullOrWhiteSpace(jwtValidIssuer))
+{
+    builder.Services.Configure<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme, options =>
+    {
+        options.TokenValidationParameters.ValidIssuer = jwtValidIssuer;
+    });
+}
 
 var app = builder.Build();
 

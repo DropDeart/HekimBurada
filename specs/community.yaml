@@ -14,11 +14,24 @@ service: community
 database: hekimburada_community_db
 
 entities:
+  # NOT: kind/description/isClosed/rules ile CreateCommunityCategoryHandler'daki moderatör-üyelik
+  # mantığı ("Topluluk oluştur" tasarımı) CodeGen dışı elle eklendi — bu spec'ten regen edilirse
+  # Controllers/CommunityCategorysController.cs ve Features/CommunityCategorys/*.cs'teki elle yazılmış
+  # kod (izin gevşetmesi, moderatör auto-membership) kaybolur, elle geri eklenmesi gerekir.
   CommunityCategory:
     props:
       name:
         type: string
         maxLength: 100
+      kind:
+        type: string
+        maxLength: 30
+        default: "Branş"
+      description: text
+      isClosed:
+        type: bool
+        default: "true"
+      rules: text
 
   Membership:
     props:
@@ -64,6 +77,8 @@ entities:
   Comment:
     props:
       body: text
+      # parentId: Guid?, nullable, nav property yok — self-referencing tek seviye yanıt (CodeGen dışı,
+      # elle eklendi, spec'in relations şeması opsiyonel self-ref'i ifade edemediği için burada not).
     relations:
       topic:
         kind: many-to-one
@@ -76,6 +91,8 @@ entities:
 
   Like:
     props: {}
+    # NOT: topicId CodeGen dışı nullable'a çevrildi, commentId (Guid?, nav yok) eklendi — bir Like tam
+    # olarak Topic YA DA Comment'i işaretler (bkz. CreateLikeHandler.EnsureExactlyOneTarget).
     relations:
       topic:
         kind: many-to-one

@@ -21,6 +21,8 @@ public sealed class TopicDto
     public Guid CategoryId { get; set; }
     /// <summary>AuthorId.</summary>
     public Guid AuthorId { get; set; }
+    /// <summary>Oluşturulma zamanı — elle eklendi.</summary>
+    public DateTimeOffset CreatedAt { get; set; }
 
     /// <summary>Bir Topic entity'sinden DTO üretir.</summary>
     public static TopicDto From(Topic entity)
@@ -36,6 +38,7 @@ public sealed class TopicDto
             IsLocked = entity.IsLocked,
             CategoryId = entity.CategoryId,
             AuthorId = entity.AuthorId,
+            CreatedAt = entity.CreatedAt,
         };
     }
 }

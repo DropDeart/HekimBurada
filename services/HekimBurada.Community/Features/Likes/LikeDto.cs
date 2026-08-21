@@ -7,8 +7,10 @@ public sealed class LikeDto
 {
     /// <summary>Kayıt kimliği.</summary>
     public Guid Id { get; set; }
-    /// <summary>TopicId.</summary>
-    public Guid TopicId { get; set; }
+    /// <summary>TopicId — konu beğenisiyse dolu.</summary>
+    public Guid? TopicId { get; set; }
+    /// <summary>CommentId — yorum/yanıt beğenisiyse dolu. CodeGen dışı, elle eklendi.</summary>
+    public Guid? CommentId { get; set; }
     /// <summary>AuthorId.</summary>
     public Guid AuthorId { get; set; }
 
@@ -20,6 +22,7 @@ public sealed class LikeDto
         {
             Id = entity.Id,
             TopicId = entity.TopicId,
+            CommentId = entity.CommentId,
             AuthorId = entity.AuthorId,
         };
     }

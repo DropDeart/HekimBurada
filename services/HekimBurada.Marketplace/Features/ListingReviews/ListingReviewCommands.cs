@@ -1,7 +1,10 @@
 using BaseForge.Core.CQRS;
 using BaseForge.Core.Exceptions;
 using BaseForge.Core.Interfaces;
+using Marketplace.Email;
 using Marketplace.Entities;
+using Marketplace.Integration;
+using Microsoft.Extensions.Logging;
 
 namespace Marketplace.Features.ListingReviews;
 
@@ -17,11 +20,29 @@ public sealed class CreateListingReviewCommand : ICommand<Guid>
 internal sealed class CreateListingReviewHandler : ICommandHandler<CreateListingReviewCommand, Guid>
 {
     private readonly IRepository<ListingReview> _repository;
+    private readonly IRepository<Listing> _listingRepository;
+    private readonly IRepository<Notification> _notificationRepository;
     private readonly IUnitOfWork _unitOfWork;
-    public CreateListingReviewHandler(IRepository<ListingReview> repository, IUnitOfWork unitOfWork)
+    private readonly IUserClient _userClient;
+    private readonly IEmailSender _emailSender;
+    private readonly ILogger<CreateListingReviewHandler> _logger;
+
+    public CreateListingReviewHandler(
+        IRepository<ListingReview> repository,
+        IRepository<Listing> listingRepository,
+        IRepository<Notification> notificationRepository,
+        IUnitOfWork unitOfWork,
+        IUserClient userClient,
+        IEmailSender emailSender,
+        ILogger<CreateListingReviewHandler> logger)
     {
         _repository = repository;
+        _listingRepository = listingRepository;
+        _notificationRepository = notificationRepository;
         _unitOfWork = unitOfWork;
+        _userClient = userClient;
+        _emailSender = emailSender;
+        _logger = logger;
     }
 
     public async Task<Guid> Handle(CreateListingReviewCommand request, CancellationToken cancellationToken)
@@ -41,8 +62,55 @@ internal sealed class CreateListingReviewHandler : ICommandHandler<CreateListing
             Body = request.Body,
         };
         await _repository.AddAsync(entity, cancellationToken);
+
+        // İlan sahibine bildirim + e-posta — kendi ilanına yorum yapması hariç. Bildirim/e-posta
+        // gönderimi başarısız olsa da yorum kaydı geri alınmaz (best-effort, bkz. try/catch altta).
+        // CodeGen dışı, elle eklendi.
+        var listing = await _listingRepository.GetByIdAsync(request.ListingId, cancellationToken);
+        if (listing is not null && listing.SellerId != request.AuthorId)
+        {
+            await _notificationRepository.AddAsync(new Notification
+            {
+                RecipientUserId = listing.SellerId,
+                Title = "İlanınıza yeni bir yorum geldi",
+                Body = $"\"{listing.Title}\" ilanınıza yeni bir yorum yazıldı.",
+                LinkPath = $"/ilanlar/{listing.Id}",
+            }, cancellationToken);
+        }
+
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        if (listing is not null && listing.SellerId != request.AuthorId)
+        {
+            await NotifyByEmailAsync(listing, request, cancellationToken);
+        }
+
         return entity.Id;
+    }
+
+    private async Task NotifyByEmailAsync(Listing listing, CreateListingReviewCommand request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var seller = await _userClient.GetByIdAsync(listing.SellerId, cancellationToken);
+            if (seller is null || string.IsNullOrWhiteSpace(seller.Email))
+            {
+                return;
+            }
+
+            var reviewer = await _userClient.GetByIdAsync(request.AuthorId, cancellationToken);
+            var reviewerName = reviewer?.FullName is { Length: > 0 } fullName ? fullName : "Bir meslektaşınız";
+            var html = $"""
+                <p>Merhaba,</p>
+                <p><strong>{reviewerName}</strong>, <strong>"{listing.Title}"</strong> ilanınıza yeni bir yorum yazdı.</p>
+                <p>Yorumu görmek için ilan sayfanızı ziyaret edin.</p>
+                """;
+            await _emailSender.SendAsync(seller.Email, "HekimBurada — İlanınıza yeni bir yorum geldi", html, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "İlan yorumu bildirim e-postası gönderilemedi (ListingId: {ListingId}).", listing.Id);
+        }
     }
 }
 

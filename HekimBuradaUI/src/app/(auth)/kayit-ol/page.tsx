@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 import { AuthShell } from "@/components/auth/AuthShell";
+import { SocialLoginButtons } from "@/components/auth/SocialLoginButtons";
 import { ProvinceDistrictSelect } from "@/components/ProvinceDistrictSelect";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -206,6 +207,8 @@ export default function KayitOlPage() {
         <Button type="submit" disabled={loading} className="mt-1 w-full">
           {loading ? "Oluşturuluyor…" : "Kayıt Ol ve Doğrulama Kodu Gönder"}
         </Button>
+
+        <SocialLoginButtons />
 
         <p className="text-center text-xs text-muted-foreground">
           Zaten hesabın var mı?{" "}

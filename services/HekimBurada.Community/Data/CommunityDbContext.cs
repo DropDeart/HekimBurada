@@ -24,4 +24,6 @@ public sealed class CommunityDbContext : BaseForgeDbContext
     public DbSet<Comment> Comments => Set<Comment>();
     /// <summary>Like tablosu.</summary>
     public DbSet<Like> Likes => Set<Like>();
+    /// <summary>Notification tablosu — CodeGen dışı, elle eklendi.</summary>
+    public DbSet<Notification> Notifications => Set<Notification>();
 }

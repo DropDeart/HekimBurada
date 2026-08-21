@@ -19,6 +19,7 @@ import {
   identityApi,
   marketplaceApi,
   type Announcement,
+  type AppNotification,
   type CommunityCategory,
   type MarketplaceCategory,
   type MarketplaceRequest,
@@ -60,6 +61,7 @@ export function Navbar() {
   const [communityCategories, setCommunityCategories] = useState<CommunityCategory[]>([]);
   const [memberships, setMemberships] = useState<Membership[]>([]);
   const [pendingOffers, setPendingOffers] = useState<Offer[]>([]);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [notifOpen, setNotifOpen] = useState(false);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [isVerifiedDoctor, setIsVerifiedDoctor] = useState(false);
@@ -135,7 +137,25 @@ export function Navbar() {
           .catch(() => {});
       })
       .catch(() => {});
+
+    Promise.all([marketplaceApi.listNotifications(), communityApi.listNotifications()])
+      .then(([marketplaceNotifs, communityNotifs]) => {
+        setNotifications(
+          [...marketplaceNotifs, ...communityNotifs].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+        );
+      })
+      .catch(() => {});
   }, [hasToken]);
+
+  /** Zil açılınca her iki servisteki bildirimleri de okunmuş işaretler (basit "hepsini okundu" deseni). */
+  const openNotifications = (open: boolean) => {
+    setNotifOpen(open);
+    if (open && notifications.some((n) => !n.isRead)) {
+      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+      marketplaceApi.markAllNotificationsRead().catch(() => {});
+      communityApi.markAllNotificationsRead().catch(() => {});
+    }
+  };
 
   const logout = () => {
     auth.clearToken();
@@ -158,6 +178,10 @@ export function Navbar() {
   const subCategoriesOf = (parentId: string) => categories.filter((c) => c.parentId === parentId);
   const memberCountOf = (categoryId: string) =>
     memberships.filter((m) => m.categoryId === categoryId).length;
+  const myId = auth.getUserId();
+  const myCommunityCategories = communityCategories.filter((c) =>
+    memberships.some((m) => m.categoryId === c.id && m.userId === myId)
+  );
 
   return (
     <header className="border-b border-border bg-white">
@@ -338,23 +362,24 @@ export function Navbar() {
               panel={
                 hasToken ? (
                   <div className="min-w-[260px]">
-                    <div className="mb-2.5 text-xs font-bold text-foreground">Branş Toplulukları</div>
-                    {communityCategories.length === 0 ? (
-                      <p className="text-xs text-muted-foreground">Henüz topluluk yok.</p>
+                    <div className="mb-2.5 text-xs font-bold text-foreground">Topluluklarım</div>
+                    {myCommunityCategories.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">Henüz bir topluluğa üye değilsiniz.</p>
                     ) : (
-                      communityCategories.map((c) => (
-                        <div
+                      myCommunityCategories.map((c) => (
+                        <Link
                           key={c.id}
-                          className="flex justify-between border-t border-[#F0F2F3] py-1.5 text-xs"
+                          href={`/topluluk/${c.id}`}
+                          className="flex justify-between border-t border-[#F0F2F3] py-1.5 text-xs hover:text-brand"
                         >
                           <span className="font-semibold text-foreground">{c.name}</span>
                           <span className="text-muted-foreground">{memberCountOf(c.id)} üye</span>
-                        </div>
+                        </Link>
                       ))
                     )}
-                    <p className="mt-3 text-[11px] text-muted-foreground">
-                      Kayıttaki branşınıza göre otomatik eklenirsiniz.
-                    </p>
+                    <Link href="/topluluk" className="mt-3 block text-xs font-semibold text-brand">
+                      Tüm Topluluklar
+                    </Link>
                   </div>
                 ) : (
                   <p className="min-w-[200px] text-xs text-muted-foreground">
@@ -407,21 +432,21 @@ export function Navbar() {
           </button>
 
           {hasToken && (
-            <DropdownMenu open={notifOpen} onOpenChange={setNotifOpen}>
+            <DropdownMenu open={notifOpen} onOpenChange={openNotifications}>
               <DropdownMenuTrigger asChild>
                 <button
                   className="relative hidden text-foreground hover:text-brand sm:block"
                   aria-label="Bildirimler"
                 >
                   <Bell size={20} />
-                  {pendingOffers.length > 0 && (
+                  {pendingOffers.length + notifications.filter((n) => !n.isRead).length > 0 && (
                     <span className="absolute -top-1.5 -right-1.5 flex size-4 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white">
-                      {pendingOffers.length}
+                      {pendingOffers.length + notifications.filter((n) => !n.isRead).length}
                     </span>
                   )}
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent className="min-w-[260px]">
+              <DropdownMenuContent className="min-w-[280px]">
                 <div className="px-2.5 py-1.5 text-xs font-bold text-foreground">
                   Yeni Teklifler
                 </div>
@@ -434,6 +459,23 @@ export function Navbar() {
                     <DropdownMenuItem key={o.id} asChild>
                       <Link href={`/ilanlar/${o.listingId}`}>
                         {o.amount.toLocaleString("tr-TR")} ₺ teklif
+                      </Link>
+                    </DropdownMenuItem>
+                  ))
+                )}
+
+                <DropdownMenuSeparator />
+                <div className="px-2.5 py-1.5 text-xs font-bold text-foreground">Bildirimler</div>
+                {notifications.length === 0 ? (
+                  <p className="px-2.5 py-1.5 text-xs text-muted-foreground">Henüz bildirim yok.</p>
+                ) : (
+                  notifications.slice(0, 8).map((n) => (
+                    <DropdownMenuItem key={n.id} asChild>
+                      <Link href={n.linkPath} className="flex flex-col items-start gap-0.5 whitespace-normal">
+                        <span className={n.isRead ? "text-foreground" : "font-semibold text-foreground"}>
+                          {n.title}
+                        </span>
+                        <span className="text-[11px] text-muted-foreground">{n.body}</span>
                       </Link>
                     </DropdownMenuItem>
                   ))

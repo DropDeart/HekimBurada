@@ -14,6 +14,12 @@ public sealed class CreateCategoryCommand : ICommand<Guid>
     public string Name { get; set; } = string.Empty;
     /// <summary>ParentId.</summary>
     public Guid? ParentId { get; set; }
+    /// <summary>ListingKind — "product" | "big_ticket" | "job".</summary>
+    [MaxLength(20)]
+    public string ListingKind { get; set; } = "product";
+    /// <summary>Kategori kartı ikonu anahtarı (bkz. frontend categoryIcons.tsx).</summary>
+    [MaxLength(30)]
+    public string Icon { get; set; } = "tag";
 }
 
 internal sealed class CreateCategoryHandler : ICommandHandler<CreateCategoryCommand, Guid>
@@ -33,6 +39,8 @@ internal sealed class CreateCategoryHandler : ICommandHandler<CreateCategoryComm
         {
             Name = request.Name,
             ParentId = request.ParentId,
+            ListingKind = request.ListingKind,
+            Icon = request.Icon,
         };
         await _repository.AddAsync(entity, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -50,6 +58,12 @@ public sealed class UpdateCategoryCommand : ICommand
     public string Name { get; set; } = string.Empty;
     /// <summary>ParentId.</summary>
     public Guid? ParentId { get; set; }
+    /// <summary>ListingKind — "product" | "big_ticket" | "job".</summary>
+    [MaxLength(20)]
+    public string ListingKind { get; set; } = "product";
+    /// <summary>Kategori kartı ikonu anahtarı (bkz. frontend categoryIcons.tsx).</summary>
+    [MaxLength(30)]
+    public string Icon { get; set; } = "tag";
 }
 
 internal sealed class UpdateCategoryHandler : ICommandHandler<UpdateCategoryCommand>
@@ -69,6 +83,8 @@ internal sealed class UpdateCategoryHandler : ICommandHandler<UpdateCategoryComm
             ?? throw new NotFoundException("Category", request.Id);
         entity.Name = request.Name;
         entity.ParentId = request.ParentId;
+        entity.ListingKind = request.ListingKind;
+        entity.Icon = request.Icon;
         await _repository.UpdateAsync(entity, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
     }
