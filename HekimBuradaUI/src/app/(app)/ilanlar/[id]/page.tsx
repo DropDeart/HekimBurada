@@ -272,9 +272,18 @@ export default function ListingDetailPage() {
 
   const decideOffer = async (offer: Offer, status: "accepted" | "rejected") => {
     try {
-      await marketplaceApi.updateOfferStatus(offer.id, offer, status);
-      setOffers((prev) => prev.map((o) => (o.id === offer.id ? { ...o, status } : o)));
-      toast.success(status === "accepted" ? "Teklif kabul edildi." : "Teklif reddedildi.");
+      if (status === "accepted") {
+        // Kabul, diğer bekleyen teklifleri de otomatik reddedip ilanı 'sold' yapar (bkz.
+        // AcceptOfferCommand) — bu yüzden tek bir teklifi güncellemek yerine tüm listeyi yeniden çekiyoruz.
+        await marketplaceApi.acceptOffer(offer.id);
+        setListing((prev) => (prev ? { ...prev, status: "sold" } : prev));
+        await loadAll();
+        toast.success("Teklif kabul edildi, ilan satıldı olarak işaretlendi.");
+      } else {
+        await marketplaceApi.rejectOffer(offer.id);
+        setOffers((prev) => prev.map((o) => (o.id === offer.id ? { ...o, status } : o)));
+        toast.success("Teklif reddedildi.");
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "İşlem başarısız.");
     }
@@ -437,7 +446,14 @@ export default function ListingDetailPage() {
         </div>
 
         <div>
-          <div className="mb-1.5 text-2xl font-bold text-foreground">{listing.title}</div>
+          <div className="mb-1.5 flex items-center gap-2">
+            <div className="text-2xl font-bold text-foreground">{listing.title}</div>
+            {listing.status === "sold" && (
+              <span className="rounded-md bg-red-50 px-2 py-0.5 text-xs font-bold text-red-600">
+                Satıldı
+              </span>
+            )}
+          </div>
           <div className="mb-4 text-[13px] text-muted-foreground">{listing.city}</div>
           <p className="mb-5 text-sm leading-relaxed text-[#4A5053]">{listing.description}</p>
 
@@ -525,7 +541,11 @@ export default function ListingDetailPage() {
           ) : (
             <div>
               <h3 className="mb-2 text-[15px] font-bold text-foreground">Teklifiniz</h3>
-              {offers.length === 0 ? (
+              {offers.length === 0 && listing?.status !== "active" ? (
+                <p className="mb-4 text-xs text-muted-foreground">
+                  Bu ilan satıldığı için artık teklif verilemez.
+                </p>
+              ) : offers.length === 0 ? (
                 <div className="mb-4 flex gap-2">
                   <input
                     value={offerAmountDraft}

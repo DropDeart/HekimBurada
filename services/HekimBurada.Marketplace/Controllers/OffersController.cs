@@ -93,6 +93,60 @@ public sealed class OffersController : BaseController
         return NoContent();
     }
 
+    /// <summary>Teklifi kabul eder — ilanı 'sold' yapar, diğer bekleyen teklifleri otomatik reddeder
+    /// (bkz. AcceptOfferCommand doc yorumu). Yalnızca ilgili ilanın sahibi veya Admin/SuperAdmin.
+    /// CodeGen dışı, elle eklendi.</summary>
+    [HttpPost("{id:guid}/accept")]
+    public async Task<IActionResult> Accept(Guid id, CancellationToken cancellationToken)
+    {
+        if (await IsSellerOrAdminAsync(id, cancellationToken) == false)
+        {
+            return Forbid();
+        }
+
+        await Mediator.Send(new AcceptOfferCommand { Id = id }, cancellationToken);
+        return NoContent();
+    }
+
+    /// <summary>Teklifi (kabul etmeden) reddeder — yalnızca ilgili ilanın sahibi veya Admin/SuperAdmin.
+    /// CodeGen dışı, elle eklendi.</summary>
+    [HttpPost("{id:guid}/reject")]
+    public async Task<IActionResult> Reject(Guid id, CancellationToken cancellationToken)
+    {
+        if (await IsSellerOrAdminAsync(id, cancellationToken) == false)
+        {
+            return Forbid();
+        }
+
+        await Mediator.Send(new RejectOfferCommand { Id = id }, cancellationToken);
+        return NoContent();
+    }
+
+    /// <summary>Çağıran, teklifin ait olduğu ilanın satıcısı mı yoksa Admin/SuperAdmin mi? — CodeGen
+    /// dışı, elle eklendi. Teklif/ilan yoksa null döner (asıl komut kendi NotFoundException'ını fırlatsın).</summary>
+    private async Task<bool?> IsSellerOrAdminAsync(Guid offerId, CancellationToken cancellationToken)
+    {
+        if (AdminAuth.IsStaffAdmin(User))
+        {
+            return true;
+        }
+
+        var offer = await Mediator.Send(new GetOfferByIdQuery { Id = offerId }, cancellationToken);
+        if (offer is null)
+        {
+            return null;
+        }
+
+        var callerId = AdminAuth.GetUserId(User);
+        if (callerId is null)
+        {
+            return false;
+        }
+
+        var listing = await Mediator.Send(new GetListingByIdQuery { Id = offer.ListingId }, cancellationToken);
+        return listing is not null && listing.SellerId == callerId;
+    }
+
     /// <summary>Çağıran; teklifin alıcısı, ilgili ilanın satıcısı ya da Admin/SuperAdmin mi? — CodeGen
     /// dışı, elle eklendi. Teklif yoksa null döner (asıl komut kendi NotFoundException'ını fırlatsın).</summary>
     private async Task<bool?> IsBuyerSellerOrAdminAsync(Guid offerId, CancellationToken cancellationToken)

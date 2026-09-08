@@ -126,16 +126,16 @@ internal sealed class CreateOfferHandler : ICommandHandler<CreateOfferCommand, G
     }
 }
 
-/// <summary>Var olan bir Offer kaydını günceller.</summary>
+/// <summary>Var olan bir Offer kaydını günceller — yalnızca Amount (alıcı, kararsızken teklifini
+/// revize edebilsin diye). Status BİLEREK burada değiştirilemez — kabul/red, altlarında yan etkileri
+/// (ilanı 'sold' yapmak, diğer teklifleri otomatik reddetmek, bildirim/e-posta) olan AcceptOfferCommand/
+/// RejectOfferCommand üzerinden yapılmalı (bkz. proje kararı, aşağıda).</summary>
 public sealed class UpdateOfferCommand : ICommand
 {
     /// <summary>Güncellenecek kaydın kimliği.</summary>
     public Guid Id { get; set; }
     /// <summary>Amount.</summary>
     public decimal Amount { get; set; }
-    /// <summary>Status.</summary>
-    [MaxLength(20)]
-    public string Status { get; set; } = "pending";
     /// <summary>ListingId.</summary>
     public Guid ListingId { get; set; }
     /// <summary>BuyerId.</summary>
@@ -158,11 +158,235 @@ internal sealed class UpdateOfferHandler : ICommandHandler<UpdateOfferCommand>
         var entity = await _repository.GetByIdAsync(request.Id, cancellationToken)
             ?? throw new NotFoundException("Offer", request.Id);
         entity.Amount = request.Amount;
-        entity.Status = request.Status;
         entity.ListingId = request.ListingId;
         entity.BuyerId = request.BuyerId;
         await _repository.UpdateAsync(entity, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+    }
+}
+
+/// <summary>
+/// Satıcının 'pending' bir teklifi kabul etmesi — CodeGen dışı, elle eklendi (bkz. proje kararı).
+/// Önceden hiçbir yan etkisi yoktu: ilan yayında/teklife açık kalmaya devam ediyor, diğer bekleyen
+/// teklifler asılı kalıyordu. Artık: ilan 'sold' olur (public listeden/yeni tekliften düşer), aynı
+/// ilandaki diğer TÜM bekleyen teklifler otomatik reddedilir ve o alıcılara + kabul edilen alıcıya
+/// bildirim + (çevrimdışıysa) e-posta gider.
+/// </summary>
+public sealed class AcceptOfferCommand : ICommand
+{
+    public Guid Id { get; set; }
+}
+
+internal sealed class AcceptOfferHandler : ICommandHandler<AcceptOfferCommand>
+{
+    private readonly IRepository<Offer> _repository;
+    private readonly IRepository<Listing> _listingRepository;
+    private readonly IRepository<Notification> _notificationRepository;
+    private readonly IUnitOfWork _unitOfWork;
+    private readonly IUserClient _userClient;
+    private readonly IPresenceClient _presenceClient;
+    private readonly IEmailSender _emailSender;
+    private readonly ILogger<AcceptOfferHandler> _logger;
+
+    public AcceptOfferHandler(
+        IRepository<Offer> repository,
+        IRepository<Listing> listingRepository,
+        IRepository<Notification> notificationRepository,
+        IUnitOfWork unitOfWork,
+        IUserClient userClient,
+        IPresenceClient presenceClient,
+        IEmailSender emailSender,
+        ILogger<AcceptOfferHandler> logger)
+    {
+        _repository = repository;
+        _listingRepository = listingRepository;
+        _notificationRepository = notificationRepository;
+        _unitOfWork = unitOfWork;
+        _userClient = userClient;
+        _presenceClient = presenceClient;
+        _emailSender = emailSender;
+        _logger = logger;
+    }
+
+    public async Task Handle(AcceptOfferCommand request, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var entity = await _repository.GetByIdAsync(request.Id, cancellationToken)
+            ?? throw new NotFoundException("Offer", request.Id);
+
+        if (entity.Status != "pending")
+        {
+            throw new BaseForge.Core.Exceptions.ValidationException("Status", "Yalnızca 'pending' durumundaki teklifler kabul edilebilir.");
+        }
+
+        var listing = await _listingRepository.GetByIdAsync(entity.ListingId, cancellationToken)
+            ?? throw new NotFoundException("Listing", entity.ListingId);
+
+        entity.Status = "accepted";
+        await _repository.UpdateAsync(entity, cancellationToken);
+
+        listing.Status = "sold";
+        await _listingRepository.UpdateAsync(listing, cancellationToken);
+
+        var (otherPending, _) = await _repository.ListPagedAsync(
+            0,
+            500,
+            null,
+            query => query.Where(x => x.ListingId == entity.ListingId && x.Status == "pending" && x.Id != entity.Id),
+            cancellationToken);
+
+        foreach (var other in otherPending)
+        {
+            other.Status = "rejected";
+            await _repository.UpdateAsync(other, cancellationToken);
+        }
+
+        await _notificationRepository.AddAsync(new Notification
+        {
+            RecipientUserId = entity.BuyerId,
+            Title = "Teklifiniz kabul edildi",
+            Body = $"\"{listing.Title}\" ilanı için teklifiniz kabul edildi.",
+            LinkPath = $"/ilanlar/{listing.Id}",
+        }, cancellationToken);
+
+        foreach (var other in otherPending)
+        {
+            await _notificationRepository.AddAsync(new Notification
+            {
+                RecipientUserId = other.BuyerId,
+                Title = "İlan başka bir alıcıya satıldı",
+                Body = $"\"{listing.Title}\" ilanı için verdiğiniz teklif, ilan başka bir alıcıya satıldığı için reddedildi.",
+                LinkPath = $"/ilanlar/{listing.Id}",
+            }, cancellationToken);
+        }
+
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        await NotifyUserAsync(entity.BuyerId, "Teklifiniz kabul edildi", $"\"{listing.Title}\" ilanı için teklifiniz kabul edildi.", $"/ilanlar/{listing.Id}", cancellationToken);
+        foreach (var other in otherPending)
+        {
+            await NotifyUserAsync(
+                other.BuyerId,
+                "İlan başka bir alıcıya satıldı",
+                $"\"{listing.Title}\" ilanı için verdiğiniz teklif, ilan başka bir alıcıya satıldığı için reddedildi.",
+                $"/ilanlar/{listing.Id}",
+                cancellationToken);
+        }
+    }
+
+    private async Task NotifyUserAsync(Guid userId, string title, string body, string linkPath, CancellationToken cancellationToken)
+    {
+        var deliveredLive = await _presenceClient.NotifyAsync(userId, title, body, linkPath, cancellationToken);
+        if (deliveredLive)
+        {
+            return;
+        }
+
+        try
+        {
+            var user = await _userClient.GetByIdAsync(userId, cancellationToken);
+            if (user is null || string.IsNullOrWhiteSpace(user.Email))
+            {
+                return;
+            }
+
+            var html = $"<p>Merhaba,</p><p>{body}</p><p>Detaylar için ilan sayfanızı ziyaret edin.</p>";
+            await _emailSender.SendAsync(user.Email, "HekimBurada — " + title, html, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Bildirim e-postası gönderilemedi (UserId: {UserId}).", userId);
+        }
+    }
+}
+
+/// <summary>Satıcının 'pending' bir teklifi (kabul etmeden) reddetmesi — CodeGen dışı, elle eklendi.
+/// Kabulün aksine ilanı/diğer teklifleri etkilemez, sadece bu tek teklifi kapatır ve alıcıya bildirir.</summary>
+public sealed class RejectOfferCommand : ICommand
+{
+    public Guid Id { get; set; }
+}
+
+internal sealed class RejectOfferHandler : ICommandHandler<RejectOfferCommand>
+{
+    private readonly IRepository<Offer> _repository;
+    private readonly IRepository<Listing> _listingRepository;
+    private readonly IRepository<Notification> _notificationRepository;
+    private readonly IUnitOfWork _unitOfWork;
+    private readonly IUserClient _userClient;
+    private readonly IPresenceClient _presenceClient;
+    private readonly IEmailSender _emailSender;
+    private readonly ILogger<RejectOfferHandler> _logger;
+
+    public RejectOfferHandler(
+        IRepository<Offer> repository,
+        IRepository<Listing> listingRepository,
+        IRepository<Notification> notificationRepository,
+        IUnitOfWork unitOfWork,
+        IUserClient userClient,
+        IPresenceClient presenceClient,
+        IEmailSender emailSender,
+        ILogger<RejectOfferHandler> logger)
+    {
+        _repository = repository;
+        _listingRepository = listingRepository;
+        _notificationRepository = notificationRepository;
+        _unitOfWork = unitOfWork;
+        _userClient = userClient;
+        _presenceClient = presenceClient;
+        _emailSender = emailSender;
+        _logger = logger;
+    }
+
+    public async Task Handle(RejectOfferCommand request, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var entity = await _repository.GetByIdAsync(request.Id, cancellationToken)
+            ?? throw new NotFoundException("Offer", request.Id);
+
+        if (entity.Status != "pending")
+        {
+            throw new BaseForge.Core.Exceptions.ValidationException("Status", "Yalnızca 'pending' durumundaki teklifler reddedilebilir.");
+        }
+
+        entity.Status = "rejected";
+        await _repository.UpdateAsync(entity, cancellationToken);
+
+        var listing = await _listingRepository.GetByIdAsync(entity.ListingId, cancellationToken);
+        if (listing is not null)
+        {
+            await _notificationRepository.AddAsync(new Notification
+            {
+                RecipientUserId = entity.BuyerId,
+                Title = "Teklifiniz reddedildi",
+                Body = $"\"{listing.Title}\" ilanı için verdiğiniz teklif satıcı tarafından reddedildi.",
+                LinkPath = $"/ilanlar/{listing.Id}",
+            }, cancellationToken);
+        }
+
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        if (listing is not null)
+        {
+            var deliveredLive = await _presenceClient.NotifyAsync(
+                entity.BuyerId, "Teklifiniz reddedildi", $"\"{listing.Title}\" ilanı için verdiğiniz teklif satıcı tarafından reddedildi.", $"/ilanlar/{listing.Id}", cancellationToken);
+            if (!deliveredLive)
+            {
+                try
+                {
+                    var buyer = await _userClient.GetByIdAsync(entity.BuyerId, cancellationToken);
+                    if (buyer is not null && !string.IsNullOrWhiteSpace(buyer.Email))
+                    {
+                        var html = $"<p>Merhaba,</p><p>\"{listing.Title}\" ilanı için verdiğiniz teklif satıcı tarafından reddedildi.</p>";
+                        await _emailSender.SendAsync(buyer.Email, "HekimBurada — Teklifiniz reddedildi", html, cancellationToken);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Ret e-postası gönderilemedi (BuyerId: {BuyerId}).", entity.BuyerId);
+                }
+            }
+        }
     }
 }
 

@@ -664,12 +664,18 @@ export const marketplaceApi = {
       body: JSON.stringify({ ...input, status: "pending" }),
     }),
 
-  /** Kabul/red de dahil — backend'de ayrı bir uç yok, durumu PUT ile güncelliyoruz. */
+  /** Yalnızca Amount düzeltmesi için (bkz. UpdateOfferCommand doc yorumu — Status artık burada değişmiyor). */
   updateOfferStatus: (id: string, offer: Offer, status: OfferStatus) =>
     mAuthedReq<void>(`/api/Offers/${id}`, {
       method: "PUT",
       body: JSON.stringify({ ...offer, status }),
     }),
+
+  /** İlanı 'sold' yapar, aynı ilandaki diğer bekleyen teklifleri otomatik reddeder (bkz. AcceptOfferCommand). */
+  acceptOffer: (id: string) => mAuthedReq<void>(`/api/Offers/${id}/accept`, { method: "POST" }),
+
+  /** Yalnızca bu tek teklifi reddeder, ilanı/diğer teklifleri etkilemez. */
+  rejectOffer: (id: string) => mAuthedReq<void>(`/api/Offers/${id}/reject`, { method: "POST" }),
 
   listRequests: (params?: { page?: number; pageSize?: number; search?: string }) =>
     mAuthedReq<PagedResult<MarketplaceRequest>>(`/api/Requests${toQuery(params)}`),
