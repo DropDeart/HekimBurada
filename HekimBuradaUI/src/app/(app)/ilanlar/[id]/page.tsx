@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Heart, Star } from "lucide-react";
 import { toast } from "sonner";
 import Lightbox from "yet-another-react-lightbox";
@@ -10,6 +10,7 @@ import Zoom from "yet-another-react-lightbox/plugins/zoom";
 import "yet-another-react-lightbox/styles.css";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { UserAvatar } from "@/components/UserAvatar";
 import {
   identityApi,
   MARKETPLACE_URL,
@@ -74,6 +75,8 @@ export default function ListingDetailPage() {
   const [newReviewBody, setNewReviewBody] = useState("");
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [sellerOrder, setSellerOrder] = useState<Order | null>(null);
+  const [chatParticipants, setChatParticipants] = useState<Map<string, UserLookupRow>>(new Map());
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const loadReviews = useCallback(async () => {
     try {
@@ -174,6 +177,21 @@ export default function ListingDetailPage() {
   const isOwner = listing?.sellerId === myId;
   const selectedOffer = offers.find((o) => o.id === selectedOfferId) ?? null;
   const images = parseListingImages(listing?.images);
+
+  useEffect(() => {
+    // Sohbet balonlarında avatar/baş harf gösterebilmek için sohbetin iki tarafını (satıcı+alıcı)
+    // çözer — hangisinin görüntülediğinden bağımsız, ikisi de aynı anda gerekiyor.
+    if (!listing || !selectedOffer) return;
+    identityApi
+      .lookupUsers([...new Set([listing.sellerId, selectedOffer.buyerId])])
+      .then((rows) => setChatParticipants(new Map(rows.map((r) => [r.id, r]))))
+      .catch(() => {});
+  }, [listing, selectedOffer]);
+
+  useEffect(() => {
+    // Sohbet her zaman en son mesajı gösterecek şekilde en alta kaysın (bkz. proje kararı).
+    messagesEndRef.current?.scrollIntoView({ block: "end" });
+  }, [messages]);
 
   useEffect(() => {
     // Satıcı, kabul ettiği teklife karşılık gelen siparişi (özellikle bağış dekontunu) burada görür —
@@ -606,20 +624,28 @@ export default function ListingDetailPage() {
                 {messages.length === 0 ? (
                   <p className="text-xs text-muted-foreground">Henüz mesaj yok.</p>
                 ) : (
-                  messages.map((m) => (
-                    <div
-                      key={m.id}
-                      className={cn(
-                        "max-w-[80%] rounded-lg px-3 py-2 text-[13px]",
-                        m.senderId === myId
-                          ? "self-end bg-brand-soft text-foreground"
-                          : "self-start bg-muted text-foreground"
-                      )}
-                    >
-                      {m.body}
-                    </div>
-                  ))
+                  messages.map((m) => {
+                    const sender = chatParticipants.get(m.senderId);
+                    const isMine = m.senderId === myId;
+                    return (
+                      <div
+                        key={m.id}
+                        className={cn("flex items-end gap-1.5", isMine ? "flex-row-reverse self-end" : "self-start")}
+                      >
+                        <UserAvatar avatarUrl={sender?.avatarUrl} name={sender?.fullName ?? sender?.email} size={20} />
+                        <div
+                          className={cn(
+                            "max-w-[80%] rounded-lg px-3 py-2 text-[13px]",
+                            isMine ? "bg-brand-soft text-foreground" : "bg-muted text-foreground"
+                          )}
+                        >
+                          {m.body}
+                        </div>
+                      </div>
+                    );
+                  })
                 )}
+                <div ref={messagesEndRef} />
               </div>
               <div className="mb-5 flex gap-2">
                 <input

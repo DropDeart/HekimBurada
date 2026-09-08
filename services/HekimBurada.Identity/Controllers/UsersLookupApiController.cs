@@ -46,7 +46,7 @@ public sealed class UsersLookupApiController : ControllerBase
             var user = await _userManager.FindByIdAsync(id.ToString());
             if (user is not null)
             {
-                rows.Add(new UserLookupRow(user.Id, user.Email ?? user.UserName ?? string.Empty, user.FullName));
+                rows.Add(new UserLookupRow(user.Id, user.Email ?? user.UserName ?? string.Empty, user.FullName, user.AvatarUrl));
             }
         }
 
@@ -54,4 +54,4 @@ public sealed class UsersLookupApiController : ControllerBase
     }
 }
 
-public sealed record UserLookupRow(Guid Id, string Email, string? FullName);
+public sealed record UserLookupRow(Guid Id, string Email, string? FullName, string? AvatarUrl);

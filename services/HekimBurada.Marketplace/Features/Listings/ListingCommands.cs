@@ -3,8 +3,10 @@ using System.Text.Json;
 using BaseForge.Core.CQRS;
 using BaseForge.Core.Exceptions;
 using BaseForge.Core.Interfaces;
+using Marketplace.Email;
 using Marketplace.Entities;
 using Marketplace.Integration;
+using Microsoft.Extensions.Logging;
 
 namespace Marketplace.Features.Listings;
 
@@ -413,11 +415,29 @@ public sealed class ApproveListingCommand : ICommand
 internal sealed class ApproveListingHandler : ICommandHandler<ApproveListingCommand>
 {
     private readonly IRepository<Listing> _repository;
+    private readonly IRepository<Notification> _notificationRepository;
     private readonly IUnitOfWork _unitOfWork;
-    public ApproveListingHandler(IRepository<Listing> repository, IUnitOfWork unitOfWork)
+    private readonly IUserClient _userClient;
+    private readonly IPresenceClient _presenceClient;
+    private readonly IEmailSender _emailSender;
+    private readonly ILogger<ApproveListingHandler> _logger;
+
+    public ApproveListingHandler(
+        IRepository<Listing> repository,
+        IRepository<Notification> notificationRepository,
+        IUnitOfWork unitOfWork,
+        IUserClient userClient,
+        IPresenceClient presenceClient,
+        IEmailSender emailSender,
+        ILogger<ApproveListingHandler> logger)
     {
         _repository = repository;
+        _notificationRepository = notificationRepository;
         _unitOfWork = unitOfWork;
+        _userClient = userClient;
+        _presenceClient = presenceClient;
+        _emailSender = emailSender;
+        _logger = logger;
     }
 
     public async Task Handle(ApproveListingCommand request, CancellationToken cancellationToken)
@@ -436,7 +456,45 @@ internal sealed class ApproveListingHandler : ICommandHandler<ApproveListingComm
         entity.PublishedAt = publishedAt;
         entity.ExpiresAt = publishedAt.AddDays(entity.DurationDays);
         await _repository.UpdateAsync(entity, cancellationToken);
+
+        var title = "İlanınız onaylandı";
+        var body = $"\"{entity.Title}\" ilanınız onaylandı ve yayına alındı.";
+        var linkPath = $"/ilanlar/{entity.Id}";
+        await _notificationRepository.AddAsync(new Notification
+        {
+            RecipientUserId = entity.SellerId,
+            Title = title,
+            Body = body,
+            LinkPath = linkPath,
+        }, cancellationToken);
+
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+        await NotifySellerAsync(entity.SellerId, title, body, linkPath, cancellationToken);
+    }
+
+    private async Task NotifySellerAsync(Guid sellerId, string title, string body, string linkPath, CancellationToken cancellationToken)
+    {
+        var deliveredLive = await _presenceClient.NotifyAsync(sellerId, title, body, linkPath, cancellationToken);
+        if (deliveredLive)
+        {
+            return;
+        }
+
+        try
+        {
+            var seller = await _userClient.GetByIdAsync(sellerId, cancellationToken);
+            if (seller is null || string.IsNullOrWhiteSpace(seller.Email))
+            {
+                return;
+            }
+
+            var html = $"<p>Merhaba,</p><p>{body}</p><p>Görmek için ilan sayfanızı ziyaret edin.</p>";
+            await _emailSender.SendAsync(seller.Email, "HekimBurada — " + title, html, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "İlan moderasyon e-postası gönderilemedi (SellerId: {SellerId}).", sellerId);
+        }
     }
 }
 
@@ -450,11 +508,29 @@ public sealed class RejectListingCommand : ICommand
 internal sealed class RejectListingHandler : ICommandHandler<RejectListingCommand>
 {
     private readonly IRepository<Listing> _repository;
+    private readonly IRepository<Notification> _notificationRepository;
     private readonly IUnitOfWork _unitOfWork;
-    public RejectListingHandler(IRepository<Listing> repository, IUnitOfWork unitOfWork)
+    private readonly IUserClient _userClient;
+    private readonly IPresenceClient _presenceClient;
+    private readonly IEmailSender _emailSender;
+    private readonly ILogger<RejectListingHandler> _logger;
+
+    public RejectListingHandler(
+        IRepository<Listing> repository,
+        IRepository<Notification> notificationRepository,
+        IUnitOfWork unitOfWork,
+        IUserClient userClient,
+        IPresenceClient presenceClient,
+        IEmailSender emailSender,
+        ILogger<RejectListingHandler> logger)
     {
         _repository = repository;
+        _notificationRepository = notificationRepository;
         _unitOfWork = unitOfWork;
+        _userClient = userClient;
+        _presenceClient = presenceClient;
+        _emailSender = emailSender;
+        _logger = logger;
     }
 
     public async Task Handle(RejectListingCommand request, CancellationToken cancellationToken)
@@ -470,6 +546,36 @@ internal sealed class RejectListingHandler : ICommandHandler<RejectListingComman
 
         entity.Status = "rejected";
         await _repository.UpdateAsync(entity, cancellationToken);
+
+        var title = "İlanınız reddedildi";
+        var body = $"\"{entity.Title}\" ilanınız admin tarafından reddedildi. Düzenleyip tekrar gönderebilirsiniz.";
+        var linkPath = $"/ilan-ver/{entity.Id}";
+        await _notificationRepository.AddAsync(new Notification
+        {
+            RecipientUserId = entity.SellerId,
+            Title = title,
+            Body = body,
+            LinkPath = linkPath,
+        }, cancellationToken);
+
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        var deliveredLive = await _presenceClient.NotifyAsync(entity.SellerId, title, body, linkPath, cancellationToken);
+        if (!deliveredLive)
+        {
+            try
+            {
+                var seller = await _userClient.GetByIdAsync(entity.SellerId, cancellationToken);
+                if (seller is not null && !string.IsNullOrWhiteSpace(seller.Email))
+                {
+                    var html = $"<p>Merhaba,</p><p>{body}</p>";
+                    await _emailSender.SendAsync(seller.Email, "HekimBurada — " + title, html, cancellationToken);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "İlan reddi e-postası gönderilemedi (SellerId: {SellerId}).", entity.SellerId);
+            }
+        }
     }
 }
