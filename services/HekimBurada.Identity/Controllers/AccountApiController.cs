@@ -36,18 +36,28 @@ public sealed class AccountApiController : ControllerBase
     private readonly IdentityServiceDbContext _db;
     private readonly Email.EmailOtpService _emailOtpService;
 
+    /// <summary>
+    /// Dış sağlayıcı girişi başarısız olduğunda dönülecek SPA adresi. Identity'nin kendi
+    /// (jenerik, markasız) statik dosyalarına değil — Cors:AllowedOrigins'in ilk değerine
+    /// düşer, o da yoksa prod domaine.
+    /// </summary>
+    private readonly string _spaBaseUrl;
+
     public AccountApiController(
         SignInManager<ApplicationUser> signInManager,
         UserManager<ApplicationUser> userManager,
         IWebHostEnvironment env,
         IdentityServiceDbContext db,
-        Email.EmailOtpService emailOtpService)
+        Email.EmailOtpService emailOtpService,
+        IConfiguration configuration)
     {
         _signInManager = signInManager;
         _userManager = userManager;
         _env = env;
         _db = db;
         _emailOtpService = emailOtpService;
+        _spaBaseUrl = configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()?.FirstOrDefault()
+            ?? "https://hekimburada.com";
     }
 
     [HttpGet("me")]
@@ -311,7 +321,7 @@ public sealed class AccountApiController : ControllerBase
         var info = await _signInManager.GetExternalLoginInfoAsync();
         if (info is null)
         {
-            return Redirect("/Account/Login?error=external");
+            return Redirect($"{_spaBaseUrl}/giris-yap?error=external");
         }
 
         var signIn = await _signInManager.ExternalLoginSignInAsync(
@@ -324,7 +334,7 @@ public sealed class AccountApiController : ControllerBase
         var email = info.Principal.FindFirstValue(ClaimTypes.Email) ?? info.Principal.FindFirstValue(ClaimTypes.Name);
         if (string.IsNullOrWhiteSpace(email))
         {
-            return Redirect("/Account/Login?error=external");
+            return Redirect($"{_spaBaseUrl}/giris-yap?error=external");
         }
 
         var user = await _userManager.FindByEmailAsync(email);
@@ -343,7 +353,7 @@ public sealed class AccountApiController : ControllerBase
             var created = await _userManager.CreateAsync(user);
             if (!created.Succeeded)
             {
-                return Redirect("/Account/Login?error=external");
+                return Redirect($"{_spaBaseUrl}/giris-yap?error=external");
             }
 
             await _userManager.AddToRoleAsync(user, SeedData.UserRole);

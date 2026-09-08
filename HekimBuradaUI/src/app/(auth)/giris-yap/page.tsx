@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { Suspense, useEffect, useState, type FormEvent } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { SocialLoginButtons } from "@/components/auth/SocialLoginButtons";
@@ -14,14 +14,21 @@ import { identityApi } from "@/lib/api";
 import { auth } from "@/lib/auth";
 import { toast } from "sonner";
 
-export default function GirisYapPage() {
+function GirisYapInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (searchParams.get("error") === "external") {
+      setError("Sosyal hesapla giriş başarısız oldu. Lütfen tekrar deneyin veya e-posta ile giriş yapın.");
+    }
+  }, [searchParams]);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -131,5 +138,13 @@ export default function GirisYapPage() {
         </Link>
       </p>
     </AuthShell>
+  );
+}
+
+export default function GirisYapPage() {
+  return (
+    <Suspense fallback={null}>
+      <GirisYapInner />
+    </Suspense>
   );
 }
