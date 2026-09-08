@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+option csharp_namespace = "Messaging.Grpc";
+
+package presence;
+
+// Kullanıcı çevrimiçi durumu + canlı bildirim iletimi. Messaging kullanıcının kalıcı SignalR
+// bağlantısına sahip olan tek servis olduğu için bu iş burada merkezileşir — diğer servisler
+// (Marketplace/Community) teklif/yorum gibi olaylarda bunu çağırıp kullanıcı çevrimiçiyse anlık
+// bildirim gönderir, değilse (delivered_live=false) kendi e-posta gönderimini tetikler.
+// CodeGen dışı, elle eklendi (bkz. proje kararı).
+service PresenceService {
+  rpc Notify (NotifyRequest) returns (NotifyResponse);
+}
+
+message NotifyRequest {
+  string user_id = 1;
+  string title = 2;
+  string body = 3;
+  string link_path = 4;
+}
+
+message NotifyResponse {
+  bool delivered_live = 1;
+}

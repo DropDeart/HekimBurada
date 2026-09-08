@@ -90,6 +90,14 @@ builder.Services.AddGrpcClient<Identity.Grpc.UserService.UserServiceClient>(o =>
     .AddInterceptor<BaseForge.API.Grpc.CorrelationIdClientInterceptor>();
 builder.Services.AddScoped<Marketplace.Integration.IUserClient, Marketplace.Integration.UserClient>();
 
+// messaging/PresenceService'e gRPC istemcisi — teklif bildirimlerinde kullanıcı çevrimiçiyse anlık
+// push, değilse e-posta (bkz. Integration/PresenceClient.cs). CodeGen dışı, elle eklendi.
+builder.Services.AddGrpcClient<Messaging.Grpc.PresenceService.PresenceServiceClient>(o =>
+    o.Address = new Uri(builder.Configuration["Grpc:Messaging"]
+        ?? throw new InvalidOperationException("Grpc:Messaging tanımlı değil.")))
+    .AddInterceptor<BaseForge.API.Grpc.CorrelationIdClientInterceptor>();
+builder.Services.AddScoped<Marketplace.Integration.IPresenceClient, Marketplace.Integration.PresenceClient>();
+
 // İlan yorumu bildirim e-postası için (bkz. Email/, Features/Notifications/).
 var smtpOptions = builder.Configuration.GetSection(Marketplace.Email.SmtpOptions.SectionName).Get<Marketplace.Email.SmtpOptions>()
     ?? new Marketplace.Email.SmtpOptions();

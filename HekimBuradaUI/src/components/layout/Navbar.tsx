@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Bell, Heart, Menu, Search, User as UserIcon, X } from "lucide-react";
+import { toast } from "sonner";
+import { connectPresence } from "@/lib/presenceHub";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -145,6 +147,28 @@ export function Navbar() {
         );
       })
       .catch(() => {});
+  }, [hasToken]);
+
+  useEffect(() => {
+    if (!hasToken) return;
+    // Uygulama genelinde bağlı kalan presence bağlantısı — kullanıcı çevrimiçi sayılır (bkz.
+    // Messaging/Hubs/PresenceHub.cs) ve teklif/mesaj gibi olaylarda anlık bildirim burada düşer,
+    // zil sayfa yenilenmeden güncellenir.
+    const disconnect = connectPresence((notification) => {
+      toast(notification.title, { description: notification.body });
+      setNotifications((prev) => [
+        {
+          id: crypto.randomUUID(),
+          title: notification.title,
+          body: notification.body,
+          linkPath: notification.linkPath,
+          isRead: false,
+          createdAt: new Date().toISOString(),
+        },
+        ...prev,
+      ]);
+    });
+    return disconnect;
   }, [hasToken]);
 
   /** Zil açılınca her iki servisteki bildirimleri de okunmuş işaretler (basit "hepsini okundu" deseni). */

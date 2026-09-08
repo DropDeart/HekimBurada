@@ -1,11 +1,14 @@
 using BaseForge.API.Extensions;
 using Messaging.Hubs;
+using Messaging.Presence;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi;
 using Scalar.AspNetCore;
 using Messaging.Data;
+using StackExchange.Redis;
 
 // h2c (TLS'siz HTTP/2) desteği — container/yerel ağda düz HTTP üzerinden gRPC istemci çağrıları için.
 AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true);
@@ -97,10 +100,18 @@ builder.Services.AddScoped<Messaging.Integration.IUserClient, Messaging.Integrat
 
 // ---- CodeGen dışı, elle eklendi: gerçek zamanlı sohbet (bkz. plan Faz D) ----
 builder.Services.AddSignalR();
+builder.Services.AddSingleton<IUserIdProvider, HubUserIdProvider>();
+
+// Presence (kullanıcı çevrimiçi mi) — Redis'te bağlantı sayacı tutulur, birden fazla sekme/cihaz
+// aynı kullanıcıyı erken çevrimdışı göstermesin diye (bkz. RedisPresenceTracker doc yorumu).
+builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
+    ConnectionMultiplexer.Connect(builder.Configuration["Redis:ConnectionString"]
+        ?? throw new InvalidOperationException("Redis:ConnectionString tanımlı değil.")));
+builder.Services.AddSingleton<IPresenceTracker, RedisPresenceTracker>();
 
 // SignalR'ın WebSocket handshake'i Authorization header'ı taşıyamaz — EnableJwt'in kurduğu
-// "Bearer" şemasına, yalnızca /hubs/messages yoluna özel bir query-string token okuma kuralı
-// POST-CONFIGURE ile ekleniyor (var olan Authority/TokenValidationParameters'a dokunmadan).
+// "Bearer" şemasına, /hubs/messages ve /hubs/presence yollarına özel bir query-string token okuma
+// kuralı POST-CONFIGURE ile ekleniyor (var olan Authority/TokenValidationParameters'a dokunmadan).
 builder.Services.Configure<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme, options =>
 {
     options.Events ??= new JwtBearerEvents();
@@ -108,7 +119,9 @@ builder.Services.Configure<JwtBearerOptions>(JwtBearerDefaults.AuthenticationSch
     options.Events.OnMessageReceived = async context =>
     {
         var accessToken = context.Request.Query["access_token"];
-        if (!string.IsNullOrEmpty(accessToken) && context.HttpContext.Request.Path.StartsWithSegments("/hubs/messages"))
+        var path = context.HttpContext.Request.Path;
+        if (!string.IsNullOrEmpty(accessToken) &&
+            (path.StartsWithSegments("/hubs/messages") || path.StartsWithSegments("/hubs/presence")))
         {
             context.Token = accessToken;
         }
@@ -175,5 +188,7 @@ app.UseStaticFiles(); // wwwroot/uploads — MediaController'ın fiziksel olarak
 app.UseBaseForge();
 app.MapControllers();
 app.MapGrpcService<Messaging.Grpc.MessageGrpcService>();
+app.MapGrpcService<Messaging.Grpc.PresenceGrpcService>();
 app.MapHub<MessageHub>("/hubs/messages");
+app.MapHub<PresenceHub>("/hubs/presence");
 app.Run();

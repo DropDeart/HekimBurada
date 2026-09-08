@@ -17,11 +17,14 @@
     <!-- Servisler arası senkron iletişim (gRPC) — sunucu + istemci taraflarını birlikte getirir -->
     <PackageReference Include="Grpc.AspNetCore" Version="2.71.0" />
     <PackageReference Include="Grpc.Net.ClientFactory" Version="2.71.0" />
+    <!-- Presence (kullanıcı çevrimiçi mi) takibi için — CodeGen dışı, elle eklendi (bkz. proje kararı). -->
+    <PackageReference Include="StackExchange.Redis" Version="2.8.31" />
   </ItemGroup>
 
   <ItemGroup>
     <Protobuf Include="Protos/message.proto" GrpcServices="Server" />
     <Protobuf Include="Protos/user.proto" GrpcServices="Client" />
+    <Protobuf Include="Protos/presence.proto" GrpcServices="Server" />
   </ItemGroup>
 
 </Project>

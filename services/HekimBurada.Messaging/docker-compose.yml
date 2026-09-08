@@ -22,11 +22,25 @@ services:
     volumes:
       - messaging-pgdata:/var/lib/postgresql/data
 
+  # Presence (kullanıcı çevrimiçi mi) takibi için — bkz. Presence/RedisPresenceTracker.cs.
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    ports:
+      - "6379:6379"   # yerelde 'dotnet run' için (appsettings.json Redis:ConnectionString ile eşleşir)
+    volumes:
+      - messaging-redisdata:/data
+
   messaging:
     build: .
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ConnectionStrings__Default: "Host=postgres;Port=5432;Database=hekimburada_messaging_db;Username=baseforge;Password=change_me"
+      Redis__ConnectionString: "redis:6379"
     # Container'a üst sınır verilmezse .NET Server GC heap'i host'un tüm RAM'ine göre büyütüp
     # geri vermiyor (prod'da 4.5GB'a kadar çıktığı gözlendi, restart sonrası ~55MB'a düşüyor) —
     # bkz. proje hafızası "RAM'i incele" konuşması. Sınır aşılırsa OOM ile restart olur, tüm host'u
@@ -47,7 +61,10 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
 
 volumes:
   messaging-pgdata:
   messaging-uploads:
+  messaging-redisdata:

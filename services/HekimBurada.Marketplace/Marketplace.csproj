@@ -28,6 +28,7 @@
     <Protobuf Include="Protos/request.proto" GrpcServices="Server" />
     <Protobuf Include="Protos/favorite.proto" GrpcServices="Server" />
     <Protobuf Include="Protos/user.proto" GrpcServices="Client" />
+    <Protobuf Include="Protos/presence.proto" GrpcServices="Client" />
   </ItemGroup>
 
 </Project>
