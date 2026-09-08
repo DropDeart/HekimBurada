@@ -20,6 +20,7 @@ import {
   gatewayApi,
   identityApi,
   marketplaceApi,
+  messagingApi,
   type Announcement,
   type AppNotification,
   type CommunityCategory,
@@ -140,10 +141,10 @@ export function Navbar() {
       })
       .catch(() => {});
 
-    Promise.all([marketplaceApi.listNotifications(), communityApi.listNotifications()])
-      .then(([marketplaceNotifs, communityNotifs]) => {
+    Promise.all([marketplaceApi.listNotifications(), communityApi.listNotifications(), messagingApi.listNotifications()])
+      .then(([marketplaceNotifs, communityNotifs, messagingNotifs]) => {
         setNotifications(
-          [...marketplaceNotifs, ...communityNotifs].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+          [...marketplaceNotifs, ...communityNotifs, ...messagingNotifs].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
         );
       })
       .catch(() => {});
@@ -178,6 +179,7 @@ export function Navbar() {
       setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
       marketplaceApi.markAllNotificationsRead().catch(() => {});
       communityApi.markAllNotificationsRead().catch(() => {});
+      messagingApi.markAllNotificationsRead().catch(() => {});
     }
   };
 

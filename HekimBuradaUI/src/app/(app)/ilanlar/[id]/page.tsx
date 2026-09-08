@@ -52,6 +52,7 @@ export default function ListingDetailPage() {
   const [categories, setCategories] = useState<MarketplaceCategory[]>([]);
   const [favorite, setFavorite] = useState<Favorite | null>(null);
   const [offers, setOffers] = useState<Offer[]>([]);
+  const [buyers, setBuyers] = useState<Map<string, UserLookupRow>>(new Map());
   const [selectedOfferId, setSelectedOfferId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [messageDraft, setMessageDraft] = useState("");
@@ -122,6 +123,16 @@ export default function ListingDetailPage() {
       setOffers(relevant);
       if (relevant.length > 0 && !selectedOfferId) {
         setSelectedOfferId(relevant[0].id);
+      }
+
+      // Satıcı için: hangi teklifin kime ait olduğu görünsün diye alıcı adlarını çek (bkz. proje
+      // notu — sadece tutar gösterilince birden fazla teklifte kimin kim olduğu belli olmuyordu).
+      if (listingRes.sellerId === myId) {
+        const buyerIds = [...new Set(relevant.map((o) => o.buyerId))];
+        if (buyerIds.length > 0) {
+          const rows = await identityApi.lookupUsers(buyerIds);
+          setBuyers(new Map(rows.map((r) => [r.id, r])));
+        }
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "İlan yüklenemedi.");
@@ -270,11 +281,18 @@ export default function ListingDetailPage() {
   };
 
   const sendMessage = async () => {
-    if (!myId || !selectedOfferId || !messageDraft.trim()) return;
+    if (!myId || !selectedOfferId || !selectedOffer || !listing || !messageDraft.trim()) return;
     const body = messageDraft.trim();
+    const recipientId = isOwner ? selectedOffer.buyerId : listing.sellerId;
     setMessageDraft("");
     try {
-      await messagingApi.sendMessage({ body, offerId: selectedOfferId, senderId: myId });
+      await messagingApi.sendMessage({
+        body,
+        offerId: selectedOfferId,
+        senderId: myId,
+        recipientId,
+        linkPath: `/ilanlar/${listing.id}`,
+      });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Mesaj gönderilemedi.");
     }
@@ -460,8 +478,13 @@ export default function ListingDetailPage() {
                           : "border-border bg-white"
                       )}
                     >
-                      <div className="text-[13px] font-bold text-foreground">
-                        {currency(o.amount)}
+                      <div>
+                        <div className="text-[13px] font-bold text-foreground">
+                          {currency(o.amount)}
+                        </div>
+                        <div className="text-[11px] text-muted-foreground">
+                          {buyers.get(o.buyerId)?.fullName ?? buyers.get(o.buyerId)?.email ?? "Kullanıcı"}
+                        </div>
                       </div>
                       {o.status === "pending" ? (
                         <div className="flex gap-1.5">
@@ -556,6 +579,8 @@ export default function ListingDetailPage() {
             <>
               <h3 className="mb-2 text-[13px] font-bold text-muted-foreground">
                 {currency(selectedOffer.amount)} teklifi hakkında sohbet
+                {isOwner &&
+                  ` — ${buyers.get(selectedOffer.buyerId)?.fullName ?? buyers.get(selectedOffer.buyerId)?.email ?? "Kullanıcı"}`}
               </h3>
               <div className="mb-3 flex max-h-[180px] flex-col gap-2.5 overflow-y-auto rounded-lg border border-border p-3.5">
                 {messages.length === 0 ? (

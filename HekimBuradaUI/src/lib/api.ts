@@ -911,8 +911,12 @@ export const messagingApi = {
   listMessages: (params?: { page?: number; pageSize?: number }) =>
     msgAuthedReq<PagedResult<Message>>(`/api/Messages${toQuery(params)}`),
 
-  sendMessage: (input: { body: string; offerId: string; senderId: string }) =>
+  sendMessage: (input: { body: string; offerId: string; senderId: string; recipientId: string; linkPath: string }) =>
     msgAuthedReq<string>("/api/Messages", { method: "POST", body: JSON.stringify(input) }),
+
+  listNotifications: () => msgAuthedReq<AppNotification[]>("/api/notifications"),
+
+  markAllNotificationsRead: () => msgAuthedReq<void>("/api/notifications/mark-all-read", { method: "POST" }),
 };
 
 // ---- Gateway ----

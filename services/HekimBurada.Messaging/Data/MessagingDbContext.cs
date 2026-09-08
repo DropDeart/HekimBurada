@@ -16,4 +16,7 @@ public sealed class MessagingDbContext : BaseForgeDbContext
 
     /// <summary>Message tablosu.</summary>
     public DbSet<Message> Messages => Set<Message>();
+
+    /// <summary>Notification tablosu — CodeGen dışı, elle eklendi.</summary>
+    public DbSet<Notification> Notifications => Set<Notification>();
 }

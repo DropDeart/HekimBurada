@@ -98,6 +98,12 @@ builder.Services.AddGrpcClient<Identity.Grpc.UserService.UserServiceClient>(o =>
     .AddInterceptor<BaseForge.API.Grpc.CorrelationIdClientInterceptor>();
 builder.Services.AddScoped<Messaging.Integration.IUserClient, Messaging.Integration.UserClient>();
 
+// Mesaj bildirim e-postası için (bkz. Email/, Features/Notifications/).
+var smtpOptions = builder.Configuration.GetSection(Messaging.Email.SmtpOptions.SectionName).Get<Messaging.Email.SmtpOptions>()
+    ?? new Messaging.Email.SmtpOptions();
+builder.Services.AddSingleton(smtpOptions);
+builder.Services.AddTransient<Messaging.Email.IEmailSender, Messaging.Email.SmtpEmailSender>();
+
 // ---- CodeGen dışı, elle eklendi: gerçek zamanlı sohbet (bkz. plan Faz D) ----
 builder.Services.AddSignalR();
 builder.Services.AddSingleton<IUserIdProvider, HubUserIdProvider>();

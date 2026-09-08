@@ -140,11 +140,18 @@ export default function RequestDetailPage() {
   };
 
   const sendMessage = async () => {
-    if (!myId || !selectedOfferId || !messageDraft.trim()) return;
+    if (!myId || !selectedOfferId || !selectedOffer || !request || !messageDraft.trim()) return;
     const body = messageDraft.trim();
+    const recipientId = isRequester ? selectedOffer.responderId : request.requesterId;
     setMessageDraft("");
     try {
-      await messagingApi.sendMessage({ body, offerId: selectedOfferId, senderId: myId });
+      await messagingApi.sendMessage({
+        body,
+        offerId: selectedOfferId,
+        senderId: myId,
+        recipientId,
+        linkPath: `/talepler/${request.id}`,
+      });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Mesaj gönderilemedi.");
     }

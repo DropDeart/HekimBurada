@@ -2,9 +2,13 @@ using System.ComponentModel.DataAnnotations;
 using BaseForge.Core.CQRS;
 using BaseForge.Core.Exceptions;
 using BaseForge.Core.Interfaces;
+using Messaging.Email;
 using Messaging.Entities;
 using Messaging.Hubs;
+using Messaging.Integration;
+using Messaging.Presence;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.Extensions.Logging;
 
 namespace Messaging.Features.Messages;
 
@@ -18,18 +22,53 @@ public sealed class CreateMessageCommand : ICommand<Guid>
     public Guid OfferId { get; set; }
     /// <summary>SenderId.</summary>
     public Guid SenderId { get; set; }
+    /// <summary>
+    /// Bu sohbetteki KARŞI taraf — bildirimin kime gideceğini belirler. Offer entity'si Marketplace'te
+    /// yaşadığı ve oradan buraya (henüz) gerçek bir gRPC köprüsü olmadığı için (bkz. Integration/
+    /// OfferClient.cs stub notu) istemciden alınır: frontend zaten hem teklifin alıcısını hem ilanın
+    /// satıcısını bildiğinden, "karşı taraf" bilgisini hesaplaması ek bir sorgu gerektirmiyor. Yanlış
+    /// gönderilse bile tek sonucu birinin yanlışlıkla bildirim alması/almaması olur — güvenlik açığı
+    /// değildir. CodeGen dışı, elle eklendi.
+    /// </summary>
+    public Guid RecipientId { get; set; }
+    /// <summary>Bildirime tıklanınca gidilecek yol (örn. /ilanlar/{listingId}) — aynı gerekçeyle
+    /// (Offer→Listing köprüsü burada yok) istemciden alınır, zaten sayfada elinde olan bir bilgi.</summary>
+    [MaxLength(300)]
+    public string LinkPath { get; set; } = string.Empty;
 }
 
 internal sealed class CreateMessageHandler : ICommandHandler<CreateMessageCommand, Guid>
 {
     private readonly IRepository<Message> _repository;
+    private readonly IRepository<Notification> _notificationRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IHubContext<MessageHub> _hub;
-    public CreateMessageHandler(IRepository<Message> repository, IUnitOfWork unitOfWork, IHubContext<MessageHub> hub)
+    private readonly IHubContext<PresenceHub> _presenceHub;
+    private readonly IPresenceTracker _presenceTracker;
+    private readonly IUserClient _userClient;
+    private readonly IEmailSender _emailSender;
+    private readonly ILogger<CreateMessageHandler> _logger;
+
+    public CreateMessageHandler(
+        IRepository<Message> repository,
+        IRepository<Notification> notificationRepository,
+        IUnitOfWork unitOfWork,
+        IHubContext<MessageHub> hub,
+        IHubContext<PresenceHub> presenceHub,
+        IPresenceTracker presenceTracker,
+        IUserClient userClient,
+        IEmailSender emailSender,
+        ILogger<CreateMessageHandler> logger)
     {
         _repository = repository;
+        _notificationRepository = notificationRepository;
         _unitOfWork = unitOfWork;
         _hub = hub;
+        _presenceHub = presenceHub;
+        _presenceTracker = presenceTracker;
+        _userClient = userClient;
+        _emailSender = emailSender;
+        _logger = logger;
     }
 
     public async Task<Guid> Handle(CreateMessageCommand request, CancellationToken cancellationToken)
@@ -42,6 +81,19 @@ internal sealed class CreateMessageHandler : ICommandHandler<CreateMessageComman
             SenderId = request.SenderId,
         };
         await _repository.AddAsync(entity, cancellationToken);
+
+        // Kendine bildirim gönderilmez (RecipientId boş/senderId ile aynıysa atlanır).
+        if (request.RecipientId != Guid.Empty && request.RecipientId != request.SenderId)
+        {
+            await _notificationRepository.AddAsync(new Notification
+            {
+                RecipientUserId = request.RecipientId,
+                Title = "Yeni bir mesajınız var",
+                Body = "Bir ilan teklifi hakkında yeni bir mesaj aldınız.",
+                LinkPath = request.LinkPath,
+            }, cancellationToken);
+        }
+
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         // REST üzerinden yazılan mesaj, aynı Offer odasındaki bağlı istemcilere gerçek zamanlı iletilir
@@ -49,7 +101,47 @@ internal sealed class CreateMessageHandler : ICommandHandler<CreateMessageComman
         await _hub.Clients.Group(MessageHub.GroupName(entity.OfferId))
             .SendAsync("messageReceived", MessageDto.From(entity), cancellationToken);
 
+        if (request.RecipientId != Guid.Empty && request.RecipientId != request.SenderId)
+        {
+            await NotifyRecipientAsync(request, cancellationToken);
+        }
+
         return entity.Id;
+    }
+
+    private async Task NotifyRecipientAsync(CreateMessageCommand request, CancellationToken cancellationToken)
+    {
+        const string title = "Yeni bir mesajınız var";
+        const string body = "Bir ilan teklifi hakkında yeni bir mesaj aldınız.";
+        var linkPath = request.LinkPath;
+
+        var online = await _presenceTracker.IsOnlineAsync(request.RecipientId);
+        if (online)
+        {
+            await _presenceHub.Clients.User(request.RecipientId.ToString())
+                .SendAsync("notificationReceived", new { title, body, linkPath }, cancellationToken);
+            return;
+        }
+
+        try
+        {
+            var recipient = await _userClient.GetByIdAsync(request.RecipientId, cancellationToken);
+            if (recipient is null || string.IsNullOrWhiteSpace(recipient.Email))
+            {
+                return;
+            }
+
+            var html = $"""
+                <p>Merhaba,</p>
+                <p>{body}</p>
+                <p>Görmek için ilan sayfanızı ziyaret edin.</p>
+                """;
+            await _emailSender.SendAsync(recipient.Email, "HekimBurada — " + title, html, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Mesaj e-postası gönderilemedi (RecipientId: {RecipientId}).", request.RecipientId);
+        }
     }
 }
 
