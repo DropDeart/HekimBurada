@@ -904,6 +904,7 @@ export interface Message {
   body: string;
   offerId: string;
   senderId: string;
+  createdAt: string;
 }
 
 export const messagingApi = {

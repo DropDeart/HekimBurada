@@ -92,7 +92,13 @@ export default function RequestDetailPage() {
     if (!selectedOfferId) return;
     messagingApi
       .listMessages({ pageSize: 200 })
-      .then((r) => setMessages(r.items.filter((m) => m.offerId === selectedOfferId)))
+      .then((r) =>
+        setMessages(
+          r.items
+            .filter((m) => m.offerId === selectedOfferId)
+            .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+        )
+      )
       .catch(() => {});
 
     const disconnect = connectToOfferChat(selectedOfferId, (msg) => {
