@@ -56,6 +56,16 @@ internal sealed class CreateOrderHandler : ICommandHandler<CreateOrderCommand, G
             throw new BaseForge.Core.Exceptions.ValidationException("PaymentMethod", "Geçersiz ödeme yöntemi.");
         }
 
+        // Bağış dekontu olmadan sipariş oluşturulamaz — satıcı/admin bağışın gerçekten yapıldığını
+        // görmeden onaylamamalı, bkz. proje kararı. İstemci (buton disabled) bunu zaten engelliyor,
+        // burada doğrudan API çağrısıyla atlanmasına karşı ikinci bir kapı.
+        if (request.PaymentMethod == "bagis" &&
+            (string.IsNullOrWhiteSpace(request.DonationOrganization) || string.IsNullOrWhiteSpace(request.DonationReceiptUrl)))
+        {
+            throw new BaseForge.Core.Exceptions.ValidationException(
+                "DonationReceiptUrl", "Bağış ile ödemede kuruluş adı ve dekont yüklemesi zorunludur.");
+        }
+
         var listing = await _listingRepository.GetByIdAsync(request.ListingId, cancellationToken)
             ?? throw new NotFoundException("Listing", request.ListingId);
 

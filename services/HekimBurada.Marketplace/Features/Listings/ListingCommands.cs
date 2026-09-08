@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json;
 using BaseForge.Core.CQRS;
 using BaseForge.Core.Exceptions;
 using BaseForge.Core.Interfaces;
@@ -6,6 +7,27 @@ using Marketplace.Entities;
 using Marketplace.Integration;
 
 namespace Marketplace.Features.Listings;
+
+internal static class ListingImageLimit
+{
+    /// <summary>İlan başına izin verilen azami fotoğraf sayısı — frontend'deki MAX_PHOTOS ile aynı tutulmalı.</summary>
+    public const int MaxImages = 8;
+
+    /// <summary>İstemci atlanıp doğrudan API'ye çok sayıda görsel gönderilmesine karşı sunucu tarafı kontrol.</summary>
+    public static void EnsureWithinLimit(string imagesJson)
+    {
+        if (string.IsNullOrWhiteSpace(imagesJson))
+        {
+            return;
+        }
+
+        var count = JsonSerializer.Deserialize<string[]>(imagesJson)?.Length ?? 0;
+        if (count > MaxImages)
+        {
+            throw new BaseForge.Core.Exceptions.ValidationException("Images", $"En fazla {MaxImages} fotoğraf eklenebilir.");
+        }
+    }
+}
 
 /// <summary>Yeni bir Listing oluşturur; üretilen kimliği döndürür.</summary>
 public sealed class CreateListingCommand : ICommand<Guid>
@@ -77,6 +99,8 @@ internal sealed class CreateListingHandler : ICommandHandler<CreateListingComman
         {
             throw new BaseForge.Core.Exceptions.ValidationException("DurationDays", "İlan süresi 15, 30, 60 veya 90 gün olmalı.");
         }
+
+        ListingImageLimit.EnsureWithinLimit(request.Images);
 
         await VerificationGate.EnsureApprovedAsync(_userClient, request.SellerId, cancellationToken);
 
@@ -173,6 +197,7 @@ internal sealed class UpdateListingHandler : ICommandHandler<UpdateListingComman
     public async Task Handle(UpdateListingCommand request, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
+        ListingImageLimit.EnsureWithinLimit(request.Images);
         var entity = await _repository.GetByIdAsync(request.Id, cancellationToken)
             ?? throw new NotFoundException("Listing", request.Id);
         entity.Title = request.Title;
@@ -184,14 +209,17 @@ internal sealed class UpdateListingHandler : ICommandHandler<UpdateListingComman
         entity.ReferansUrl = request.ReferansUrl;
         entity.City = request.City;
         entity.Images = request.Images;
-        entity.Status = request.Status;
         entity.DurationDays = request.DurationDays;
-        entity.PublishedAt = request.PublishedAt;
-        entity.ExpiresAt = request.ExpiresAt;
-        entity.RenewCount = request.RenewCount;
         entity.IsFeatured = request.IsFeatured;
-        entity.ViewCount = request.ViewCount;
         entity.CategoryId = request.CategoryId;
+        // Status/PublishedAt/ExpiresAt/RenewCount/ViewCount BİLEREK istemciden alınmaz — moderasyon
+        // durumu ve sayaçlar yalnızca sunucu tarafından (approve/reject/renew/republish/görüntüleme
+        // uçlarınca) değiştirilebilir. Tek istisna: reddedilmiş bir ilan düzenlenip yeniden gönderildiğinde
+        // otomatik olarak tekrar admin onayına düşer (bkz. IlanVerPage düzenleme akışı).
+        if (entity.Status == "rejected")
+        {
+            entity.Status = "pending";
+        }
         entity.SellerId = request.SellerId;
         await _repository.UpdateAsync(entity, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);

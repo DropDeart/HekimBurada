@@ -741,6 +741,10 @@ export const marketplaceApi = {
   listOrders: (params?: { page?: number; pageSize?: number }) =>
     mAuthedReq<PagedResult<Order>>(`/api/orders${toQuery(params)}`),
 
+  /** Çağıranın kendi ilanlarına gelen siparişleri döner (satıcı olarak) — dekont/kuruluş görüp onaylayabilmesi için. */
+  listOrdersReceived: (params?: { listingId?: string; page?: number; pageSize?: number }) =>
+    mAuthedReq<PagedResult<Order>>(`/api/orders/received${toQuery(params)}`),
+
   createOrder: (input: {
     listingId: string;
     paymentMethod: OrderPaymentMethod;

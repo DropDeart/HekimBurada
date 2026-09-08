@@ -162,6 +162,13 @@ export default function IlanlarimPage() {
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-2">
+                      {(l.status === "draft" || l.status === "pending" || l.status === "rejected") && (
+                        <Link href={`/ilan-ver/${l.id}`}>
+                          <Button size="sm" variant="outline">
+                            Düzenle
+                          </Button>
+                        </Link>
+                      )}
                       {(l.status === "active" || l.status === "expired") && (
                         <Button size="sm" variant="outline" disabled={busyId === l.id} onClick={() => renew(l.id)}>
                           Yenile

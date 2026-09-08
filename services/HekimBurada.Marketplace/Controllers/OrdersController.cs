@@ -8,9 +8,9 @@ using Marketplace.Features.Orders;
 namespace Marketplace.Controllers;
 
 /// <summary>
-/// Sipariş uçları. CodeGen dışı, elle eklendi. Özel/finansal veri olduğundan yalnızca çağıranın kendi
-/// siparişleri döner (Admin/SuperAdmin de dahil kimse başkasının siparişlerini listeleyemez — bu kapsamda
-/// satıcı tarafı görünümü yok, bkz. OrderCommands.cs doc yorumu).
+/// Sipariş uçları. CodeGen dışı, elle eklendi. Özel/finansal veri olduğundan çağıran yalnızca kendi
+/// aldığı (buyer) veya kendi ilanlarına gelen (seller) siparişleri görebilir — başka hiç kimsenin
+/// siparişi (Admin/SuperAdmin dahil) bu uçlardan listelenemez.
 /// </summary>
 [Authorize]
 [Route("api/orders")]
@@ -28,6 +28,22 @@ public sealed class OrdersController : BaseController
         }
 
         query.BuyerId = callerId.Value;
+        return Ok(await Mediator.Send(query, cancellationToken));
+    }
+
+    /// <summary>Çağıranın kendi ilanlarına gelen siparişleri (satıcı olarak) sayfalı listeler —
+    /// dekont/bağış kuruluşu gibi alanları görüp siparişi onaylayabilmesi için (bkz. proje kararı).</summary>
+    [HttpGet("received")]
+    public async Task<ActionResult<PagedResult<OrderDto>>> Received([FromQuery] ListOrdersForSellerQuery query, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+        var callerId = AdminAuth.GetUserId(User);
+        if (callerId is null)
+        {
+            return Forbid();
+        }
+
+        query.SellerId = callerId.Value;
         return Ok(await Mediator.Send(query, cancellationToken));
     }
 

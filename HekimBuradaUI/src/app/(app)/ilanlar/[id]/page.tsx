@@ -22,6 +22,7 @@ import {
   type MarketplaceCategory,
   type Message,
   type Offer,
+  type Order,
   type OrderPaymentMethod,
   type UserLookupRow,
 } from "@/lib/api";
@@ -71,6 +72,7 @@ export default function ListingDetailPage() {
   const [newReviewRating, setNewReviewRating] = useState(5);
   const [newReviewBody, setNewReviewBody] = useState("");
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [sellerOrder, setSellerOrder] = useState<Order | null>(null);
 
   const loadReviews = useCallback(async () => {
     try {
@@ -155,6 +157,19 @@ export default function ListingDetailPage() {
   const isOwner = listing?.sellerId === myId;
   const selectedOffer = offers.find((o) => o.id === selectedOfferId) ?? null;
   const images = parseListingImages(listing?.images);
+
+  useEffect(() => {
+    // Satıcı, kabul ettiği teklife karşılık gelen siparişi (özellikle bağış dekontunu) burada görür —
+    // dekontu görmeden bir bağış işleminin gerçekten yapıldığını bilemez (bkz. proje kararı).
+    if (!isOwner || !listing || !selectedOffer || selectedOffer.status !== "accepted") {
+      setSellerOrder(null);
+      return;
+    }
+    marketplaceApi
+      .listOrdersReceived({ listingId: listing.id, pageSize: 200 })
+      .then((r) => setSellerOrder(r.items.find((o) => o.buyerId === selectedOffer.buyerId) ?? null))
+      .catch(() => setSellerOrder(null));
+  }, [isOwner, listing, selectedOffer]);
 
   const submitReview = async () => {
     if (!newReviewBody.trim()) return;
@@ -619,7 +634,7 @@ export default function ListingDetailPage() {
                       </div>
                       <Button
                         size="sm"
-                        disabled={orderSubmitting || !donationOrganization.trim()}
+                        disabled={orderSubmitting || !donationOrganization.trim() || !donationReceiptUrl}
                         onClick={() =>
                           submitOrder({
                             donationOrganization: donationOrganization.trim(),
@@ -629,6 +644,11 @@ export default function ListingDetailPage() {
                       >
                         {orderSubmitting ? "Gönderiliyor…" : "Talebi Gönder"}
                       </Button>
+                      {!donationReceiptUrl && (
+                        <p className="text-[11px] text-muted-foreground">
+                          Devam etmek için bağış dekontunuzu yükleyin.
+                        </p>
+                      )}
                     </div>
                   ) : listing.paymentMethod === "bedelsiz" ? (
                     <div className="flex flex-col gap-2.5">
@@ -705,6 +725,54 @@ export default function ListingDetailPage() {
                         {orderSubmitting ? "İşleniyor…" : "Ödemeyi Tamamla"}
                       </Button>
                     </div>
+                  )}
+                </div>
+              )}
+
+              {selectedOffer.status === "accepted" && isOwner && (
+                <div className="rounded-lg border border-border p-4">
+                  <h3 className="mb-1 text-[15px] font-bold text-foreground">
+                    Ödeme Yöntemi: {PAYMENT_METHOD_LABELS[listing.paymentMethod] ?? listing.paymentMethod}
+                  </h3>
+                  <p className="mb-3 text-xs text-muted-foreground">
+                    Tutar: {currency(selectedOffer.amount)}
+                  </p>
+
+                  {!sellerOrder ? (
+                    <p className="text-xs text-muted-foreground">
+                      Alıcı henüz talebini/ödeme bilgilerini göndermedi.
+                    </p>
+                  ) : listing.paymentMethod === "bagis" ? (
+                    <div className="flex flex-col gap-1.5">
+                      <p className="text-sm text-foreground">
+                        Bağış Yapılan Kuruluş: <span className="font-semibold">{sellerOrder.donationOrganization}</span>
+                      </p>
+                      {sellerOrder.donationReceiptUrl ? (
+                        <a
+                          href={`${MARKETPLACE_URL}${sellerOrder.donationReceiptUrl}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-sm font-semibold text-brand hover:opacity-80"
+                        >
+                          Dekontu Görüntüle →
+                        </a>
+                      ) : (
+                        <p className="text-sm font-semibold text-red-600">Dekont yüklenmemiş.</p>
+                      )}
+                    </div>
+                  ) : listing.paymentMethod === "referans" ? (
+                    <p className="text-sm text-foreground">
+                      Referans/Satın Alma Linki:{" "}
+                      <a href={sellerOrder.buyerReferansUrl ?? "#"} target="_blank" rel="noreferrer" className="font-semibold text-brand hover:opacity-80">
+                        {sellerOrder.buyerReferansUrl}
+                      </a>
+                    </p>
+                  ) : listing.paymentMethod === "elden" ? (
+                    <p className="text-sm text-foreground">
+                      Teslim Yeri/Notu: <span className="font-semibold">{sellerOrder.deliveryNote}</span>
+                    </p>
+                  ) : (
+                    <p className="text-sm font-semibold text-brand">Talep alındı.</p>
                   )}
                 </div>
               )}
