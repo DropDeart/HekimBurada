@@ -109,15 +109,17 @@ public sealed class ListingsController : BaseController
     /// <summary>'sold'/'removed' durumundaki bir ilanı yeniden 'active'e döndürür — CodeGen dışı,
     /// elle eklendi (sahip/admin şartı da elle eklendi).</summary>
     [HttpPost("{id:guid}/republish")]
-    public async Task<IActionResult> Republish(Guid id, CancellationToken cancellationToken)
+    public async Task<ActionResult<Guid>> Republish(Guid id, CancellationToken cancellationToken)
     {
         if (await IsOwnerOrAdminAsync(id, cancellationToken) == false)
         {
             return Forbid();
         }
 
-        await Mediator.Send(new RepublishListingCommand { Id = id }, cancellationToken);
-        return NoContent();
+        // 'sold' durumundaysa yeni bir ilan (farklı id) oluşur — bkz. RepublishListingCommand doc
+        // yorumu. Bu yüzden NoContent değil, sonucun id'si dönülüyor (frontend yeni ilana gitsin diye).
+        var resultId = await Mediator.Send(new RepublishListingCommand { Id = id }, cancellationToken);
+        return Ok(resultId);
     }
 
     /// <summary>'pending' bir ilanı onaylar (yayına alır) — yalnızca Admin/SuperAdmin, CodeGen dışı elle eklendi.</summary>

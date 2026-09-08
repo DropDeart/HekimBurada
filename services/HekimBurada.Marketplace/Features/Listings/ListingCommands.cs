@@ -327,15 +327,20 @@ internal sealed class RenewListingHandler : ICommandHandler<RenewListingCommand>
 
 /// <summary>
 /// Sahibi tarafından "Sat"/"Kaldır" ile kapatılmış ('sold'/'removed') bir ilanı yeniden yayına alır —
-/// formu yeniden doldurmadan, mevcut kaydı ('active') canlandırır (bkz. plan "Faz B — Bilinen el işi").
+/// formu yeniden doldurmadan aynı içerikle devam eder (bkz. plan "Faz B — Bilinen el işi").
+/// 'removed' durumunda (hiç satış olmadı) mevcut kayıt olduğu gibi canlandırılır. 'sold' durumunda ise
+/// (bkz. proje kararı) AYNI KAYIT canlandırılmaz — üzerinde kabul edilmiş/reddedilmiş gerçek bir teklif
+/// geçmişi var, bu geçmişi geri getirmek (ilan tekrar 'kabul edildi' teklifiyle görünür hale gelir)
+/// kafa karıştırıcı ve yanlıştı. Bunun yerine aynı içerikle, teklif geçmişi sıfır YENİ bir ilan
+/// oluşturulur; eski kayıt 'sold' olarak (satış kaydı/geçmişi) korunur.
 /// </summary>
-public sealed class RepublishListingCommand : ICommand
+public sealed class RepublishListingCommand : ICommand<Guid>
 {
     /// <summary>Yeniden yayınlanacak ilanın kimliği.</summary>
     public Guid Id { get; set; }
 }
 
-internal sealed class RepublishListingHandler : ICommandHandler<RepublishListingCommand>
+internal sealed class RepublishListingHandler : ICommandHandler<RepublishListingCommand, Guid>
 {
     private readonly IRepository<Listing> _repository;
     private readonly IUnitOfWork _unitOfWork;
@@ -345,7 +350,7 @@ internal sealed class RepublishListingHandler : ICommandHandler<RepublishListing
         _unitOfWork = unitOfWork;
     }
 
-    public async Task Handle(RepublishListingCommand request, CancellationToken cancellationToken)
+    public async Task<Guid> Handle(RepublishListingCommand request, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
         var entity = await _repository.GetByIdAsync(request.Id, cancellationToken)
@@ -357,11 +362,41 @@ internal sealed class RepublishListingHandler : ICommandHandler<RepublishListing
         }
 
         var publishedAt = DateTimeOffset.UtcNow;
+
+        if (entity.Status == "sold")
+        {
+            var duplicate = new Listing
+            {
+                Title = entity.Title,
+                Description = entity.Description,
+                Condition = entity.Condition,
+                Price = entity.Price,
+                OriginalPrice = entity.OriginalPrice,
+                PaymentMethod = entity.PaymentMethod,
+                ReferansUrl = entity.ReferansUrl,
+                City = entity.City,
+                Images = entity.Images,
+                Status = "active",
+                DurationDays = entity.DurationDays,
+                PublishedAt = publishedAt,
+                ExpiresAt = publishedAt.AddDays(entity.DurationDays),
+                RenewCount = 0,
+                IsFeatured = false,
+                ViewCount = 0,
+                CategoryId = entity.CategoryId,
+                SellerId = entity.SellerId,
+            };
+            await _repository.AddAsync(duplicate, cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            return duplicate.Id;
+        }
+
         entity.Status = "active";
         entity.PublishedAt = publishedAt;
         entity.ExpiresAt = publishedAt.AddDays(entity.DurationDays);
         await _repository.UpdateAsync(entity, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+        return entity.Id;
     }
 }
 

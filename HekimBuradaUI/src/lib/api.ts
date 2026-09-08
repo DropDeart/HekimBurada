@@ -642,8 +642,9 @@ export const marketplaceApi = {
 
   renewListing: (id: string) => mAuthedReq<void>(`/api/Listings/${id}/renew`, { method: "POST" }),
 
+  /** 'sold' bir ilan için yeni bir ilan (farklı id) döner — bkz. RepublishListingCommand doc yorumu. */
   republishListing: (id: string) =>
-    mAuthedReq<void>(`/api/Listings/${id}/republish`, { method: "POST" }),
+    mAuthedReq<string>(`/api/Listings/${id}/republish`, { method: "POST" }),
 
   /** Yalnızca Admin/SuperAdmin — 'pending' bir ilanı yayına alır. */
   approveListing: (id: string) => mAuthedReq<void>(`/api/Listings/${id}/approve`, { method: "POST" }),
