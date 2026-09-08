@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { ListingImage } from "@/components/ListingImage";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { marketplaceApi, type Listing, type MarketplaceCategory } from "@/lib/api";
+import { marketplaceApi, regionsApi, type Listing, type MarketplaceCategory, type Province } from "@/lib/api";
 import { useHasToken } from "@/lib/auth";
 import { CategoryIcon } from "@/lib/categoryIcons";
 import { cn } from "@/lib/utils";
@@ -36,11 +36,13 @@ function IlanlarContent() {
 
   const hasToken = useHasToken();
   const [categories, setCategories] = useState<MarketplaceCategory[]>([]);
+  const [provinces, setProvinces] = useState<Province[]>([]);
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
   const [selectedConditions, setSelectedConditions] = useState<string[]>([]);
+  const [selectedCity, setSelectedCity] = useState("");
   const [sortBy, setSortBy] = useState<SortOption>("newest");
 
   useEffect(() => {
@@ -53,10 +55,12 @@ function IlanlarContent() {
     Promise.all([
       marketplaceApi.listCategories({ pageSize: 100 }),
       marketplaceApi.listListings({ pageSize: 100, search: q || undefined }),
+      regionsApi.list(),
     ])
-      .then(([catsRes, listingsRes]) => {
+      .then(([catsRes, listingsRes, provincesRes]) => {
         setCategories(catsRes.items);
         setListings(listingsRes.items.filter((l) => l.status === "active"));
+        setProvinces(provincesRes);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -91,6 +95,7 @@ function IlanlarContent() {
       if (min !== null && (l.price ?? 0) < min) return false;
       if (max !== null && l.price !== null && l.price > max) return false;
       if (selectedConditions.length > 0 && !selectedConditions.includes(l.condition)) return false;
+      if (selectedCity && l.city !== selectedCity) return false;
       return true;
     })
     .sort((a, b) => {
@@ -199,6 +204,23 @@ function IlanlarContent() {
               ))}
             </div>
           )}
+
+          <div className="rounded-[10px] border border-border bg-white p-4.5">
+            <div className="mb-3 text-[13px] font-bold text-foreground">Şehir</div>
+            <Select value={selectedCity || "all"} onValueChange={(v) => setSelectedCity(v === "all" ? "" : v)}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Tüm şehirler" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tüm şehirler</SelectItem>
+                {provinces.map((p) => (
+                  <SelectItem key={p.id} value={p.name}>
+                    {p.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
           <div className="rounded-[10px] border border-border bg-white p-4.5">
             <div className="mb-3 text-[13px] font-bold text-foreground">Fiyat Aralığı</div>
