@@ -128,13 +128,11 @@ internal sealed class CreateCommentHandler : ICommandHandler<CreateCommentComman
             var author = await _userClient.GetByIdAsync(request.AuthorId, cancellationToken);
             var authorName = author?.FullName is { Length: > 0 } fullName ? fullName : "Bir meslektaşınız";
             var actionText = isReply ? "yorumunuza bir yanıt yazdı" : "konunuza yeni bir yorum yazdı";
-            var html = $"""
-                <p>Merhaba,</p>
-                <p><strong>{authorName}</strong>, <strong>"{topic.Title}"</strong> {actionText}.</p>
-                <p>Yorumu görmek için topluluk sayfasını ziyaret edin.</p>
-                """;
-            var subject = isReply ? "HekimBurada — Yorumunuza yanıt geldi" : "HekimBurada — Konunuza yeni bir yorum geldi";
-            await _emailSender.SendAsync(recipient.Email, subject, html, cancellationToken);
+            var title = isReply ? "Yorumunuza yanıt geldi" : "Konunuza yeni bir yorum geldi";
+            var body = $"<strong>{authorName}</strong>, <strong>\"{topic.Title}\"</strong> {actionText}.";
+            var linkPath = $"/topluluk/{topic.CategoryId}/{topic.Id}";
+            var html = EmailTemplate.Build("TOPLULUK", title, body, "Konuyu Görüntüle", $"https://hekimburada.com{linkPath}");
+            await _emailSender.SendAsync(recipient.Email, "HekimBurada — " + title, html, cancellationToken);
         }
         catch (Exception ex)
         {

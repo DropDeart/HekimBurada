@@ -488,7 +488,7 @@ internal sealed class ApproveListingHandler : ICommandHandler<ApproveListingComm
                 return;
             }
 
-            var html = $"<p>Merhaba,</p><p>{body}</p><p>Görmek için ilan sayfanızı ziyaret edin.</p>";
+            var html = EmailTemplate.Build("İLAN ONAYI", title, body, "İlanı Görüntüle", $"https://hekimburada.com{linkPath}");
             await _emailSender.SendAsync(seller.Email, "HekimBurada — " + title, html, cancellationToken);
         }
         catch (Exception ex)
@@ -568,7 +568,7 @@ internal sealed class RejectListingHandler : ICommandHandler<RejectListingComman
                 var seller = await _userClient.GetByIdAsync(entity.SellerId, cancellationToken);
                 if (seller is not null && !string.IsNullOrWhiteSpace(seller.Email))
                 {
-                    var html = $"<p>Merhaba,</p><p>{body}</p>";
+                    var html = EmailTemplate.Build("İLAN ONAYI", title, body, "İlanı Düzenle", $"https://hekimburada.com{linkPath}");
                     await _emailSender.SendAsync(seller.Email, "HekimBurada — " + title, html, cancellationToken);
                 }
             }

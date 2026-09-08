@@ -112,12 +112,8 @@ internal sealed class CreateOfferHandler : ICommandHandler<CreateOfferCommand, G
                 return;
             }
 
-            var html = $"""
-                <p>Merhaba,</p>
-                <p><strong>"{listing.Title}"</strong> ilanınıza yeni bir teklif verildi.</p>
-                <p>Teklifi görmek için ilan sayfanızı ziyaret edin.</p>
-                """;
-            await _emailSender.SendAsync(seller.Email, "HekimBurada — İlanınıza yeni bir teklif geldi", html, cancellationToken);
+            var html = EmailTemplate.Build("YENİ TEKLİF", title, $"<strong>\"{listing.Title}\"</strong> ilanınıza yeni bir teklif verildi.", "Teklifi Görüntüle", $"https://hekimburada.com{linkPath}");
+            await _emailSender.SendAsync(seller.Email, "HekimBurada — " + title, html, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -290,7 +286,7 @@ internal sealed class AcceptOfferHandler : ICommandHandler<AcceptOfferCommand>
                 return;
             }
 
-            var html = $"<p>Merhaba,</p><p>{body}</p><p>Detaylar için ilan sayfanızı ziyaret edin.</p>";
+            var html = EmailTemplate.Build("TEKLİF DURUMU", title, body, "İlanı Görüntüle", $"https://hekimburada.com{linkPath}");
             await _emailSender.SendAsync(user.Email, "HekimBurada — " + title, html, cancellationToken);
         }
         catch (Exception ex)
@@ -377,7 +373,7 @@ internal sealed class RejectOfferHandler : ICommandHandler<RejectOfferCommand>
                     var buyer = await _userClient.GetByIdAsync(entity.BuyerId, cancellationToken);
                     if (buyer is not null && !string.IsNullOrWhiteSpace(buyer.Email))
                     {
-                        var html = $"<p>Merhaba,</p><p>\"{listing.Title}\" ilanı için verdiğiniz teklif satıcı tarafından reddedildi.</p>";
+                        var html = EmailTemplate.Build("TEKLİF DURUMU", "Teklifiniz reddedildi", $"\"{listing.Title}\" ilanı için verdiğiniz teklif satıcı tarafından reddedildi.", "İlanı Görüntüle", $"https://hekimburada.com/ilanlar/{listing.Id}");
                         await _emailSender.SendAsync(buyer.Email, "HekimBurada — Teklifiniz reddedildi", html, cancellationToken);
                     }
                 }

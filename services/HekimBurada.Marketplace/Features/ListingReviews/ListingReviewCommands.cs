@@ -100,12 +100,10 @@ internal sealed class CreateListingReviewHandler : ICommandHandler<CreateListing
 
             var reviewer = await _userClient.GetByIdAsync(request.AuthorId, cancellationToken);
             var reviewerName = reviewer?.FullName is { Length: > 0 } fullName ? fullName : "Bir meslektaşınız";
-            var html = $"""
-                <p>Merhaba,</p>
-                <p><strong>{reviewerName}</strong>, <strong>"{listing.Title}"</strong> ilanınıza yeni bir yorum yazdı.</p>
-                <p>Yorumu görmek için ilan sayfanızı ziyaret edin.</p>
-                """;
-            await _emailSender.SendAsync(seller.Email, "HekimBurada — İlanınıza yeni bir yorum geldi", html, cancellationToken);
+            const string title = "İlanınıza yeni bir yorum geldi";
+            var body = $"<strong>{reviewerName}</strong>, <strong>\"{listing.Title}\"</strong> ilanınıza yeni bir yorum yazdı.";
+            var html = EmailTemplate.Build("İLAN YORUMU", title, body, "İlanı Görüntüle", $"https://hekimburada.com/ilanlar/{listing.Id}");
+            await _emailSender.SendAsync(seller.Email, "HekimBurada — " + title, html, cancellationToken);
         }
         catch (Exception ex)
         {

@@ -131,11 +131,7 @@ internal sealed class CreateMessageHandler : ICommandHandler<CreateMessageComman
                 return;
             }
 
-            var html = $"""
-                <p>Merhaba,</p>
-                <p>{body}</p>
-                <p>Görmek için ilan sayfanızı ziyaret edin.</p>
-                """;
+            var html = EmailTemplate.Build("YENİ MESAJ", title, body, "Sohbeti Aç", $"https://hekimburada.com{linkPath}");
             await _emailSender.SendAsync(recipient.Email, "HekimBurada — " + title, html, cancellationToken);
         }
         catch (Exception ex)
