@@ -14,4 +14,8 @@ public sealed class Message : BaseEntity
     public Guid OfferId { get; set; }
     /// <summary>SenderId.</summary>
     public Guid SenderId { get; set; }
+    /// <summary>Karşı taraf (SenderId dışındaki katılımcı) bu mesajı ne zaman okudu — null ise henüz
+    /// okunmadı. Tek bir alanla yetiniyoruz çünkü her Offer sohbeti tam olarak 2 kişiliktir, "karşı
+    /// taraf" SenderId'nin tersi olarak zaten bellidir. CodeGen dışı, elle eklendi.</summary>
+    public DateTimeOffset? ReadAt { get; set; }
 }

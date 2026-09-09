@@ -281,7 +281,14 @@ export default function ListingDetailPage() {
         listingId,
         buyerId: myId,
       });
-      const newOffer: Offer = { id, amount: Number(offerAmountDraft), status: "pending", listingId, buyerId: myId };
+      const newOffer: Offer = {
+        id,
+        amount: Number(offerAmountDraft),
+        status: "pending",
+        listingId,
+        buyerId: myId,
+        createdAt: new Date().toISOString(),
+      };
       setOffers((prev) => [...prev, newOffer]);
       setSelectedOfferId(id);
       setOfferAmountDraft("");

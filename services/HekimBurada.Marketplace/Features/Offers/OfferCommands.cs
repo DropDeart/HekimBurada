@@ -28,6 +28,7 @@ internal sealed class CreateOfferHandler : ICommandHandler<CreateOfferCommand, G
     private readonly IRepository<Offer> _repository;
     private readonly IRepository<Listing> _listingRepository;
     private readonly IRepository<Notification> _notificationRepository;
+    private readonly IRepository<OfferRevision> _revisionRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IUserClient _userClient;
     private readonly IPresenceClient _presenceClient;
@@ -38,6 +39,7 @@ internal sealed class CreateOfferHandler : ICommandHandler<CreateOfferCommand, G
         IRepository<Offer> repository,
         IRepository<Listing> listingRepository,
         IRepository<Notification> notificationRepository,
+        IRepository<OfferRevision> revisionRepository,
         IUnitOfWork unitOfWork,
         IUserClient userClient,
         IPresenceClient presenceClient,
@@ -47,6 +49,7 @@ internal sealed class CreateOfferHandler : ICommandHandler<CreateOfferCommand, G
         _repository = repository;
         _listingRepository = listingRepository;
         _notificationRepository = notificationRepository;
+        _revisionRepository = revisionRepository;
         _unitOfWork = unitOfWork;
         _userClient = userClient;
         _presenceClient = presenceClient;
@@ -65,6 +68,7 @@ internal sealed class CreateOfferHandler : ICommandHandler<CreateOfferCommand, G
             BuyerId = request.BuyerId,
         };
         await _repository.AddAsync(entity, cancellationToken);
+        await _revisionRepository.AddAsync(new OfferRevision { OfferId = entity.Id, Amount = entity.Amount }, cancellationToken);
 
         // Satıcıya bildirim: önce Messaging'e sorulur (çevrimiçiyse anlık SignalR push yapıp
         // bildirim çanına da yazar), çevrimdışıysa (ya da Messaging'e ulaşılamadıysa) e-posta ile
@@ -141,10 +145,12 @@ public sealed class UpdateOfferCommand : ICommand
 internal sealed class UpdateOfferHandler : ICommandHandler<UpdateOfferCommand>
 {
     private readonly IRepository<Offer> _repository;
+    private readonly IRepository<OfferRevision> _revisionRepository;
     private readonly IUnitOfWork _unitOfWork;
-    public UpdateOfferHandler(IRepository<Offer> repository, IUnitOfWork unitOfWork)
+    public UpdateOfferHandler(IRepository<Offer> repository, IRepository<OfferRevision> revisionRepository, IUnitOfWork unitOfWork)
     {
         _repository = repository;
+        _revisionRepository = revisionRepository;
         _unitOfWork = unitOfWork;
     }
 
@@ -153,10 +159,15 @@ internal sealed class UpdateOfferHandler : ICommandHandler<UpdateOfferCommand>
         ArgumentNullException.ThrowIfNull(request);
         var entity = await _repository.GetByIdAsync(request.Id, cancellationToken)
             ?? throw new NotFoundException("Offer", request.Id);
+        var amountChanged = entity.Amount != request.Amount;
         entity.Amount = request.Amount;
         entity.ListingId = request.ListingId;
         entity.BuyerId = request.BuyerId;
         await _repository.UpdateAsync(entity, cancellationToken);
+        if (amountChanged)
+        {
+            await _revisionRepository.AddAsync(new OfferRevision { OfferId = entity.Id, Amount = entity.Amount }, cancellationToken);
+        }
         await _unitOfWork.SaveChangesAsync(cancellationToken);
     }
 }
@@ -178,6 +189,7 @@ internal sealed class AcceptOfferHandler : ICommandHandler<AcceptOfferCommand>
     private readonly IRepository<Offer> _repository;
     private readonly IRepository<Listing> _listingRepository;
     private readonly IRepository<Notification> _notificationRepository;
+    private readonly IRepository<OfferRevision> _revisionRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IUserClient _userClient;
     private readonly IPresenceClient _presenceClient;
@@ -188,6 +200,7 @@ internal sealed class AcceptOfferHandler : ICommandHandler<AcceptOfferCommand>
         IRepository<Offer> repository,
         IRepository<Listing> listingRepository,
         IRepository<Notification> notificationRepository,
+        IRepository<OfferRevision> revisionRepository,
         IUnitOfWork unitOfWork,
         IUserClient userClient,
         IPresenceClient presenceClient,
@@ -197,6 +210,7 @@ internal sealed class AcceptOfferHandler : ICommandHandler<AcceptOfferCommand>
         _repository = repository;
         _listingRepository = listingRepository;
         _notificationRepository = notificationRepository;
+        _revisionRepository = revisionRepository;
         _unitOfWork = unitOfWork;
         _userClient = userClient;
         _presenceClient = presenceClient;
@@ -231,10 +245,13 @@ internal sealed class AcceptOfferHandler : ICommandHandler<AcceptOfferCommand>
             query => query.Where(x => x.ListingId == entity.ListingId && x.Status == "pending" && x.Id != entity.Id),
             cancellationToken);
 
+        await _revisionRepository.AddAsync(new OfferRevision { OfferId = entity.Id, Amount = entity.Amount, Note = "kabul edildi" }, cancellationToken);
+
         foreach (var other in otherPending)
         {
             other.Status = "rejected";
             await _repository.UpdateAsync(other, cancellationToken);
+            await _revisionRepository.AddAsync(new OfferRevision { OfferId = other.Id, Amount = other.Amount, Note = "reddedildi" }, cancellationToken);
         }
 
         await _notificationRepository.AddAsync(new Notification
@@ -308,6 +325,7 @@ internal sealed class RejectOfferHandler : ICommandHandler<RejectOfferCommand>
     private readonly IRepository<Offer> _repository;
     private readonly IRepository<Listing> _listingRepository;
     private readonly IRepository<Notification> _notificationRepository;
+    private readonly IRepository<OfferRevision> _revisionRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IUserClient _userClient;
     private readonly IPresenceClient _presenceClient;
@@ -318,6 +336,7 @@ internal sealed class RejectOfferHandler : ICommandHandler<RejectOfferCommand>
         IRepository<Offer> repository,
         IRepository<Listing> listingRepository,
         IRepository<Notification> notificationRepository,
+        IRepository<OfferRevision> revisionRepository,
         IUnitOfWork unitOfWork,
         IUserClient userClient,
         IPresenceClient presenceClient,
@@ -327,6 +346,7 @@ internal sealed class RejectOfferHandler : ICommandHandler<RejectOfferCommand>
         _repository = repository;
         _listingRepository = listingRepository;
         _notificationRepository = notificationRepository;
+        _revisionRepository = revisionRepository;
         _unitOfWork = unitOfWork;
         _userClient = userClient;
         _presenceClient = presenceClient;
@@ -347,6 +367,7 @@ internal sealed class RejectOfferHandler : ICommandHandler<RejectOfferCommand>
 
         entity.Status = "rejected";
         await _repository.UpdateAsync(entity, cancellationToken);
+        await _revisionRepository.AddAsync(new OfferRevision { OfferId = entity.Id, Amount = entity.Amount, Note = "reddedildi" }, cancellationToken);
 
         var listing = await _listingRepository.GetByIdAsync(entity.ListingId, cancellationToken);
         if (listing is not null)

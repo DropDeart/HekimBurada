@@ -30,6 +30,11 @@ public sealed class RequestOffersController : BaseController
     public async Task<ActionResult<PagedResult<RequestOfferDto>>> List([FromQuery] ListRequestOfferQuery query, CancellationToken cancellationToken)
         => Ok(await Mediator.Send(query, cancellationToken));
 
+    /// <summary>Bir talep teklifinin geçmişini eskiden yeniye döner — CodeGen dışı, elle eklendi.</summary>
+    [HttpGet("{id:guid}/revisions")]
+    public async Task<ActionResult<List<RequestOfferRevisionDto>>> Revisions(Guid id, CancellationToken cancellationToken)
+        => Ok(await Mediator.Send(new ListRequestOfferRevisionsQuery { RequestOfferId = id }, cancellationToken));
+
     /// <summary>Yeni bir teklif oluşturur — ResponderId sahtekarlığını önlemek için çağıranın kendi
     /// kimliğiyle ezilir.</summary>
     [HttpPost]

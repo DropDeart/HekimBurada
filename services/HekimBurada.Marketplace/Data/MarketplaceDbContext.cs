@@ -32,4 +32,8 @@ public sealed class MarketplaceDbContext : BaseForgeDbContext
     public DbSet<RequestOffer> RequestOffers => Set<RequestOffer>();
     /// <summary>Notification tablosu — CodeGen dışı, elle eklendi.</summary>
     public DbSet<Notification> Notifications => Set<Notification>();
+    /// <summary>OfferRevision tablosu — CodeGen dışı, elle eklendi.</summary>
+    public DbSet<OfferRevision> OfferRevisions => Set<OfferRevision>();
+    /// <summary>RequestOfferRevision tablosu — CodeGen dışı, elle eklendi.</summary>
+    public DbSet<RequestOfferRevision> RequestOfferRevisions => Set<RequestOfferRevision>();
 }

@@ -137,6 +137,20 @@ public sealed class DoctorVerificationController : ControllerBase
     }
 
     /// <summary>
+    /// Verilen kullanıcının doktor doğrulaması onaylı mı — herhangi bir giriş yapmış kullanıcıya açık
+    /// (admin gerektirmez), yalnızca true/false döner (mesajlaşma/sohbet ekranında karşı tarafın yanında
+    /// "Doğrulanmış hekim" rozeti göstermek için, bkz. proje kararı). Başka hiçbir profil bilgisi sızdırmaz.
+    /// CodeGen dışı, elle eklendi.
+    /// </summary>
+    [HttpGet("account/verification-status/{userId:guid}")]
+    [Authorize(AuthenticationSchemes = ProfileAuthSchemes)]
+    public async Task<IActionResult> VerificationStatus(Guid userId, CancellationToken cancellationToken)
+    {
+        var profile = await _db.DoctorProfiles.FirstOrDefaultAsync(p => p.UserId == userId, cancellationToken);
+        return Ok(new VerificationStatusResponse(profile?.VerificationStatus == DoctorVerificationStatus.Approved));
+    }
+
+    /// <summary>
     /// Uzmanlık/diploma no/ilçe doldurur — özellikle sosyal girişle (Google/Facebook) oluşan
     /// hesaplar için: o akışta ExternalLoginCallback profili bu alanlar BOŞ oluşturuyor (bkz.
     /// AccountApiController.ExternalLoginCallback), kullanıcı belge yüklemeden önce burada
@@ -507,3 +521,5 @@ public sealed record DoctorProfileResponse(
     bool HasDocument,
     string? GraduationSchool,
     int? GraduationYear);
+
+public sealed record VerificationStatusResponse(bool IsVerified);

@@ -122,7 +122,14 @@ export default function RequestDetailPage() {
         amount: Number(offerAmountDraft),
         requestId,
       });
-      const newOffer: RequestOffer = { id, amount: Number(offerAmountDraft), status: "pending", requestId, responderId: myId };
+      const newOffer: RequestOffer = {
+        id,
+        amount: Number(offerAmountDraft),
+        status: "pending",
+        requestId,
+        responderId: myId,
+        createdAt: new Date().toISOString(),
+      };
       setOffers((prev) => [...prev, newOffer]);
       setSelectedOfferId(id);
       setOfferAmountDraft("");

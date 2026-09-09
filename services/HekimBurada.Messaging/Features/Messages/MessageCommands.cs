@@ -204,3 +204,58 @@ internal sealed class DeleteMessageHandler : ICommandHandler<DeleteMessageComman
         await _unitOfWork.SaveChangesAsync(cancellationToken);
     }
 }
+
+/// <summary>
+/// Çağıranın bir Offer sohbetinde KARŞI taraftan gelen, henüz okunmamış mesajlarını okundu işaretler
+/// — mesajlaşma gelen kutusundaki "okunmadı" sayacı ve gönderenin "görüldü" tiki için (bkz. proje
+/// kararı). Her Offer sohbeti tam 2 kişili olduğundan "karşı taraf" = SenderId != ReaderId olan
+/// mesajlar. CodeGen dışı, elle eklendi.
+/// </summary>
+public sealed class MarkMessagesReadCommand : ICommand
+{
+    public Guid OfferId { get; set; }
+    public Guid ReaderId { get; set; }
+}
+
+internal sealed class MarkMessagesReadHandler : ICommandHandler<MarkMessagesReadCommand>
+{
+    private readonly IRepository<Message> _repository;
+    private readonly IUnitOfWork _unitOfWork;
+    private readonly IHubContext<MessageHub> _hub;
+
+    public MarkMessagesReadHandler(IRepository<Message> repository, IUnitOfWork unitOfWork, IHubContext<MessageHub> hub)
+    {
+        _repository = repository;
+        _unitOfWork = unitOfWork;
+        _hub = hub;
+    }
+
+    public async Task Handle(MarkMessagesReadCommand request, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var (unread, _) = await _repository.ListPagedAsync(
+            0,
+            500,
+            null,
+            query => query.Where(x => x.OfferId == request.OfferId && x.SenderId != request.ReaderId && x.ReadAt == null),
+            cancellationToken);
+
+        if (unread.Count == 0)
+        {
+            return;
+        }
+
+        var readAt = DateTimeOffset.UtcNow;
+        foreach (var message in unread)
+        {
+            message.ReadAt = readAt;
+            await _repository.UpdateAsync(message, cancellationToken);
+        }
+
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        // Gönderene "görüldü" tikini canlı göstermek için — bkz. Hubs/MessageHub.cs.
+        await _hub.Clients.Group(MessageHub.GroupName(request.OfferId))
+            .SendAsync("messagesRead", new { offerId = request.OfferId, readAt }, cancellationToken);
+    }
+}

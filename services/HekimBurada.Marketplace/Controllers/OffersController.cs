@@ -26,6 +26,12 @@ public sealed class OffersController : BaseController
     public async Task<ActionResult<PagedResult<OfferDto>>> List([FromQuery] ListOfferQuery query, CancellationToken cancellationToken)
         => Ok(await Mediator.Send(query, cancellationToken));
 
+    /// <summary>Bir teklifin geçmişini (ilk teklif, revizyon, kabul/red) eskiden yeniye döner —
+    /// CodeGen dışı, elle eklendi.</summary>
+    [HttpGet("{id:guid}/revisions")]
+    public async Task<ActionResult<List<OfferRevisionDto>>> Revisions(Guid id, CancellationToken cancellationToken)
+        => Ok(await Mediator.Send(new ListOfferRevisionsQuery { OfferId = id }, cancellationToken));
+
     /// <summary>Yeni bir Offer oluşturur — CodeGen dışı: BuyerId sahtekarlığını önlemek için
     /// çağıranın kendi kimliğiyle elle ezildi (client-supplied değerine güvenilmiyor).</summary>
     [HttpPost]

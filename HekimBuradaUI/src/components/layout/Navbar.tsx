@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { Bell, Heart, Menu, Search, User as UserIcon, X } from "lucide-react";
+import { Bell, Heart, MessageSquare, Menu, Search, User as UserIcon, X } from "lucide-react";
 import { toast } from "sonner";
 import { connectPresence } from "@/lib/presenceHub";
 import {
@@ -459,6 +459,16 @@ export function Navbar() {
           </button>
 
           {hasToken && (
+            <button
+              onClick={() => router.push("/mesajlar")}
+              className="hidden text-foreground hover:text-brand sm:block"
+              aria-label="Mesajlar"
+            >
+              <MessageSquare size={20} />
+            </button>
+          )}
+
+          {hasToken && (
             <Sheet open={notifOpen} onOpenChange={openNotifications}>
               <SheetTrigger asChild>
                 <button
@@ -542,6 +552,9 @@ export function Navbar() {
                 <DropdownMenuItem asChild>
                   <Link href="/taleplerim">Taleplerim</Link>
                 </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/mesajlar">Mesajlar</Link>
+                </DropdownMenuItem>
                 {isAdmin && (
                   <DropdownMenuItem asChild>
                     <Link href="/admin">Admin Paneli</Link>
@@ -609,6 +622,19 @@ export function Navbar() {
             <Heart size={18} />
             Favorilerim
           </button>
+
+          {hasToken && (
+            <button
+              onClick={() => {
+                setMobileOpen(false);
+                router.push("/mesajlar");
+              }}
+              className="flex items-center gap-2 rounded-md px-2 py-2 text-left text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+            >
+              <MessageSquare size={18} />
+              Mesajlar
+            </button>
+          )}
 
           {hasToken ? (
             <button

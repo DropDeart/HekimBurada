@@ -16,6 +16,8 @@ public sealed class MessageDto
     /// <summary>Gönderilme zamanı — sohbetin kronolojik sıralanabilmesi için (bkz. proje kararı,
     /// önceden DTO'da yoktu, listMessages sıralaması garanti değildi). CodeGen dışı, elle eklendi.</summary>
     public DateTimeOffset CreatedAt { get; set; }
+    /// <summary>Karşı taraf ne zaman okudu — null ise henüz okunmadı.</summary>
+    public DateTimeOffset? ReadAt { get; set; }
 
     /// <summary>Bir Message entity'sinden DTO üretir.</summary>
     public static MessageDto From(Message entity)
@@ -28,6 +30,7 @@ public sealed class MessageDto
             OfferId = entity.OfferId,
             SenderId = entity.SenderId,
             CreatedAt = entity.CreatedAt,
+            ReadAt = entity.ReadAt,
         };
     }
 }

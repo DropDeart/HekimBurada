@@ -11,6 +11,9 @@ public sealed class RequestOfferDto
     public Guid RequestId { get; set; }
     public Guid ResponderId { get; set; }
 
+    /// <summary>Oluşturulma zamanı — Mesajlar sayfasında sohbetleri sıralamak için. CodeGen dışı, elle eklendi.</summary>
+    public DateTimeOffset CreatedAt { get; set; }
+
     public static RequestOfferDto From(RequestOffer entity)
     {
         ArgumentNullException.ThrowIfNull(entity);
@@ -21,6 +24,7 @@ public sealed class RequestOfferDto
             Status = entity.Status,
             RequestId = entity.RequestId,
             ResponderId = entity.ResponderId,
+            CreatedAt = entity.CreatedAt,
         };
     }
 }

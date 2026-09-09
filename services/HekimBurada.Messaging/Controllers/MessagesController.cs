@@ -2,6 +2,7 @@ using BaseForge.API.Controllers;
 using BaseForge.Core.CQRS;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Messaging.Authorization;
 using Messaging.Features.Messages;
 
 namespace Messaging.Controllers;
@@ -49,4 +50,21 @@ public sealed class MessagesController : BaseController
         await Mediator.Send(new DeleteMessageCommand { Id = id }, cancellationToken);
         return NoContent();
     }
+
+    /// <summary>Çağıranın bir Offer sohbetinde karşı taraftan gelen okunmamış mesajlarını okundu
+    /// işaretler — CodeGen dışı, elle eklendi.</summary>
+    [HttpPost("mark-read")]
+    public async Task<IActionResult> MarkRead([FromBody] MarkReadRequest request, CancellationToken cancellationToken)
+    {
+        var readerId = AdminAuth.GetUserId(User);
+        if (readerId is null)
+        {
+            return Forbid();
+        }
+
+        await Mediator.Send(new MarkMessagesReadCommand { OfferId = request.OfferId, ReaderId = readerId.Value }, cancellationToken);
+        return NoContent();
+    }
 }
+
+public sealed record MarkReadRequest(Guid OfferId);

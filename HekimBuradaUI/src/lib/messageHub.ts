@@ -2,8 +2,18 @@ import * as signalR from "@microsoft/signalr";
 import { MESSAGING_URL, type Message } from "./api";
 import { auth } from "./auth";
 
+/** Karşı taraf, sohbetteki mesajları okundu işaretlediğinde ("görüldü" tiki) yayınlanır — bkz. MarkMessagesReadHandler. */
+export interface MessagesReadPayload {
+  offerId: string;
+  readAt: string;
+}
+
 /** Bir teklife özel canlı sohbet bağlantısı — Messaging'in /hubs/messages hub'ı (bkz. Program.cs). */
-export function connectToOfferChat(offerId: string, onMessage: (message: Message) => void) {
+export function connectToOfferChat(
+  offerId: string,
+  onMessage: (message: Message) => void,
+  onRead?: (payload: MessagesReadPayload) => void
+) {
   const token = auth.getToken();
   if (!token) {
     return () => {};
@@ -15,6 +25,9 @@ export function connectToOfferChat(offerId: string, onMessage: (message: Message
     .build();
 
   connection.on("messageReceived", (message: Message) => onMessage(message));
+  if (onRead) {
+    connection.on("messagesRead", (payload: MessagesReadPayload) => onRead(payload));
+  }
   connection.start().catch(() => {});
 
   return () => {

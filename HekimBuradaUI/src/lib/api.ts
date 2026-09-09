@@ -264,6 +264,10 @@ export const identityApi = {
 
   doctorProfile: () => authedReq<DoctorProfile>("/api/account/doctor-profile"),
 
+  /** Başka bir kullanıcının doktor onayı var mı — sadece true/false, admin gerektirmez (bkz. proje kararı). */
+  verificationStatus: (userId: string) =>
+    authedReq<{ isVerified: boolean }>(`/api/account/verification-status/${userId}`),
+
   /** Sosyal girişle (Google/Facebook) oluşan hesaplarda specialty/diplomaNo/region boş kalıyor —
    * belge yüklemeden önce bunları tamamlamak için (bkz. kayit-ol/belge-yukle sayfası). */
   updateDoctorProfile: (input: { specialty: string; diplomaNo: string; districtId: string }) =>
@@ -527,6 +531,15 @@ export interface Offer {
   status: OfferStatus;
   listingId: string;
   buyerId: string;
+  createdAt: string;
+}
+
+/** Bir Offer/RequestOffer'ın geçmişindeki tek olay (ilk teklif, revizyon, kabul/red notu). */
+export interface OfferRevision {
+  id: string;
+  amount: number;
+  note: string | null;
+  createdAt: string;
 }
 
 export interface RequestOffer {
@@ -535,6 +548,7 @@ export interface RequestOffer {
   status: OfferStatus;
   requestId: string;
   responderId: string;
+  createdAt: string;
 }
 
 export type RequestStatus = "open" | "closed";
@@ -679,6 +693,9 @@ export const marketplaceApi = {
   /** Yalnızca bu tek teklifi reddeder, ilanı/diğer teklifleri etkilemez. */
   rejectOffer: (id: string) => mAuthedReq<void>(`/api/Offers/${id}/reject`, { method: "POST" }),
 
+  /** Bir teklifin geçmişi (ilk teklif, revizyon, kabul/red) — eskiden yeniye. */
+  getOfferRevisions: (id: string) => mAuthedReq<OfferRevision[]>(`/api/Offers/${id}/revisions`),
+
   listRequests: (params?: { page?: number; pageSize?: number; search?: string }) =>
     mAuthedReq<PagedResult<MarketplaceRequest>>(`/api/Requests${toQuery(params)}`),
 
@@ -705,7 +722,8 @@ export const marketplaceApi = {
 
   deleteRequest: (id: string) => mAuthedReq<void>(`/api/Requests/${id}`, { method: "DELETE" }),
 
-  listRequestOffers: (params: { requestId: string; page?: number; pageSize?: number }) =>
+  /** requestId verilmezse (backend'de opsiyonel) sistemdeki TÜM talep tekliflerini döner — bkz. Mesajlar sayfası. */
+  listRequestOffers: (params?: { requestId?: string; page?: number; pageSize?: number }) =>
     mAuthedReq<PagedResult<RequestOffer>>(`/api/request-offers${toQuery(params)}`),
 
   createRequestOffer: (input: { amount: number; requestId: string }) =>
@@ -720,6 +738,9 @@ export const marketplaceApi = {
       method: "PUT",
       body: JSON.stringify({ ...offer, status }),
     }),
+
+  /** Bir talep teklifinin geçmişi — eskiden yeniye. */
+  getRequestOfferRevisions: (id: string) => mAuthedReq<OfferRevision[]>(`/api/request-offers/${id}/revisions`),
 
   listFavorites: (params?: { page?: number; pageSize?: number }) =>
     mAuthedReq<PagedResult<Favorite>>(`/api/Favorites${toQuery(params)}`),
@@ -913,6 +934,7 @@ export interface Message {
   offerId: string;
   senderId: string;
   createdAt: string;
+  readAt: string | null;
 }
 
 export const messagingApi = {
@@ -922,9 +944,16 @@ export const messagingApi = {
   sendMessage: (input: { body: string; offerId: string; senderId: string; recipientId: string; linkPath: string }) =>
     msgAuthedReq<string>("/api/Messages", { method: "POST", body: JSON.stringify(input) }),
 
+  /** Karşı taraftan gelen, bu Offer sohbetindeki okunmamış mesajları okundu işaretler. */
+  markMessagesRead: (offerId: string) =>
+    msgAuthedReq<void>("/api/Messages/mark-read", { method: "POST", body: JSON.stringify({ offerId }) }),
+
   listNotifications: () => msgAuthedReq<AppNotification[]>("/api/notifications"),
 
   markAllNotificationsRead: () => msgAuthedReq<void>("/api/notifications/mark-all-read", { method: "POST" }),
+
+  /** Bir kullanıcının şu an çevrimiçi olup olmadığı. */
+  isOnline: (userId: string) => msgAuthedReq<{ online: boolean }>(`/api/presence/${userId}`),
 };
 
 // ---- Gateway ----

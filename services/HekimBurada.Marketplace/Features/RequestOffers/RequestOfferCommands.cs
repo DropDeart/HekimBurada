@@ -22,11 +22,13 @@ public sealed class CreateRequestOfferCommand : ICommand<Guid>
 internal sealed class CreateRequestOfferHandler : ICommandHandler<CreateRequestOfferCommand, Guid>
 {
     private readonly IRepository<RequestOffer> _repository;
+    private readonly IRepository<RequestOfferRevision> _revisionRepository;
     private readonly IUnitOfWork _unitOfWork;
 
-    public CreateRequestOfferHandler(IRepository<RequestOffer> repository, IUnitOfWork unitOfWork)
+    public CreateRequestOfferHandler(IRepository<RequestOffer> repository, IRepository<RequestOfferRevision> revisionRepository, IUnitOfWork unitOfWork)
     {
         _repository = repository;
+        _revisionRepository = revisionRepository;
         _unitOfWork = unitOfWork;
     }
 
@@ -41,6 +43,7 @@ internal sealed class CreateRequestOfferHandler : ICommandHandler<CreateRequestO
             ResponderId = request.ResponderId,
         };
         await _repository.AddAsync(entity, cancellationToken);
+        await _revisionRepository.AddAsync(new RequestOfferRevision { RequestOfferId = entity.Id, Amount = entity.Amount }, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
         return entity.Id;
     }
@@ -63,11 +66,13 @@ public sealed class UpdateRequestOfferCommand : ICommand
 internal sealed class UpdateRequestOfferHandler : ICommandHandler<UpdateRequestOfferCommand>
 {
     private readonly IRepository<RequestOffer> _repository;
+    private readonly IRepository<RequestOfferRevision> _revisionRepository;
     private readonly IUnitOfWork _unitOfWork;
 
-    public UpdateRequestOfferHandler(IRepository<RequestOffer> repository, IUnitOfWork unitOfWork)
+    public UpdateRequestOfferHandler(IRepository<RequestOffer> repository, IRepository<RequestOfferRevision> revisionRepository, IUnitOfWork unitOfWork)
     {
         _repository = repository;
+        _revisionRepository = revisionRepository;
         _unitOfWork = unitOfWork;
     }
 
@@ -76,11 +81,26 @@ internal sealed class UpdateRequestOfferHandler : ICommandHandler<UpdateRequestO
         ArgumentNullException.ThrowIfNull(request);
         var entity = await _repository.GetByIdAsync(request.Id, cancellationToken)
             ?? throw new NotFoundException("RequestOffer", request.Id);
+        var amountChanged = entity.Amount != request.Amount;
+        var statusChanged = entity.Status != request.Status;
         entity.Amount = request.Amount;
         entity.Status = request.Status;
         entity.RequestId = request.RequestId;
         entity.ResponderId = request.ResponderId;
         await _repository.UpdateAsync(entity, cancellationToken);
+
+        // Durum değişikliği (kabul/red) not olarak, sadece tutar revizyonu notsuz kaydedilir —
+        // bkz. proje kararı, OfferRevision ile aynı desen.
+        if (statusChanged && (request.Status == "accepted" || request.Status == "rejected"))
+        {
+            var note = request.Status == "accepted" ? "kabul edildi" : "reddedildi";
+            await _revisionRepository.AddAsync(new RequestOfferRevision { RequestOfferId = entity.Id, Amount = entity.Amount, Note = note }, cancellationToken);
+        }
+        else if (amountChanged)
+        {
+            await _revisionRepository.AddAsync(new RequestOfferRevision { RequestOfferId = entity.Id, Amount = entity.Amount }, cancellationToken);
+        }
+
         await _unitOfWork.SaveChangesAsync(cancellationToken);
     }
 }

@@ -16,6 +16,9 @@ public sealed class OfferDto
     /// <summary>BuyerId.</summary>
     public Guid BuyerId { get; set; }
 
+    /// <summary>Oluşturulma zamanı — Mesajlar sayfasında sohbetleri sıralamak için. CodeGen dışı, elle eklendi.</summary>
+    public DateTimeOffset CreatedAt { get; set; }
+
     /// <summary>Bir Offer entity'sinden DTO üretir.</summary>
     public static OfferDto From(Offer entity)
     {
@@ -27,6 +30,7 @@ public sealed class OfferDto
             Status = entity.Status,
             ListingId = entity.ListingId,
             BuyerId = entity.BuyerId,
+            CreatedAt = entity.CreatedAt,
         };
     }
 }
