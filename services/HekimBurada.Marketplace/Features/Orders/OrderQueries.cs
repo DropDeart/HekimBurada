@@ -4,6 +4,27 @@ using Marketplace.Entities;
 
 namespace Marketplace.Features.Orders;
 
+/// <summary>Kimliğe göre tek bir Order getirir — CodeGen dışı, elle eklendi. Yalnızca yetki kontrolü
+/// (çağıran alıcı/satıcı mı) için OrdersController içeriden çağırır, kendi başına bir uç değil.</summary>
+public sealed class GetOrderByIdQuery : IQuery<OrderDto?>
+{
+    public Guid Id { get; set; }
+}
+
+internal sealed class GetOrderByIdHandler : IQueryHandler<GetOrderByIdQuery, OrderDto?>
+{
+    private readonly IRepository<Order> _repository;
+
+    public GetOrderByIdHandler(IRepository<Order> repository) => _repository = repository;
+
+    public async Task<OrderDto?> Handle(GetOrderByIdQuery request, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var entity = await _repository.GetByIdAsync(request.Id, cancellationToken);
+        return entity is null ? null : OrderDto.From(entity);
+    }
+}
+
 /// <summary>Bir alıcının kendi siparişlerini (aldığı) sayfalı listeler — CodeGen dışı, elle eklendi.
 /// BuyerId controller'da çağıranın kendi kimliğiyle ezilir (client-supplied değerine güvenilmiyor).
 /// Satıcı tarafı (verdiği siparişler) için bkz. ListOrdersForSellerQuery.</summary>

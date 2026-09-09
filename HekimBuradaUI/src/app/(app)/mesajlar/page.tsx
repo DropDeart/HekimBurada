@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { Check, CheckCheck, ChevronLeft, ListFilter, Search, Send } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -111,9 +112,12 @@ function revisionText(rev: OfferRevision, index: number): string {
   return `Teklif ${currency(rev.amount)} olarak güncellendi`;
 }
 
-export default function MesajlarPage() {
+function MesajlarContent() {
   const hasToken = useHasToken();
   const myId = auth.getUserId();
+  const searchParams = useSearchParams();
+  /** İlan/talep detayından "Mesajlara git" ile gelindiğinde ilgili sohbeti doğrudan açar. */
+  const initialOfferId = searchParams.get("offerId");
 
   const [loading, setLoading] = useState(true);
   const [threads, setThreads] = useState<Thread[]>([]);
@@ -130,15 +134,24 @@ export default function MesajlarPage() {
   const [pendingOnly, setPendingOnly] = useState(false);
   const [talepOnly, setTalepOnly] = useState(false);
   const [contextOpen, setContextOpen] = useState(true);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(initialOfferId);
   const [draft, setDraft] = useState("");
   /** Mobilde (md altı) liste mi sohbet mi gösteriliyor — masaüstünde ikisi zaten yan yana, bu sadece
    * dar ekranda "ya liste ya sohbet" tek-kolonlu geçiş için (bkz. proje kararı). */
-  const [mobileShowChat, setMobileShowChat] = useState(false);
+  const [mobileShowChat, setMobileShowChat] = useState(initialOfferId !== null);
 
   const [verifiedMap, setVerifiedMap] = useState<Map<string, boolean>>(new Map());
   const [onlineMap, setOnlineMap] = useState<Map<string, boolean>>(new Map());
   const [revisions, setRevisions] = useState<OfferRevision[]>([]);
+
+  useEffect(() => {
+    // İlan/talep detayından ?offerId= ile gelindiğinde o sohbeti okundu işaretle — normal tıklamada
+    // bunu openThread yapar, URL'den doğrudan geldiğinde de aynısı olsun diye.
+    if (initialOfferId) {
+      messagingApi.markMessagesRead(initialOfferId).catch(() => {});
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- yalnızca mount'ta, URL'deki offerId'ye göre bir kez
+  }, []);
 
   const loadAll = useCallback(async () => {
     if (!hasToken || !myId) return;
@@ -840,5 +853,13 @@ export default function MesajlarPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function MesajlarPage() {
+  return (
+    <Suspense fallback={null}>
+      <MesajlarContent />
+    </Suspense>
   );
 }

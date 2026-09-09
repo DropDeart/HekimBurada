@@ -62,4 +62,58 @@ public sealed class OrdersController : BaseController
         var id = await Mediator.Send(command, cancellationToken);
         return Ok(id);
     }
+
+    /// <summary>Siparişi kargoya verildi olarak işaretler — yalnızca ilgili ilanın satıcısı.
+    /// CodeGen dışı, elle eklendi.</summary>
+    [HttpPost("{id:guid}/ship")]
+    public async Task<IActionResult> Ship(Guid id, ShipOrderCommand command, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        var callerId = AdminAuth.GetUserId(User);
+        if (callerId is null)
+        {
+            return Forbid();
+        }
+
+        var order = await Mediator.Send(new GetOrderByIdQuery { Id = id }, cancellationToken);
+        if (order is null)
+        {
+            return NotFound();
+        }
+
+        if (order.SellerId != callerId.Value && !AdminAuth.IsStaffAdmin(User))
+        {
+            return Forbid();
+        }
+
+        command.Id = id;
+        await Mediator.Send(command, cancellationToken);
+        return NoContent();
+    }
+
+    /// <summary>Siparişin teslim edildiğini işaretler — hem alıcı hem satıcı çağırabilir.
+    /// CodeGen dışı, elle eklendi.</summary>
+    [HttpPost("{id:guid}/deliver")]
+    public async Task<IActionResult> Deliver(Guid id, CancellationToken cancellationToken)
+    {
+        var callerId = AdminAuth.GetUserId(User);
+        if (callerId is null)
+        {
+            return Forbid();
+        }
+
+        var order = await Mediator.Send(new GetOrderByIdQuery { Id = id }, cancellationToken);
+        if (order is null)
+        {
+            return NotFound();
+        }
+
+        if (order.BuyerId != callerId.Value && order.SellerId != callerId.Value && !AdminAuth.IsStaffAdmin(User))
+        {
+            return Forbid();
+        }
+
+        await Mediator.Send(new DeliverOrderCommand { Id = id, CallerId = callerId.Value }, cancellationToken);
+        return NoContent();
+    }
 }

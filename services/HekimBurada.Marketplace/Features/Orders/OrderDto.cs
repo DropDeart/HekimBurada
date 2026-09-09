@@ -16,6 +16,10 @@ public sealed class OrderDto
     public string? DonationReceiptUrl { get; set; }
     public string? BuyerReferansUrl { get; set; }
     public string? DeliveryNote { get; set; }
+    public string? ShippingCarrier { get; set; }
+    public string? TrackingNumber { get; set; }
+    public DateTimeOffset? ShippedAt { get; set; }
+    public DateTimeOffset? DeliveredAt { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
 
     public static OrderDto From(Order entity)
@@ -34,6 +38,10 @@ public sealed class OrderDto
             DonationReceiptUrl = entity.DonationReceiptUrl,
             BuyerReferansUrl = entity.BuyerReferansUrl,
             DeliveryNote = entity.DeliveryNote,
+            ShippingCarrier = entity.ShippingCarrier,
+            TrackingNumber = entity.TrackingNumber,
+            ShippedAt = entity.ShippedAt,
+            DeliveredAt = entity.DeliveredAt,
             CreatedAt = entity.CreatedAt,
         };
     }

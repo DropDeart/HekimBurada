@@ -581,6 +581,10 @@ export interface ListingReview {
 
 export type OrderPaymentMethod = "bagis" | "bedelsiz" | "referans" | "kart" | "elden";
 
+/** pending: oluşturuldu. shipped: satıcı kargoya verdi (elden teslimde bu adım atlanabilir).
+ * delivered: teslim edildi — hem alıcı hem satıcı işaretleyebilir. */
+export type OrderStatus = "pending" | "shipped" | "delivered";
+
 export interface Order {
   id: string;
   listingId: string;
@@ -588,11 +592,15 @@ export interface Order {
   sellerId: string;
   paymentMethod: OrderPaymentMethod;
   amount: number;
-  status: string;
+  status: OrderStatus;
   donationOrganization: string | null;
   donationReceiptUrl: string | null;
   buyerReferansUrl: string | null;
   deliveryNote: string | null;
+  shippingCarrier: string | null;
+  trackingNumber: string | null;
+  shippedAt: string | null;
+  deliveredAt: string | null;
   createdAt: string;
 }
 
@@ -783,6 +791,13 @@ export const marketplaceApi = {
     buyerReferansUrl?: string | null;
     deliveryNote?: string | null;
   }) => mAuthedReq<string>("/api/orders", { method: "POST", body: JSON.stringify(input) }),
+
+  /** Yalnızca ilgili ilanın satıcısı — kargo firması/takip no opsiyonel (ör. elden teslimde kargo yok). */
+  shipOrder: (id: string, input: { shippingCarrier?: string | null; trackingNumber?: string | null }) =>
+    mAuthedReq<void>(`/api/orders/${id}/ship`, { method: "POST", body: JSON.stringify(input) }),
+
+  /** Hem alıcı hem satıcı çağırabilir — "shipped" adımı atlanıp doğrudan buradan da geçilebilir. */
+  deliverOrder: (id: string) => mAuthedReq<void>(`/api/orders/${id}/deliver`, { method: "POST" }),
 };
 
 // ---- Community ----

@@ -18,15 +18,12 @@ import { Button } from "@/components/ui/button";
 import {
   identityApi,
   marketplaceApi,
-  messagingApi,
   type MarketplaceCategory,
   type MarketplaceRequest,
-  type Message,
   type RequestOffer,
   type UserLookupRow,
 } from "@/lib/api";
 import { auth, useHasToken } from "@/lib/auth";
-import { connectToOfferChat } from "@/lib/messageHub";
 import { useLiveRefresh } from "@/lib/useLiveRefresh";
 import { cn } from "@/lib/utils";
 
@@ -45,8 +42,6 @@ export default function RequestDetailPage() {
   const [offers, setOffers] = useState<RequestOffer[]>([]);
   const [responders, setResponders] = useState<Map<string, UserLookupRow>>(new Map());
   const [selectedOfferId, setSelectedOfferId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [messageDraft, setMessageDraft] = useState("");
   const [offerAmountDraft, setOfferAmountDraft] = useState("");
   const [loading, setLoading] = useState(true);
   const [closeConfirmOpen, setCloseConfirmOpen] = useState(false);
@@ -91,25 +86,6 @@ export default function RequestDetailPage() {
 
   useLiveRefresh(loadAll);
 
-  useEffect(() => {
-    if (!selectedOfferId) return;
-    messagingApi
-      .listMessages({ pageSize: 200 })
-      .then((r) =>
-        setMessages(
-          r.items
-            .filter((m) => m.offerId === selectedOfferId)
-            .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
-        )
-      )
-      .catch(() => {});
-
-    const disconnect = connectToOfferChat(selectedOfferId, (msg) => {
-      setMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]));
-    });
-    return disconnect;
-  }, [selectedOfferId]);
-
   const category = categories.find((c) => c.id === request?.categoryId);
   const isRequester = request?.requesterId === myId;
   const selectedOffer = offers.find((o) => o.id === selectedOfferId) ?? null;
@@ -146,24 +122,6 @@ export default function RequestDetailPage() {
       toast.success(status === "accepted" ? "Teklif kabul edildi." : "Teklif reddedildi.");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "İşlem başarısız.");
-    }
-  };
-
-  const sendMessage = async () => {
-    if (!myId || !selectedOfferId || !selectedOffer || !request || !messageDraft.trim()) return;
-    const body = messageDraft.trim();
-    const recipientId = isRequester ? selectedOffer.responderId : request.requesterId;
-    setMessageDraft("");
-    try {
-      await messagingApi.sendMessage({
-        body,
-        offerId: selectedOfferId,
-        senderId: myId,
-        recipientId,
-        linkPath: `/talepler/${request.id}`,
-      });
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Mesaj gönderilemedi.");
     }
   };
 
@@ -345,42 +303,13 @@ export default function RequestDetailPage() {
           )}
 
           {selectedOffer && (
-            <>
-              <h3 className="mb-2 text-[13px] font-bold text-muted-foreground">
-                {currency(selectedOffer.amount)} teklifi hakkında sohbet
-              </h3>
-              <div className="mb-3 flex max-h-[240px] flex-col gap-2.5 overflow-y-auto rounded-lg border border-border p-3.5">
-                {messages.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">Henüz mesaj yok.</p>
-                ) : (
-                  messages.map((m) => (
-                    <div
-                      key={m.id}
-                      className={cn(
-                        "max-w-[80%] rounded-lg px-3 py-2 text-[13px]",
-                        m.senderId === myId
-                          ? "self-end bg-brand-soft text-foreground"
-                          : "self-start bg-muted text-foreground"
-                      )}
-                    >
-                      {m.body}
-                    </div>
-                  ))
-                )}
-              </div>
-              <div className="mb-5 flex gap-2">
-                <input
-                  value={messageDraft}
-                  onChange={(e) => setMessageDraft(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-                  placeholder="Mesaj yazın..."
-                  className="flex-1 rounded-md border border-input px-3 py-2 text-[13px]"
-                />
-                <Button variant="outline" onClick={sendMessage}>
-                  Gönder
-                </Button>
-              </div>
-            </>
+            <Link
+              href={`/mesajlar?offerId=${selectedOffer.id}`}
+              className="mb-5 flex items-center justify-between rounded-lg border border-border px-4 py-3 text-sm hover:bg-muted"
+            >
+              <span>{currency(selectedOffer.amount)} teklifi hakkında sohbet</span>
+              <span className="font-semibold text-brand">Mesajlara git →</span>
+            </Link>
           )}
         </div>
       </div>

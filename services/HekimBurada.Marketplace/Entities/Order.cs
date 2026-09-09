@@ -6,9 +6,9 @@ namespace Marketplace.Entities;
 /// <summary>
 /// Bir ilan için oluşturulan sipariş kaydı (CodeGen dışı, elle eklendi). Ödeme yöntemine göre yalnızca
 /// ilgili alanlar doldurulur (ör. "kart" için hiçbiri — kart bilgisi güvenlik nedeniyle asla toplanmıyor/
-/// saklanmıyor, bkz. OrdersController). Status şu an yalnızca bilgi amaçlı "pending" ile başlar — bu
-/// kapsamda satıcı/admin'in siparişi "tamamlandı" olarak işaretleyeceği bir uç yok, takip mevcut
-/// teklif/sohbet sistemi üzerinden yapılır.
+/// saklanmıyor, bkz. OrdersController). Status "pending" ile başlar, satıcı kargo bilgisiyle "shipped"
+/// yapabilir (kargo adımı atlanıp doğrudan "delivered" da işaretlenebilir — ör. elden teslimde kargo
+/// yok), "delivered"ı hem alıcı hem satıcı işaretleyebilir (bkz. ShipOrderCommand/DeliverOrderCommand).
 /// </summary>
 public sealed class Order : BaseEntity
 {
@@ -24,6 +24,7 @@ public sealed class Order : BaseEntity
 
     public decimal Amount { get; set; }
 
+    /// <summary>pending | shipped | delivered.</summary>
     [MaxLength(20)]
     public string Status { get; set; } = "pending";
 
@@ -42,4 +43,16 @@ public sealed class Order : BaseEntity
     /// <summary>"elden" — teslim yeri/notu.</summary>
     [MaxLength(500)]
     public string? DeliveryNote { get; set; }
+
+    /// <summary>Kargoya verilirken satıcının girdiği kargo firması (ör. "Yurtiçi Kargo") — opsiyonel.</summary>
+    [MaxLength(100)]
+    public string? ShippingCarrier { get; set; }
+
+    /// <summary>Kargoya verilirken satıcının girdiği takip numarası — opsiyonel.</summary>
+    [MaxLength(100)]
+    public string? TrackingNumber { get; set; }
+
+    public DateTimeOffset? ShippedAt { get; set; }
+
+    public DateTimeOffset? DeliveredAt { get; set; }
 }

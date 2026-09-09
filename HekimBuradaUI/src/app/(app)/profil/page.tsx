@@ -76,8 +76,8 @@ const PAYMENT_METHOD_LABELS: Record<string, string> = {
 
 const ORDER_STATUS_LABELS: Record<string, string> = {
   pending: "Beklemede",
-  completed: "Tamamlandı",
-  cancelled: "İptal Edildi",
+  shipped: "Kargoya Verildi",
+  delivered: "Teslim Edildi",
 };
 
 /** Backend'de karşılığı olmayan bölümler için ortak "yakında" notu — kullanıcıyı yanıltmamak için. */
@@ -123,6 +123,7 @@ function ProfilContent() {
   const [deletingAvatar, setDeletingAvatar] = useState(false);
   const [avatarModalOpen, setAvatarModalOpen] = useState(false);
   const [avatarDeleteConfirmOpen, setAvatarDeleteConfirmOpen] = useState(false);
+  const [confirmingDeliveryId, setConfirmingDeliveryId] = useState<string | null>(null);
   const [graduationSchool, setGraduationSchool] = useState("");
   const [graduationYear, setGraduationYear] = useState("");
   const [savingEducation, setSavingEducation] = useState(false);
@@ -221,6 +222,19 @@ function ProfilContent() {
   }, [hasToken, load]);
 
   const setTab = (slug: string) => router.push(`/profil?bolum=${slug}`);
+
+  const confirmDelivery = async (orderId: string) => {
+    setConfirmingDeliveryId(orderId);
+    try {
+      await marketplaceApi.deliverOrder(orderId);
+      toast.success("Sipariş teslim alındı olarak işaretlendi.");
+      await load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "İşlem başarısız.");
+    } finally {
+      setConfirmingDeliveryId(null);
+    }
+  };
 
   const saveProfile = async (e: FormEvent) => {
     e.preventDefault();
@@ -746,7 +760,12 @@ function ProfilContent() {
                       >
                         {listing?.title ?? "İlan bulunamadı"}
                       </Link>
-                      <span className="rounded-md bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
+                      <span
+                        className={cn(
+                          "rounded-md px-2 py-0.5 text-[11px] font-semibold",
+                          order.status === "delivered" ? "bg-brand-soft text-brand" : "bg-muted text-muted-foreground"
+                        )}
+                      >
                         {ORDER_STATUS_LABELS[order.status] ?? order.status}
                       </span>
                     </div>
@@ -756,6 +775,23 @@ function ProfilContent() {
                     </div>
                     {order.deliveryNote && (
                       <div className="mt-1 text-xs text-muted-foreground">Teslim notu: {order.deliveryNote}</div>
+                    )}
+                    {(order.shippingCarrier || order.trackingNumber) && (
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        Kargo: {order.shippingCarrier ?? "Belirtilmedi"}
+                        {order.trackingNumber && ` · Takip No: ${order.trackingNumber}`}
+                      </div>
+                    )}
+                    {order.status !== "delivered" && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="mt-2"
+                        disabled={confirmingDeliveryId === order.id}
+                        onClick={() => confirmDelivery(order.id)}
+                      >
+                        {confirmingDeliveryId === order.id ? "İşleniyor…" : "Teslim Aldım"}
+                      </Button>
                     )}
                   </div>
                 ))}

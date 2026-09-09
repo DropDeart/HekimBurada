@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Heart, Star } from "lucide-react";
 import { toast } from "sonner";
 import Lightbox from "yet-another-react-lightbox";
@@ -10,27 +10,29 @@ import Zoom from "yet-another-react-lightbox/plugins/zoom";
 import "yet-another-react-lightbox/styles.css";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { UserAvatar } from "@/components/UserAvatar";
 import {
   identityApi,
   MARKETPLACE_URL,
   marketplaceApi,
-  messagingApi,
   parseListingImages,
   type Favorite,
   type Listing,
   type ListingReview,
   type MarketplaceCategory,
-  type Message,
   type Offer,
   type Order,
   type OrderPaymentMethod,
   type UserLookupRow,
 } from "@/lib/api";
 import { auth, useHasToken } from "@/lib/auth";
-import { connectToOfferChat } from "@/lib/messageHub";
 import { useLiveRefresh } from "@/lib/useLiveRefresh";
 import { cn } from "@/lib/utils";
+
+const ORDER_STATUS_LABELS: Record<string, string> = {
+  pending: "Beklemede",
+  shipped: "Kargoya Verildi",
+  delivered: "Teslim Edildi",
+};
 
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
   bagis: "Bağış ile Ödeme",
@@ -56,10 +58,7 @@ export default function ListingDetailPage() {
   const [offers, setOffers] = useState<Offer[]>([]);
   const [buyers, setBuyers] = useState<Map<string, UserLookupRow>>(new Map());
   const [selectedOfferId, setSelectedOfferId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [messageDraft, setMessageDraft] = useState("");
   const [offerAmountDraft, setOfferAmountDraft] = useState("");
-  const [orderCreated, setOrderCreated] = useState(false);
   const [orderSubmitting, setOrderSubmitting] = useState(false);
   const [donationOrganization, setDonationOrganization] = useState("");
   const [donationReceiptUrl, setDonationReceiptUrl] = useState("");
@@ -76,8 +75,11 @@ export default function ListingDetailPage() {
   const [newReviewBody, setNewReviewBody] = useState("");
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [sellerOrder, setSellerOrder] = useState<Order | null>(null);
-  const [chatParticipants, setChatParticipants] = useState<Map<string, UserLookupRow>>(new Map());
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [buyerOrder, setBuyerOrder] = useState<Order | null>(null);
+  const [shipCarrier, setShipCarrier] = useState("");
+  const [shipTracking, setShipTracking] = useState("");
+  const [shipping, setShipping] = useState(false);
+  const [confirmingDelivery, setConfirmingDelivery] = useState(false);
 
   const loadReviews = useCallback(async () => {
     try {
@@ -157,57 +159,51 @@ export default function ListingDetailPage() {
     marketplaceApi.incrementListingViewCount(listingId).catch(() => {});
   }, [listingId]);
 
-  useEffect(() => {
-    if (!selectedOfferId) return;
-    messagingApi
-      .listMessages({ pageSize: 200 })
-      .then((r) =>
-        setMessages(
-          r.items
-            .filter((m) => m.offerId === selectedOfferId)
-            .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
-        )
-      )
-      .catch(() => {});
-
-    const disconnect = connectToOfferChat(selectedOfferId, (msg) => {
-      setMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]));
-    });
-    return disconnect;
-  }, [selectedOfferId]);
-
   const category = categories.find((c) => c.id === listing?.categoryId);
   const isOwner = listing?.sellerId === myId;
   const selectedOffer = offers.find((o) => o.id === selectedOfferId) ?? null;
   const images = parseListingImages(listing?.images);
 
-  useEffect(() => {
-    // Sohbet balonlarında avatar/baş harf gösterebilmek için sohbetin iki tarafını (satıcı+alıcı)
-    // çözer — hangisinin görüntülediğinden bağımsız, ikisi de aynı anda gerekiyor.
-    if (!listing || !selectedOffer) return;
-    identityApi
-      .lookupUsers([...new Set([listing.sellerId, selectedOffer.buyerId])])
-      .then((rows) => setChatParticipants(new Map(rows.map((r) => [r.id, r]))))
-      .catch(() => {});
-  }, [listing, selectedOffer]);
-
-  useEffect(() => {
-    // Sohbet her zaman en son mesajı gösterecek şekilde en alta kaysın (bkz. proje kararı).
-    messagesEndRef.current?.scrollIntoView({ block: "end" });
-  }, [messages]);
-
-  useEffect(() => {
-    // Satıcı, kabul ettiği teklife karşılık gelen siparişi (özellikle bağış dekontunu) burada görür —
-    // dekontu görmeden bir bağış işleminin gerçekten yapıldığını bilemez (bkz. proje kararı).
+  const loadSellerOrder = useCallback(async () => {
+    // Satıcı, kabul ettiği teklife karşılık gelen siparişi (özellikle bağış dekontunu, kargo durumunu)
+    // burada görür — dekontu görmeden bir bağış işleminin gerçekten yapıldığını bilemez (bkz. proje kararı).
     if (!isOwner || !listing || !selectedOffer || selectedOffer.status !== "accepted") {
       setSellerOrder(null);
       return;
     }
-    marketplaceApi
-      .listOrdersReceived({ listingId: listing.id, pageSize: 200 })
-      .then((r) => setSellerOrder(r.items.find((o) => o.buyerId === selectedOffer.buyerId) ?? null))
-      .catch(() => setSellerOrder(null));
+    try {
+      const r = await marketplaceApi.listOrdersReceived({ listingId: listing.id, pageSize: 200 });
+      setSellerOrder(r.items.find((o) => o.buyerId === selectedOffer.buyerId) ?? null);
+    } catch {
+      setSellerOrder(null);
+    }
   }, [isOwner, listing, selectedOffer]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- teklif/ilan değişince sipariş bilgisini yeniden çekme (React'in "Fetching data" deseni)
+    void loadSellerOrder();
+  }, [loadSellerOrder]);
+
+  const loadBuyerOrder = useCallback(async () => {
+    // Alıcı, kendi siparişinin (özellikle kargo/teslim) durumunu burada görür — daha önce bu, sayfa
+    // yenilenince sıfırlanan yerel bir "orderCreated" bayrağıydı, gerçek sipariş kaydını hiç
+    // sormuyordu (bkz. proje kararı, bug fix).
+    if (isOwner || !listing || !selectedOffer || selectedOffer.status !== "accepted") {
+      setBuyerOrder(null);
+      return;
+    }
+    try {
+      const r = await marketplaceApi.listOrders({ pageSize: 200 });
+      setBuyerOrder(r.items.find((o) => o.listingId === listing.id) ?? null);
+    } catch {
+      setBuyerOrder(null);
+    }
+  }, [isOwner, listing, selectedOffer]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- teklif/ilan değişince sipariş bilgisini yeniden çekme (React'in "Fetching data" deseni)
+    void loadBuyerOrder();
+  }, [loadBuyerOrder]);
 
   const submitReview = async () => {
     if (!newReviewBody.trim()) return;
@@ -249,7 +245,7 @@ export default function ListingDetailPage() {
         amount: selectedOffer.amount,
         ...input,
       });
-      setOrderCreated(true);
+      await loadBuyerOrder();
       toast.success("Talebiniz iletildi.");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Talep gönderilemedi.");
@@ -317,21 +313,35 @@ export default function ListingDetailPage() {
     }
   };
 
-  const sendMessage = async () => {
-    if (!myId || !selectedOfferId || !selectedOffer || !listing || !messageDraft.trim()) return;
-    const body = messageDraft.trim();
-    const recipientId = isOwner ? selectedOffer.buyerId : listing.sellerId;
-    setMessageDraft("");
+  const markShipped = async () => {
+    if (!sellerOrder) return;
+    setShipping(true);
     try {
-      await messagingApi.sendMessage({
-        body,
-        offerId: selectedOfferId,
-        senderId: myId,
-        recipientId,
-        linkPath: `/ilanlar/${listing.id}`,
+      await marketplaceApi.shipOrder(sellerOrder.id, {
+        shippingCarrier: shipCarrier.trim() || null,
+        trackingNumber: shipTracking.trim() || null,
       });
+      toast.success("Sipariş kargoya verildi olarak işaretlendi.");
+      setShipCarrier("");
+      setShipTracking("");
+      await loadSellerOrder();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Mesaj gönderilemedi.");
+      toast.error(err instanceof Error ? err.message : "İşlem başarısız.");
+    } finally {
+      setShipping(false);
+    }
+  };
+
+  const confirmDelivery = async (orderId: string) => {
+    setConfirmingDelivery(true);
+    try {
+      await marketplaceApi.deliverOrder(orderId);
+      toast.success("Sipariş teslim edildi olarak işaretlendi.");
+      await Promise.all([loadSellerOrder(), loadBuyerOrder()]);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "İşlem başarısız.");
+    } finally {
+      setConfirmingDelivery(false);
     }
   };
 
@@ -625,50 +635,17 @@ export default function ListingDetailPage() {
 
           {selectedOffer && (
             <>
-              <h3 className="mb-2 text-[13px] font-bold text-muted-foreground">
-                {currency(selectedOffer.amount)} teklifi hakkında sohbet
-                {isOwner &&
-                  ` — ${buyers.get(selectedOffer.buyerId)?.fullName ?? buyers.get(selectedOffer.buyerId)?.email ?? "Kullanıcı"}`}
-              </h3>
-              <div className="mb-3 flex max-h-[180px] flex-col gap-2.5 overflow-y-auto rounded-lg border border-border p-3.5">
-                {messages.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">Henüz mesaj yok.</p>
-                ) : (
-                  messages.map((m) => {
-                    const sender = chatParticipants.get(m.senderId);
-                    const isMine = m.senderId === myId;
-                    return (
-                      <div
-                        key={m.id}
-                        className={cn("flex items-end gap-1.5", isMine ? "flex-row-reverse self-end" : "self-start")}
-                      >
-                        <UserAvatar avatarUrl={sender?.avatarUrl} name={sender?.fullName ?? sender?.email} size={20} />
-                        <div
-                          className={cn(
-                            "max-w-[80%] rounded-lg px-3 py-2 text-[13px]",
-                            isMine ? "bg-brand-soft text-foreground" : "bg-muted text-foreground"
-                          )}
-                        >
-                          {m.body}
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-                <div ref={messagesEndRef} />
-              </div>
-              <div className="mb-5 flex gap-2">
-                <input
-                  value={messageDraft}
-                  onChange={(e) => setMessageDraft(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-                  placeholder="Mesaj yazın..."
-                  className="flex-1 rounded-md border border-input px-3 py-2 text-[13px]"
-                />
-                <Button variant="outline" onClick={sendMessage}>
-                  Gönder
-                </Button>
-              </div>
+              <Link
+                href={`/mesajlar?offerId=${selectedOffer.id}`}
+                className="mb-5 flex items-center justify-between rounded-lg border border-border px-4 py-3 text-sm hover:bg-muted"
+              >
+                <span>
+                  {currency(selectedOffer.amount)} teklifi hakkında sohbet
+                  {isOwner &&
+                    ` — ${buyers.get(selectedOffer.buyerId)?.fullName ?? buyers.get(selectedOffer.buyerId)?.email ?? "Kullanıcı"}`}
+                </span>
+                <span className="font-semibold text-brand">Mesajlara git →</span>
+              </Link>
 
               {selectedOffer.status === "accepted" && !isOwner && (
                 <div className="rounded-lg border border-border p-4">
@@ -679,11 +656,39 @@ export default function ListingDetailPage() {
                     Ödenecek tutar: {currency(selectedOffer.amount)}
                   </p>
 
-                  {orderCreated ? (
-                    <p className="text-sm font-semibold text-brand">
-                      Talebiniz iletildi — Profilim &gt; Sipariş ve Kargo Bilgilerim&apos;den takip
-                      edebilirsiniz.
-                    </p>
+                  {buyerOrder ? (
+                    <div className="flex flex-col gap-2">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={cn(
+                            "rounded-md px-2 py-0.5 text-xs font-semibold",
+                            buyerOrder.status === "delivered" ? "bg-brand-soft text-brand" : "bg-muted text-muted-foreground"
+                          )}
+                        >
+                          {ORDER_STATUS_LABELS[buyerOrder.status] ?? buyerOrder.status}
+                        </span>
+                        {(buyerOrder.shippingCarrier || buyerOrder.trackingNumber) && (
+                          <span className="text-xs text-muted-foreground">
+                            {buyerOrder.shippingCarrier ?? "Kargo"}
+                            {buyerOrder.trackingNumber && ` · Takip No: ${buyerOrder.trackingNumber}`}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Talebiniz iletildi — Profilim &gt; Sipariş ve Kargo Bilgilerim&apos;den de takip edebilirsiniz.
+                      </p>
+                      {buyerOrder.status !== "delivered" && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="w-fit"
+                          disabled={confirmingDelivery}
+                          onClick={() => confirmDelivery(buyerOrder.id)}
+                        >
+                          {confirmingDelivery ? "İşleniyor…" : "Teslim Aldım"}
+                        </Button>
+                      )}
+                    </div>
                   ) : listing.paymentMethod === "bagis" ? (
                     <div className="flex flex-col gap-2.5">
                       <div>
@@ -860,6 +865,70 @@ export default function ListingDetailPage() {
                     </p>
                   ) : (
                     <p className="text-sm font-semibold text-brand">Talep alındı.</p>
+                  )}
+
+                  {sellerOrder && (
+                    <div className="mt-3 border-t border-border pt-3">
+                      <div className="mb-2 flex items-center gap-2">
+                        <span
+                          className={cn(
+                            "rounded-md px-2 py-0.5 text-xs font-semibold",
+                            sellerOrder.status === "delivered" ? "bg-brand-soft text-brand" : "bg-muted text-muted-foreground"
+                          )}
+                        >
+                          {ORDER_STATUS_LABELS[sellerOrder.status] ?? sellerOrder.status}
+                        </span>
+                        {(sellerOrder.shippingCarrier || sellerOrder.trackingNumber) && (
+                          <span className="text-xs text-muted-foreground">
+                            {sellerOrder.shippingCarrier ?? "Kargo"}
+                            {sellerOrder.trackingNumber && ` · Takip No: ${sellerOrder.trackingNumber}`}
+                          </span>
+                        )}
+                      </div>
+
+                      {sellerOrder.status === "pending" && (
+                        <div className="flex flex-col gap-2">
+                          <div className="flex gap-2">
+                            <input
+                              value={shipCarrier}
+                              onChange={(e) => setShipCarrier(e.target.value)}
+                              placeholder="Kargo firması (opsiyonel)"
+                              className="flex-1 rounded-md border border-input px-3 py-2 text-xs"
+                            />
+                            <input
+                              value={shipTracking}
+                              onChange={(e) => setShipTracking(e.target.value)}
+                              placeholder="Takip no (opsiyonel)"
+                              className="flex-1 rounded-md border border-input px-3 py-2 text-xs"
+                            />
+                          </div>
+                          <div className="flex gap-2">
+                            <Button size="sm" disabled={shipping} onClick={markShipped}>
+                              {shipping ? "İşleniyor…" : "Kargoya Verildi Olarak İşaretle"}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={confirmingDelivery}
+                              onClick={() => confirmDelivery(sellerOrder.id)}
+                            >
+                              {confirmingDelivery ? "İşleniyor…" : "Doğrudan Teslim Edildi (Elden)"}
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+
+                      {sellerOrder.status === "shipped" && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={confirmingDelivery}
+                          onClick={() => confirmDelivery(sellerOrder.id)}
+                        >
+                          {confirmingDelivery ? "İşleniyor…" : "Teslim Edildi Olarak İşaretle"}
+                        </Button>
+                      )}
+                    </div>
                   )}
                 </div>
               )}
