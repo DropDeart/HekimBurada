@@ -50,7 +50,19 @@ internal sealed class ListOrderHandler : IQueryHandler<ListOrderQuery, PagedResu
             request.Skip,
             request.PageSize,
             request.SortBy,
-            query => query.Where(x => x.BuyerId == request.BuyerId && (request.ListingId == null || x.ListingId == request.ListingId)),
+            query =>
+            {
+                // "(request.ListingId == null || x.ListingId == request.ListingId)" yerine koşullu
+                // Where zinciri — OR-null kalıbı Postgres'in index seek yapmasını zorlaştırabiliyor
+                // (bkz. /simplify incelemesi).
+                var filtered = query.Where(x => x.BuyerId == request.BuyerId);
+                if (request.ListingId is { } listingId)
+                {
+                    filtered = filtered.Where(x => x.ListingId == listingId);
+                }
+
+                return filtered;
+            },
             cancellationToken);
 
         return new PagedResult<OrderDto>
@@ -75,6 +87,11 @@ public sealed class ListOrdersForSellerQuery : PagedRequest, IQuery<PagedResult<
 
     /// <summary>Verilirse yalnızca bu ilana ait siparişler döner.</summary>
     public Guid? ListingId { get; set; }
+
+    /// <summary>Verilirse yalnızca bu alıcının siparişi döner — ilanlar/[id] sayfasında satıcının,
+    /// kabul ettiği tek bir teklifin siparişini görmesi için (bkz. ListOrderQuery.ListingId ile aynı
+    /// desen — 200 kayıt çekip client'ta buyerId'ye göre filtrelemeyi önler).</summary>
+    public Guid? BuyerId { get; set; }
 }
 
 internal sealed class ListOrdersForSellerHandler : IQueryHandler<ListOrdersForSellerQuery, PagedResult<OrderDto>>
@@ -90,7 +107,21 @@ internal sealed class ListOrdersForSellerHandler : IQueryHandler<ListOrdersForSe
             request.Skip,
             request.PageSize,
             request.SortBy,
-            query => query.Where(x => x.SellerId == request.SellerId && (request.ListingId == null || x.ListingId == request.ListingId)),
+            query =>
+            {
+                var filtered = query.Where(x => x.SellerId == request.SellerId);
+                if (request.ListingId is { } listingId)
+                {
+                    filtered = filtered.Where(x => x.ListingId == listingId);
+                }
+
+                if (request.BuyerId is { } buyerId)
+                {
+                    filtered = filtered.Where(x => x.BuyerId == buyerId);
+                }
+
+                return filtered;
+            },
             cancellationToken);
 
         return new PagedResult<OrderDto>

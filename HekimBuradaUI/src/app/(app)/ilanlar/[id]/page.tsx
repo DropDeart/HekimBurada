@@ -9,13 +9,14 @@ import Lightbox from "yet-another-react-lightbox";
 import Zoom from "yet-another-react-lightbox/plugins/zoom";
 import "yet-another-react-lightbox/styles.css";
 import { Button } from "@/components/ui/button";
+import { OrderStatusBadge, OrderShippingInfo } from "@/components/OrderStatusBadge";
 import { Textarea } from "@/components/ui/textarea";
 import {
   identityApi,
   MARKETPLACE_URL,
   marketplaceApi,
-  ORDER_STATUS_LABELS,
   parseListingImages,
+  PAYMENT_METHOD_LABELS,
   type Favorite,
   type Listing,
   type ListingReview,
@@ -28,14 +29,6 @@ import {
 import { auth, useHasToken } from "@/lib/auth";
 import { useLiveRefresh } from "@/lib/useLiveRefresh";
 import { cn } from "@/lib/utils";
-
-const PAYMENT_METHOD_LABELS: Record<string, string> = {
-  bagis: "Bağış ile Ödeme",
-  bedelsiz: "Bedelsiz Ürün",
-  referans: "Referans Linkli %50+ İndirim",
-  kart: "Kredi Kartı",
-  elden: "Elden Teslim",
-};
 
 function currency(n: number) {
   return `${n.toLocaleString("tr-TR")} ₺`;
@@ -157,6 +150,7 @@ export default function ListingDetailPage() {
   const isOwner = listing?.sellerId === myId;
   const selectedOffer = offers.find((o) => o.id === selectedOfferId) ?? null;
   const images = parseListingImages(listing?.images);
+  const isOrderPending = order?.status === "pending";
 
   const loadOrder = useCallback(async () => {
     // Kabul edilmiş teklifin siparişini (dekont/kargo/teslim durumu) satıcı ve alıcı burada aynı
@@ -170,10 +164,14 @@ export default function ListingDetailPage() {
     }
     try {
       if (isOwner) {
-        const r = await marketplaceApi.listOrdersReceived({ listingId: listing.id, pageSize: 200 });
-        setOrder(r.items.find((o) => o.buyerId === selectedOffer.buyerId) ?? null);
+        const r = await marketplaceApi.listOrdersReceived({
+          listingId: listing.id,
+          buyerId: selectedOffer.buyerId,
+          pageSize: 1,
+        });
+        setOrder(r.items[0] ?? null);
       } else {
-        const r = await marketplaceApi.listOrders({ listingId: listing.id, pageSize: 10 });
+        const r = await marketplaceApi.listOrders({ listingId: listing.id, pageSize: 1 });
         setOrder(r.items[0] ?? null);
       }
     } catch {
@@ -642,18 +640,10 @@ export default function ListingDetailPage() {
                   {order ? (
                     <div className="flex flex-col gap-2">
                       <div className="flex items-center gap-2">
-                        <span
-                          className={cn(
-                            "rounded-md px-2 py-0.5 text-xs font-semibold",
-                            order.status === "delivered" ? "bg-brand-soft text-brand" : "bg-muted text-muted-foreground"
-                          )}
-                        >
-                          {ORDER_STATUS_LABELS[order.status]}
-                        </span>
+                        <OrderStatusBadge order={order} />
                         {(order.shippingCarrier || order.trackingNumber) && (
                           <span className="text-xs text-muted-foreground">
-                            {order.shippingCarrier ?? "Kargo"}
-                            {order.trackingNumber && ` · Takip No: ${order.trackingNumber}`}
+                            <OrderShippingInfo order={order} />
                           </span>
                         )}
                       </div>
@@ -817,93 +807,87 @@ export default function ListingDetailPage() {
                     <p className="text-xs text-muted-foreground">
                       Alıcı henüz talebini/ödeme bilgilerini göndermedi.
                     </p>
-                  ) : listing.paymentMethod === "bagis" ? (
-                    <div className="flex flex-col gap-1.5">
-                      <p className="text-sm text-foreground">
-                        Bağış Yapılan Kuruluş: <span className="font-semibold">{order.donationOrganization}</span>
-                      </p>
-                      {order.donationReceiptUrl ? (
-                        <a
-                          href={`${MARKETPLACE_URL}${order.donationReceiptUrl}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-sm font-semibold text-brand hover:opacity-80"
-                        >
-                          Dekontu Görüntüle →
-                        </a>
-                      ) : (
-                        <p className="text-sm font-semibold text-red-600">Dekont yüklenmemiş.</p>
-                      )}
-                    </div>
-                  ) : listing.paymentMethod === "referans" ? (
-                    <p className="text-sm text-foreground">
-                      Referans/Satın Alma Linki:{" "}
-                      <a href={order.buyerReferansUrl ?? "#"} target="_blank" rel="noreferrer" className="font-semibold text-brand hover:opacity-80">
-                        {order.buyerReferansUrl}
-                      </a>
-                    </p>
-                  ) : listing.paymentMethod === "elden" ? (
-                    <p className="text-sm text-foreground">
-                      Teslim Yeri/Notu: <span className="font-semibold">{order.deliveryNote}</span>
-                    </p>
                   ) : (
-                    <p className="text-sm font-semibold text-brand">Talep alındı.</p>
-                  )}
-
-                  {order && (
-                    <div className="mt-3 border-t border-border pt-3">
-                      <div className="mb-2 flex items-center gap-2">
-                        <span
-                          className={cn(
-                            "rounded-md px-2 py-0.5 text-xs font-semibold",
-                            order.status === "delivered" ? "bg-brand-soft text-brand" : "bg-muted text-muted-foreground"
+                    <>
+                      {listing.paymentMethod === "bagis" ? (
+                        <div className="flex flex-col gap-1.5">
+                          <p className="text-sm text-foreground">
+                            Bağış Yapılan Kuruluş: <span className="font-semibold">{order.donationOrganization}</span>
+                          </p>
+                          {order.donationReceiptUrl ? (
+                            <a
+                              href={`${MARKETPLACE_URL}${order.donationReceiptUrl}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-sm font-semibold text-brand hover:opacity-80"
+                            >
+                              Dekontu Görüntüle →
+                            </a>
+                          ) : (
+                            <p className="text-sm font-semibold text-red-600">Dekont yüklenmemiş.</p>
                           )}
-                        >
-                          {ORDER_STATUS_LABELS[order.status]}
-                        </span>
-                        {(order.shippingCarrier || order.trackingNumber) && (
-                          <span className="text-xs text-muted-foreground">
-                            {order.shippingCarrier ?? "Kargo"}
-                            {order.trackingNumber && ` · Takip No: ${order.trackingNumber}`}
-                          </span>
+                        </div>
+                      ) : listing.paymentMethod === "referans" ? (
+                        <p className="text-sm text-foreground">
+                          Referans/Satın Alma Linki:{" "}
+                          <a href={order.buyerReferansUrl ?? "#"} target="_blank" rel="noreferrer" className="font-semibold text-brand hover:opacity-80">
+                            {order.buyerReferansUrl}
+                          </a>
+                        </p>
+                      ) : listing.paymentMethod === "elden" ? (
+                        <p className="text-sm text-foreground">
+                          Teslim Yeri/Notu: <span className="font-semibold">{order.deliveryNote}</span>
+                        </p>
+                      ) : (
+                        <p className="text-sm font-semibold text-brand">Talep alındı.</p>
+                      )}
+
+                      <div className="mt-3 border-t border-border pt-3">
+                        <div className="mb-2 flex items-center gap-2">
+                          <OrderStatusBadge order={order} />
+                          {(order.shippingCarrier || order.trackingNumber) && (
+                            <span className="text-xs text-muted-foreground">
+                              <OrderShippingInfo order={order} />
+                            </span>
+                          )}
+                        </div>
+
+                        {order.status !== "delivered" && (
+                          <div className="flex flex-col gap-2">
+                            {isOrderPending && (
+                              <div className="flex gap-2">
+                                <input
+                                  value={shipCarrier}
+                                  onChange={(e) => setShipCarrier(e.target.value)}
+                                  placeholder="Kargo firması (opsiyonel)"
+                                  className="flex-1 rounded-md border border-input px-3 py-2 text-xs"
+                                />
+                                <input
+                                  value={shipTracking}
+                                  onChange={(e) => setShipTracking(e.target.value)}
+                                  placeholder="Takip no (opsiyonel)"
+                                  className="flex-1 rounded-md border border-input px-3 py-2 text-xs"
+                                />
+                              </div>
+                            )}
+                            <div className="flex gap-2">
+                              {isOrderPending && (
+                                <Button size="sm" disabled={shipping} onClick={markShipped}>
+                                  {shipping ? "İşleniyor…" : "Kargoya Verildi Olarak İşaretle"}
+                                </Button>
+                              )}
+                              <Button size="sm" variant="outline" disabled={confirmingDelivery} onClick={confirmDelivery}>
+                                {confirmingDelivery
+                                  ? "İşleniyor…"
+                                  : isOrderPending
+                                    ? "Doğrudan Teslim Edildi (Elden)"
+                                    : "Teslim Edildi Olarak İşaretle"}
+                              </Button>
+                            </div>
+                          </div>
                         )}
                       </div>
-
-                      {order.status !== "delivered" && (
-                        <div className="flex flex-col gap-2">
-                          {order.status === "pending" && (
-                            <div className="flex gap-2">
-                              <input
-                                value={shipCarrier}
-                                onChange={(e) => setShipCarrier(e.target.value)}
-                                placeholder="Kargo firması (opsiyonel)"
-                                className="flex-1 rounded-md border border-input px-3 py-2 text-xs"
-                              />
-                              <input
-                                value={shipTracking}
-                                onChange={(e) => setShipTracking(e.target.value)}
-                                placeholder="Takip no (opsiyonel)"
-                                className="flex-1 rounded-md border border-input px-3 py-2 text-xs"
-                              />
-                            </div>
-                          )}
-                          <div className="flex gap-2">
-                            {order.status === "pending" && (
-                              <Button size="sm" disabled={shipping} onClick={markShipped}>
-                                {shipping ? "İşleniyor…" : "Kargoya Verildi Olarak İşaretle"}
-                              </Button>
-                            )}
-                            <Button size="sm" variant="outline" disabled={confirmingDelivery} onClick={confirmDelivery}>
-                              {confirmingDelivery
-                                ? "İşleniyor…"
-                                : order.status === "pending"
-                                  ? "Doğrudan Teslim Edildi (Elden)"
-                                  : "Teslim Edildi Olarak İşaretle"}
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
+                    </>
                   )}
                 </div>
               )}

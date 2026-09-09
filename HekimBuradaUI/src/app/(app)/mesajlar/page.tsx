@@ -11,6 +11,7 @@ import {
   identityApi,
   marketplaceApi,
   messagingApi,
+  PAYMENT_METHOD_LABELS,
   type Listing,
   type MarketplaceCategory,
   type MarketplaceRequest,
@@ -25,14 +26,6 @@ import { auth, useHasToken } from "@/lib/auth";
 import { connectToOfferChat } from "@/lib/messageHub";
 import { useLiveRefresh } from "@/lib/useLiveRefresh";
 import { cn } from "@/lib/utils";
-
-const PAYMENT_METHOD_LABELS: Record<string, string> = {
-  bagis: "Bağış ile Ödeme",
-  bedelsiz: "Bedelsiz Ürün",
-  referans: "Referans Linkli %50+ İndirim",
-  kart: "Kredi Kartı",
-  elden: "Elden Teslim",
-};
 
 const STATUS_STYLE: Record<OfferStatus, { label: string; bg: string; fg: string }> = {
   pending: { label: "Bekliyor", bg: "bg-amber-50", fg: "text-amber-700" },

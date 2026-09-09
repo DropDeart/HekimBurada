@@ -581,6 +581,17 @@ export interface ListingReview {
 
 export type OrderPaymentMethod = "bagis" | "bedelsiz" | "referans" | "kart" | "elden";
 
+/** Record<string,...> — hem Order.paymentMethod'u (OrderPaymentMethod, dar) hem Listing.paymentMethod'u
+ * (backend'de düz string, CodeGen'in ürettiği kısıtsız alan) indeksleyebilsin diye — bkz. /simplify
+ * incelemesi (önceden 3 sayfada ayrı ayrı kopyalanmıştı). */
+export const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  bagis: "Bağış ile Ödeme",
+  bedelsiz: "Bedelsiz Ürün",
+  referans: "Referans Linkli %50+ İndirim",
+  kart: "Kredi Kartı",
+  elden: "Elden Teslim",
+};
+
 /** pending: oluşturuldu. shipped: satıcı kargoya verdi (elden teslimde bu adım atlanabilir).
  * delivered: teslim edildi — hem alıcı hem satıcı işaretleyebilir. */
 export type OrderStatus = "pending" | "shipped" | "delivered";
@@ -788,8 +799,9 @@ export const marketplaceApi = {
   listOrders: (params?: { listingId?: string; page?: number; pageSize?: number }) =>
     mAuthedReq<PagedResult<Order>>(`/api/orders${toQuery(params)}`),
 
-  /** Çağıranın kendi ilanlarına gelen siparişleri döner (satıcı olarak) — dekont/kuruluş görüp onaylayabilmesi için. */
-  listOrdersReceived: (params?: { listingId?: string; page?: number; pageSize?: number }) =>
+  /** Çağıranın kendi ilanlarına gelen siparişleri döner (satıcı olarak) — dekont/kuruluş görüp onaylayabilmesi için.
+   * buyerId verilirse (bkz. listOrders.listingId ile aynı desen) tek bir alıcının siparişiyle sınırlanır. */
+  listOrdersReceived: (params?: { listingId?: string; buyerId?: string; page?: number; pageSize?: number }) =>
     mAuthedReq<PagedResult<Order>>(`/api/orders/received${toQuery(params)}`),
 
   createOrder: (input: {

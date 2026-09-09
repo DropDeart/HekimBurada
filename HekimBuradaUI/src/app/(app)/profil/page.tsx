@@ -26,13 +26,14 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ListingImage } from "@/components/ListingImage";
+import { OrderStatusBadge, OrderShippingInfo } from "@/components/OrderStatusBadge";
 import { ProvinceDistrictSelect } from "@/components/ProvinceDistrictSelect";
 import {
   communityApi,
   identityApi,
   marketplaceApi,
   IDENTITY_URL,
-  ORDER_STATUS_LABELS,
+  PAYMENT_METHOD_LABELS,
   type Address,
   type CommunityCategory,
   type CommunityComment,
@@ -66,14 +67,6 @@ function currency(n: number) {
 
 /** TR telefon formatı — 0/+90 önekli veya öneksiz 10 haneli. Backend'deki desenle aynı. */
 const PHONE_PATTERN = /^(\+90|0)?[1-9]\d{9}$/;
-
-const PAYMENT_METHOD_LABELS: Record<string, string> = {
-  bagis: "Bağış ile Ödeme",
-  bedelsiz: "Bedelsiz Ürün",
-  referans: "Referans Linkli %50+ İndirim",
-  kart: "Kredi Kartı",
-  elden: "Elden Teslim",
-};
 
 /** Backend'de karşılığı olmayan bölümler için ortak "yakında" notu — kullanıcıyı yanıltmamak için. */
 function StaticNotice() {
@@ -757,14 +750,7 @@ function ProfilContent() {
                       >
                         {listing?.title ?? "İlan bulunamadı"}
                       </Link>
-                      <span
-                        className={cn(
-                          "rounded-md px-2 py-0.5 text-[11px] font-semibold",
-                          order.status === "delivered" ? "bg-brand-soft text-brand" : "bg-muted text-muted-foreground"
-                        )}
-                      >
-                        {ORDER_STATUS_LABELS[order.status]}
-                      </span>
+                      <OrderStatusBadge order={order} className="text-[11px]" />
                     </div>
                     <div className="mt-1 text-xs text-muted-foreground">
                       {PAYMENT_METHOD_LABELS[order.paymentMethod] ?? order.paymentMethod} · {currency(order.amount)} ·{" "}
@@ -775,8 +761,7 @@ function ProfilContent() {
                     )}
                     {(order.shippingCarrier || order.trackingNumber) && (
                       <div className="mt-1 text-xs text-muted-foreground">
-                        Kargo: {order.shippingCarrier ?? "Belirtilmedi"}
-                        {order.trackingNumber && ` · Takip No: ${order.trackingNumber}`}
+                        Kargo: <OrderShippingInfo order={order} fallback="Belirtilmedi" />
                       </div>
                     )}
                     {order.status !== "delivered" && (

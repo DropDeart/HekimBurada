@@ -21,13 +21,12 @@ public sealed class OrdersController : BaseController
     public async Task<ActionResult<PagedResult<OrderDto>>> List([FromQuery] ListOrderQuery query, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(query);
-        var callerId = AdminAuth.GetUserId(User);
-        if (callerId is null)
+        if (!TryGetCallerId(out var callerId, out var error))
         {
-            return Forbid();
+            return error;
         }
 
-        query.BuyerId = callerId.Value;
+        query.BuyerId = callerId;
         return Ok(await Mediator.Send(query, cancellationToken));
     }
 
@@ -37,13 +36,12 @@ public sealed class OrdersController : BaseController
     public async Task<ActionResult<PagedResult<OrderDto>>> Received([FromQuery] ListOrdersForSellerQuery query, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(query);
-        var callerId = AdminAuth.GetUserId(User);
-        if (callerId is null)
+        if (!TryGetCallerId(out var callerId, out var error))
         {
-            return Forbid();
+            return error;
         }
 
-        query.SellerId = callerId.Value;
+        query.SellerId = callerId;
         return Ok(await Mediator.Send(query, cancellationToken));
     }
 
@@ -52,13 +50,12 @@ public sealed class OrdersController : BaseController
     public async Task<ActionResult<Guid>> Create(CreateOrderCommand command, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(command);
-        var callerId = AdminAuth.GetUserId(User);
-        if (callerId is null)
+        if (!TryGetCallerId(out var callerId, out var error))
         {
-            return Forbid();
+            return error;
         }
 
-        command.BuyerId = callerId.Value;
+        command.BuyerId = callerId;
         var id = await Mediator.Send(command, cancellationToken);
         return Ok(id);
     }
@@ -69,7 +66,7 @@ public sealed class OrdersController : BaseController
     public async Task<ActionResult<OrderDto>> Ship(Guid id, ShipOrderCommand command, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(command);
-        var (_, _, error) = await LoadAuthorizedOrderAsync(id, allowBuyer: false, cancellationToken);
+        var (_, error) = await AuthorizeOrderAsync(id, allowBuyer: false, cancellationToken);
         if (error is not null)
         {
             return error;
@@ -84,7 +81,7 @@ public sealed class OrdersController : BaseController
     [HttpPost("{id:guid}/deliver")]
     public async Task<ActionResult<OrderDto>> Deliver(Guid id, CancellationToken cancellationToken)
     {
-        var (_, callerId, error) = await LoadAuthorizedOrderAsync(id, allowBuyer: true, cancellationToken);
+        var (callerId, error) = await AuthorizeOrderAsync(id, allowBuyer: true, cancellationToken);
         if (error is not null)
         {
             return error;
@@ -93,31 +90,50 @@ public sealed class OrdersController : BaseController
         return Ok(await Mediator.Send(new DeliverOrderCommand { Id = id, CallerId = callerId }, cancellationToken));
     }
 
+    /// <summary>List/Received/Create'in ortak "çağıran kim" kontrolü — CodeGen dışı, elle eklendi
+    /// (bkz. /simplify incelemesi, üç uçta satır içi tekrarlanıyordu).</summary>
+    private bool TryGetCallerId(out Guid callerId, out ActionResult error)
+    {
+        var id = AdminAuth.GetUserId(User);
+        if (id is null)
+        {
+            callerId = Guid.Empty;
+            error = Forbid();
+            return false;
+        }
+
+        callerId = id.Value;
+        error = null!;
+        return true;
+    }
+
     /// <summary>Ship/Deliver'ın ortak "siparişi çek + çağıran gerçekten bu siparişin tarafı mı (veya
     /// admin mi)" kontrolü — <paramref name="allowBuyer"/> false ise yalnızca satıcı (Ship: alıcının
     /// kargo durumunu değiştirmesi anlamsız), true ise alıcı veya satıcı (Deliver) yetkili sayılır.
-    /// CodeGen dışı, elle eklendi (bkz. /simplify incelemesi — iki uçta satır içi tekrarlanıyordu).</summary>
-    private async Task<(OrderDto? Order, Guid CallerId, ActionResult? Error)> LoadAuthorizedOrderAsync(
+    /// Siparişin kendisini (yalnızca yetki kontrolü için gerekli) döndürmez — Ship/Deliver komutları
+    /// zaten kendi handler'ında aynı kaydı tekrar okuyor, burada döndürüp iki çağıranın da atması
+    /// gereksizdi (bkz. /simplify incelemesi). CodeGen dışı, elle eklendi.</summary>
+    private async Task<(Guid CallerId, ActionResult? Error)> AuthorizeOrderAsync(
         Guid id, bool allowBuyer, CancellationToken cancellationToken)
     {
         var callerId = AdminAuth.GetUserId(User);
         if (callerId is null)
         {
-            return (null, Guid.Empty, Forbid());
+            return (Guid.Empty, Forbid());
         }
 
         var order = await Mediator.Send(new GetOrderByIdQuery { Id = id }, cancellationToken);
         if (order is null)
         {
-            return (null, callerId.Value, NotFound());
+            return (callerId.Value, NotFound());
         }
 
         var isAuthorizedParty = order.SellerId == callerId.Value || (allowBuyer && order.BuyerId == callerId.Value);
         if (!isAuthorizedParty && !AdminAuth.IsStaffAdmin(User))
         {
-            return (null, callerId.Value, Forbid());
+            return (callerId.Value, Forbid());
         }
 
-        return (order, callerId.Value, null);
+        return (callerId.Value, null);
     }
 }
