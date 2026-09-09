@@ -28,6 +28,9 @@
          gereken alt-seviye tipleri (Core/Infrastructure) NuGet'ten çekiyoruz (bkz. plan Faz C). -->
     <PackageReference Include="BaseForge.Core" Version="0.4.1-beta" />
     <PackageReference Include="BaseForge.Infrastructure" Version="0.4.1-beta" />
+    <!-- Yalnızca AddBaseForgeLogging() için — AddBaseForge() (CQRS/repository DI) çağrılmıyor,
+         diğer servislerle aynı merkezi Serilog+Loki loglaması burada da olsun diye (bkz. proje kararı). -->
+    <PackageReference Include="BaseForge.API" Version="0.4.1-beta" />
     <!-- Kayıt sonrası e-posta OTP doğrulaması için (bkz. Email/) -->
     <PackageReference Include="MailKit" Version="4.17.0" />
   </ItemGroup>

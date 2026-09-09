@@ -1,4 +1,5 @@
 using System.Security.Cryptography.X509Certificates;
+using BaseForge.API.Extensions;
 using BaseForge.Infrastructure.Messaging;
 using Identity.Authentication;
 using Identity.Configuration;
@@ -18,6 +19,11 @@ using static OpenIddict.Abstractions.OpenIddictConstants;
 DotNetEnv.Env.Load();
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Merkezi loglama: Serilog + (yapılandırılmışsa) Grafana Loki — diğer servislerle aynı, ama
+// Identity CodeGen'in AddBaseForge()'unu (CQRS/repository DI) hiç kullanmadığından bu tek
+// satır ayrıca elle eklendi (bkz. Identity.csproj BaseForge.API yorumu).
+builder.AddBaseForgeLogging("identity");
 
 var connectionString = builder.Configuration.GetConnectionString("Default")
     ?? throw new InvalidOperationException("ConnectionStrings:Default tanımlı değil.");
