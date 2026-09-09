@@ -585,6 +585,14 @@ export type OrderPaymentMethod = "bagis" | "bedelsiz" | "referans" | "kart" | "e
  * delivered: teslim edildi — hem alıcı hem satıcı işaretleyebilir. */
 export type OrderStatus = "pending" | "shipped" | "delivered";
 
+/** Record<OrderStatus,...> olduğundan yeni bir durum eklenip burada unutulursa derleyici yakalar —
+ * bkz. /simplify incelemesi (önceden iki sayfada Record<string,...> olarak ayrı ayrı kopyalanmıştı). */
+export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
+  pending: "Beklemede",
+  shipped: "Kargoya Verildi",
+  delivered: "Teslim Edildi",
+};
+
 export interface Order {
   id: string;
   listingId: string;
@@ -774,8 +782,10 @@ export const marketplaceApi = {
 
   deleteListingReview: (id: string) => mAuthedReq<void>(`/api/listing-reviews/${id}`, { method: "DELETE" }),
 
-  /** Yalnızca çağıranın kendi siparişleri döner (alıcı olarak) — özel/finansal veri. */
-  listOrders: (params?: { page?: number; pageSize?: number }) =>
+  /** Yalnızca çağıranın kendi siparişleri döner (alıcı olarak) — özel/finansal veri.
+   * listingId verilirse tek bir ilanın siparişiyle sınırlanır (200 kayıt çekip client'ta
+   * filtrelemek yerine — bkz. /simplify incelemesi). */
+  listOrders: (params?: { listingId?: string; page?: number; pageSize?: number }) =>
     mAuthedReq<PagedResult<Order>>(`/api/orders${toQuery(params)}`),
 
   /** Çağıranın kendi ilanlarına gelen siparişleri döner (satıcı olarak) — dekont/kuruluş görüp onaylayabilmesi için. */
@@ -792,12 +802,13 @@ export const marketplaceApi = {
     deliveryNote?: string | null;
   }) => mAuthedReq<string>("/api/orders", { method: "POST", body: JSON.stringify(input) }),
 
-  /** Yalnızca ilgili ilanın satıcısı — kargo firması/takip no opsiyonel (ör. elden teslimde kargo yok). */
+  /** Yalnızca ilgili ilanın satıcısı — kargo firması/takip no opsiyonel (ör. elden teslimde kargo yok).
+   * Güncel kaydı döner ki çağıran, ayrıca bir liste isteği atmadan yerel durumunu güncelleyebilsin. */
   shipOrder: (id: string, input: { shippingCarrier?: string | null; trackingNumber?: string | null }) =>
-    mAuthedReq<void>(`/api/orders/${id}/ship`, { method: "POST", body: JSON.stringify(input) }),
+    mAuthedReq<Order>(`/api/orders/${id}/ship`, { method: "POST", body: JSON.stringify(input) }),
 
   /** Hem alıcı hem satıcı çağırabilir — "shipped" adımı atlanıp doğrudan buradan da geçilebilir. */
-  deliverOrder: (id: string) => mAuthedReq<void>(`/api/orders/${id}/deliver`, { method: "POST" }),
+  deliverOrder: (id: string) => mAuthedReq<Order>(`/api/orders/${id}/deliver`, { method: "POST" }),
 };
 
 // ---- Community ----

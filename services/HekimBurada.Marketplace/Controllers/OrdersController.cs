@@ -66,54 +66,58 @@ public sealed class OrdersController : BaseController
     /// <summary>Siparişi kargoya verildi olarak işaretler — yalnızca ilgili ilanın satıcısı.
     /// CodeGen dışı, elle eklendi.</summary>
     [HttpPost("{id:guid}/ship")]
-    public async Task<IActionResult> Ship(Guid id, ShipOrderCommand command, CancellationToken cancellationToken)
+    public async Task<ActionResult<OrderDto>> Ship(Guid id, ShipOrderCommand command, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(command);
-        var callerId = AdminAuth.GetUserId(User);
-        if (callerId is null)
+        var (_, _, error) = await LoadAuthorizedOrderAsync(id, allowBuyer: false, cancellationToken);
+        if (error is not null)
         {
-            return Forbid();
-        }
-
-        var order = await Mediator.Send(new GetOrderByIdQuery { Id = id }, cancellationToken);
-        if (order is null)
-        {
-            return NotFound();
-        }
-
-        if (order.SellerId != callerId.Value && !AdminAuth.IsStaffAdmin(User))
-        {
-            return Forbid();
+            return error;
         }
 
         command.Id = id;
-        await Mediator.Send(command, cancellationToken);
-        return NoContent();
+        return Ok(await Mediator.Send(command, cancellationToken));
     }
 
     /// <summary>Siparişin teslim edildiğini işaretler — hem alıcı hem satıcı çağırabilir.
     /// CodeGen dışı, elle eklendi.</summary>
     [HttpPost("{id:guid}/deliver")]
-    public async Task<IActionResult> Deliver(Guid id, CancellationToken cancellationToken)
+    public async Task<ActionResult<OrderDto>> Deliver(Guid id, CancellationToken cancellationToken)
+    {
+        var (_, callerId, error) = await LoadAuthorizedOrderAsync(id, allowBuyer: true, cancellationToken);
+        if (error is not null)
+        {
+            return error;
+        }
+
+        return Ok(await Mediator.Send(new DeliverOrderCommand { Id = id, CallerId = callerId }, cancellationToken));
+    }
+
+    /// <summary>Ship/Deliver'ın ortak "siparişi çek + çağıran gerçekten bu siparişin tarafı mı (veya
+    /// admin mi)" kontrolü — <paramref name="allowBuyer"/> false ise yalnızca satıcı (Ship: alıcının
+    /// kargo durumunu değiştirmesi anlamsız), true ise alıcı veya satıcı (Deliver) yetkili sayılır.
+    /// CodeGen dışı, elle eklendi (bkz. /simplify incelemesi — iki uçta satır içi tekrarlanıyordu).</summary>
+    private async Task<(OrderDto? Order, Guid CallerId, ActionResult? Error)> LoadAuthorizedOrderAsync(
+        Guid id, bool allowBuyer, CancellationToken cancellationToken)
     {
         var callerId = AdminAuth.GetUserId(User);
         if (callerId is null)
         {
-            return Forbid();
+            return (null, Guid.Empty, Forbid());
         }
 
         var order = await Mediator.Send(new GetOrderByIdQuery { Id = id }, cancellationToken);
         if (order is null)
         {
-            return NotFound();
+            return (null, callerId.Value, NotFound());
         }
 
-        if (order.BuyerId != callerId.Value && order.SellerId != callerId.Value && !AdminAuth.IsStaffAdmin(User))
+        var isAuthorizedParty = order.SellerId == callerId.Value || (allowBuyer && order.BuyerId == callerId.Value);
+        if (!isAuthorizedParty && !AdminAuth.IsStaffAdmin(User))
         {
-            return Forbid();
+            return (null, callerId.Value, Forbid());
         }
 
-        await Mediator.Send(new DeliverOrderCommand { Id = id, CallerId = callerId.Value }, cancellationToken);
-        return NoContent();
+        return (order, callerId.Value, null);
     }
 }

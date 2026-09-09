@@ -14,6 +14,7 @@ import {
   identityApi,
   MARKETPLACE_URL,
   marketplaceApi,
+  ORDER_STATUS_LABELS,
   parseListingImages,
   type Favorite,
   type Listing,
@@ -27,12 +28,6 @@ import {
 import { auth, useHasToken } from "@/lib/auth";
 import { useLiveRefresh } from "@/lib/useLiveRefresh";
 import { cn } from "@/lib/utils";
-
-const ORDER_STATUS_LABELS: Record<string, string> = {
-  pending: "Beklemede",
-  shipped: "Kargoya Verildi",
-  delivered: "Teslim Edildi",
-};
 
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
   bagis: "Bağış ile Ödeme",
@@ -74,8 +69,7 @@ export default function ListingDetailPage() {
   const [newReviewRating, setNewReviewRating] = useState(5);
   const [newReviewBody, setNewReviewBody] = useState("");
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
-  const [sellerOrder, setSellerOrder] = useState<Order | null>(null);
-  const [buyerOrder, setBuyerOrder] = useState<Order | null>(null);
+  const [order, setOrder] = useState<Order | null>(null);
   const [shipCarrier, setShipCarrier] = useState("");
   const [shipTracking, setShipTracking] = useState("");
   const [shipping, setShipping] = useState(false);
@@ -164,46 +158,34 @@ export default function ListingDetailPage() {
   const selectedOffer = offers.find((o) => o.id === selectedOfferId) ?? null;
   const images = parseListingImages(listing?.images);
 
-  const loadSellerOrder = useCallback(async () => {
-    // Satıcı, kabul ettiği teklife karşılık gelen siparişi (özellikle bağış dekontunu, kargo durumunu)
-    // burada görür — dekontu görmeden bir bağış işleminin gerçekten yapıldığını bilemez (bkz. proje kararı).
-    if (!isOwner || !listing || !selectedOffer || selectedOffer.status !== "accepted") {
-      setSellerOrder(null);
+  const loadOrder = useCallback(async () => {
+    // Kabul edilmiş teklifin siparişini (dekont/kargo/teslim durumu) satıcı ve alıcı burada aynı
+    // state'ten görür — daha önce alıcı tarafı sayfa yenilenince sıfırlanan yerel bir "orderCreated"
+    // bayrağıydı, gerçek kaydı hiç sormuyordu (bkz. proje kararı, bug fix). Bağımlılıklar skaler
+    // (id/status/buyerId) tutuluyor ki listing/selectedOffer nesnesinin alakasız alanları değişince
+    // (ör. görüntülenme sayısı) gereksiz yeniden çekim tetiklenmesin.
+    if (!listing || !selectedOffer || selectedOffer.status !== "accepted") {
+      setOrder(null);
       return;
     }
     try {
-      const r = await marketplaceApi.listOrdersReceived({ listingId: listing.id, pageSize: 200 });
-      setSellerOrder(r.items.find((o) => o.buyerId === selectedOffer.buyerId) ?? null);
+      if (isOwner) {
+        const r = await marketplaceApi.listOrdersReceived({ listingId: listing.id, pageSize: 200 });
+        setOrder(r.items.find((o) => o.buyerId === selectedOffer.buyerId) ?? null);
+      } else {
+        const r = await marketplaceApi.listOrders({ listingId: listing.id, pageSize: 10 });
+        setOrder(r.items[0] ?? null);
+      }
     } catch {
-      setSellerOrder(null);
+      setOrder(null);
     }
-  }, [isOwner, listing, selectedOffer]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- bilinçli olarak skaler alanlar (bkz. yukarıdaki yorum)
+  }, [isOwner, listing?.id, selectedOffer?.status, selectedOffer?.buyerId]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- teklif/ilan değişince sipariş bilgisini yeniden çekme (React'in "Fetching data" deseni)
-    void loadSellerOrder();
-  }, [loadSellerOrder]);
-
-  const loadBuyerOrder = useCallback(async () => {
-    // Alıcı, kendi siparişinin (özellikle kargo/teslim) durumunu burada görür — daha önce bu, sayfa
-    // yenilenince sıfırlanan yerel bir "orderCreated" bayrağıydı, gerçek sipariş kaydını hiç
-    // sormuyordu (bkz. proje kararı, bug fix).
-    if (isOwner || !listing || !selectedOffer || selectedOffer.status !== "accepted") {
-      setBuyerOrder(null);
-      return;
-    }
-    try {
-      const r = await marketplaceApi.listOrders({ pageSize: 200 });
-      setBuyerOrder(r.items.find((o) => o.listingId === listing.id) ?? null);
-    } catch {
-      setBuyerOrder(null);
-    }
-  }, [isOwner, listing, selectedOffer]);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- teklif/ilan değişince sipariş bilgisini yeniden çekme (React'in "Fetching data" deseni)
-    void loadBuyerOrder();
-  }, [loadBuyerOrder]);
+    void loadOrder();
+  }, [loadOrder]);
 
   const submitReview = async () => {
     if (!newReviewBody.trim()) return;
@@ -245,7 +227,7 @@ export default function ListingDetailPage() {
         amount: selectedOffer.amount,
         ...input,
       });
-      await loadBuyerOrder();
+      await loadOrder();
       toast.success("Talebiniz iletildi.");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Talep gönderilemedi.");
@@ -314,17 +296,17 @@ export default function ListingDetailPage() {
   };
 
   const markShipped = async () => {
-    if (!sellerOrder) return;
+    if (!order) return;
     setShipping(true);
     try {
-      await marketplaceApi.shipOrder(sellerOrder.id, {
+      const updated = await marketplaceApi.shipOrder(order.id, {
         shippingCarrier: shipCarrier.trim() || null,
         trackingNumber: shipTracking.trim() || null,
       });
+      setOrder(updated);
       toast.success("Sipariş kargoya verildi olarak işaretlendi.");
       setShipCarrier("");
       setShipTracking("");
-      await loadSellerOrder();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "İşlem başarısız.");
     } finally {
@@ -332,12 +314,13 @@ export default function ListingDetailPage() {
     }
   };
 
-  const confirmDelivery = async (orderId: string) => {
+  const confirmDelivery = async () => {
+    if (!order) return;
     setConfirmingDelivery(true);
     try {
-      await marketplaceApi.deliverOrder(orderId);
+      const updated = await marketplaceApi.deliverOrder(order.id);
+      setOrder(updated);
       toast.success("Sipariş teslim edildi olarak işaretlendi.");
-      await Promise.all([loadSellerOrder(), loadBuyerOrder()]);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "İşlem başarısız.");
     } finally {
@@ -656,34 +639,34 @@ export default function ListingDetailPage() {
                     Ödenecek tutar: {currency(selectedOffer.amount)}
                   </p>
 
-                  {buyerOrder ? (
+                  {order ? (
                     <div className="flex flex-col gap-2">
                       <div className="flex items-center gap-2">
                         <span
                           className={cn(
                             "rounded-md px-2 py-0.5 text-xs font-semibold",
-                            buyerOrder.status === "delivered" ? "bg-brand-soft text-brand" : "bg-muted text-muted-foreground"
+                            order.status === "delivered" ? "bg-brand-soft text-brand" : "bg-muted text-muted-foreground"
                           )}
                         >
-                          {ORDER_STATUS_LABELS[buyerOrder.status] ?? buyerOrder.status}
+                          {ORDER_STATUS_LABELS[order.status]}
                         </span>
-                        {(buyerOrder.shippingCarrier || buyerOrder.trackingNumber) && (
+                        {(order.shippingCarrier || order.trackingNumber) && (
                           <span className="text-xs text-muted-foreground">
-                            {buyerOrder.shippingCarrier ?? "Kargo"}
-                            {buyerOrder.trackingNumber && ` · Takip No: ${buyerOrder.trackingNumber}`}
+                            {order.shippingCarrier ?? "Kargo"}
+                            {order.trackingNumber && ` · Takip No: ${order.trackingNumber}`}
                           </span>
                         )}
                       </div>
                       <p className="text-xs text-muted-foreground">
                         Talebiniz iletildi — Profilim &gt; Sipariş ve Kargo Bilgilerim&apos;den de takip edebilirsiniz.
                       </p>
-                      {buyerOrder.status !== "delivered" && (
+                      {order.status !== "delivered" && (
                         <Button
                           size="sm"
                           variant="outline"
                           className="w-fit"
                           disabled={confirmingDelivery}
-                          onClick={() => confirmDelivery(buyerOrder.id)}
+                          onClick={confirmDelivery}
                         >
                           {confirmingDelivery ? "İşleniyor…" : "Teslim Aldım"}
                         </Button>
@@ -830,18 +813,18 @@ export default function ListingDetailPage() {
                     Tutar: {currency(selectedOffer.amount)}
                   </p>
 
-                  {!sellerOrder ? (
+                  {!order ? (
                     <p className="text-xs text-muted-foreground">
                       Alıcı henüz talebini/ödeme bilgilerini göndermedi.
                     </p>
                   ) : listing.paymentMethod === "bagis" ? (
                     <div className="flex flex-col gap-1.5">
                       <p className="text-sm text-foreground">
-                        Bağış Yapılan Kuruluş: <span className="font-semibold">{sellerOrder.donationOrganization}</span>
+                        Bağış Yapılan Kuruluş: <span className="font-semibold">{order.donationOrganization}</span>
                       </p>
-                      {sellerOrder.donationReceiptUrl ? (
+                      {order.donationReceiptUrl ? (
                         <a
-                          href={`${MARKETPLACE_URL}${sellerOrder.donationReceiptUrl}`}
+                          href={`${MARKETPLACE_URL}${order.donationReceiptUrl}`}
                           target="_blank"
                           rel="noreferrer"
                           className="text-sm font-semibold text-brand hover:opacity-80"
@@ -855,78 +838,70 @@ export default function ListingDetailPage() {
                   ) : listing.paymentMethod === "referans" ? (
                     <p className="text-sm text-foreground">
                       Referans/Satın Alma Linki:{" "}
-                      <a href={sellerOrder.buyerReferansUrl ?? "#"} target="_blank" rel="noreferrer" className="font-semibold text-brand hover:opacity-80">
-                        {sellerOrder.buyerReferansUrl}
+                      <a href={order.buyerReferansUrl ?? "#"} target="_blank" rel="noreferrer" className="font-semibold text-brand hover:opacity-80">
+                        {order.buyerReferansUrl}
                       </a>
                     </p>
                   ) : listing.paymentMethod === "elden" ? (
                     <p className="text-sm text-foreground">
-                      Teslim Yeri/Notu: <span className="font-semibold">{sellerOrder.deliveryNote}</span>
+                      Teslim Yeri/Notu: <span className="font-semibold">{order.deliveryNote}</span>
                     </p>
                   ) : (
                     <p className="text-sm font-semibold text-brand">Talep alındı.</p>
                   )}
 
-                  {sellerOrder && (
+                  {order && (
                     <div className="mt-3 border-t border-border pt-3">
                       <div className="mb-2 flex items-center gap-2">
                         <span
                           className={cn(
                             "rounded-md px-2 py-0.5 text-xs font-semibold",
-                            sellerOrder.status === "delivered" ? "bg-brand-soft text-brand" : "bg-muted text-muted-foreground"
+                            order.status === "delivered" ? "bg-brand-soft text-brand" : "bg-muted text-muted-foreground"
                           )}
                         >
-                          {ORDER_STATUS_LABELS[sellerOrder.status] ?? sellerOrder.status}
+                          {ORDER_STATUS_LABELS[order.status]}
                         </span>
-                        {(sellerOrder.shippingCarrier || sellerOrder.trackingNumber) && (
+                        {(order.shippingCarrier || order.trackingNumber) && (
                           <span className="text-xs text-muted-foreground">
-                            {sellerOrder.shippingCarrier ?? "Kargo"}
-                            {sellerOrder.trackingNumber && ` · Takip No: ${sellerOrder.trackingNumber}`}
+                            {order.shippingCarrier ?? "Kargo"}
+                            {order.trackingNumber && ` · Takip No: ${order.trackingNumber}`}
                           </span>
                         )}
                       </div>
 
-                      {sellerOrder.status === "pending" && (
+                      {order.status !== "delivered" && (
                         <div className="flex flex-col gap-2">
+                          {order.status === "pending" && (
+                            <div className="flex gap-2">
+                              <input
+                                value={shipCarrier}
+                                onChange={(e) => setShipCarrier(e.target.value)}
+                                placeholder="Kargo firması (opsiyonel)"
+                                className="flex-1 rounded-md border border-input px-3 py-2 text-xs"
+                              />
+                              <input
+                                value={shipTracking}
+                                onChange={(e) => setShipTracking(e.target.value)}
+                                placeholder="Takip no (opsiyonel)"
+                                className="flex-1 rounded-md border border-input px-3 py-2 text-xs"
+                              />
+                            </div>
+                          )}
                           <div className="flex gap-2">
-                            <input
-                              value={shipCarrier}
-                              onChange={(e) => setShipCarrier(e.target.value)}
-                              placeholder="Kargo firması (opsiyonel)"
-                              className="flex-1 rounded-md border border-input px-3 py-2 text-xs"
-                            />
-                            <input
-                              value={shipTracking}
-                              onChange={(e) => setShipTracking(e.target.value)}
-                              placeholder="Takip no (opsiyonel)"
-                              className="flex-1 rounded-md border border-input px-3 py-2 text-xs"
-                            />
-                          </div>
-                          <div className="flex gap-2">
-                            <Button size="sm" disabled={shipping} onClick={markShipped}>
-                              {shipping ? "İşleniyor…" : "Kargoya Verildi Olarak İşaretle"}
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              disabled={confirmingDelivery}
-                              onClick={() => confirmDelivery(sellerOrder.id)}
-                            >
-                              {confirmingDelivery ? "İşleniyor…" : "Doğrudan Teslim Edildi (Elden)"}
+                            {order.status === "pending" && (
+                              <Button size="sm" disabled={shipping} onClick={markShipped}>
+                                {shipping ? "İşleniyor…" : "Kargoya Verildi Olarak İşaretle"}
+                              </Button>
+                            )}
+                            <Button size="sm" variant="outline" disabled={confirmingDelivery} onClick={confirmDelivery}>
+                              {confirmingDelivery
+                                ? "İşleniyor…"
+                                : order.status === "pending"
+                                  ? "Doğrudan Teslim Edildi (Elden)"
+                                  : "Teslim Edildi Olarak İşaretle"}
                             </Button>
                           </div>
                         </div>
-                      )}
-
-                      {sellerOrder.status === "shipped" && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={confirmingDelivery}
-                          onClick={() => confirmDelivery(sellerOrder.id)}
-                        >
-                          {confirmingDelivery ? "İşleniyor…" : "Teslim Edildi Olarak İşaretle"}
-                        </Button>
                       )}
                     </div>
                   )}

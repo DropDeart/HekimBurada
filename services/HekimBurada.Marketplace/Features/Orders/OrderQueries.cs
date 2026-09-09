@@ -31,6 +31,10 @@ internal sealed class GetOrderByIdHandler : IQueryHandler<GetOrderByIdQuery, Ord
 public sealed class ListOrderQuery : PagedRequest, IQuery<PagedResult<OrderDto>>
 {
     public Guid BuyerId { get; set; }
+
+    /// <summary>Verilirse yalnızca bu ilana ait sipariş döner — bkz. ListOrdersForSellerQuery.ListingId
+    /// ile aynı desen (tek bir ilanın siparişi için 200 kayıt çekip client'ta filtrelemeyi önler).</summary>
+    public Guid? ListingId { get; set; }
 }
 
 internal sealed class ListOrderHandler : IQueryHandler<ListOrderQuery, PagedResult<OrderDto>>
@@ -46,7 +50,7 @@ internal sealed class ListOrderHandler : IQueryHandler<ListOrderQuery, PagedResu
             request.Skip,
             request.PageSize,
             request.SortBy,
-            query => query.Where(x => x.BuyerId == request.BuyerId),
+            query => query.Where(x => x.BuyerId == request.BuyerId && (request.ListingId == null || x.ListingId == request.ListingId)),
             cancellationToken);
 
         return new PagedResult<OrderDto>

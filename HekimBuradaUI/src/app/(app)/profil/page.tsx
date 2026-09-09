@@ -32,6 +32,7 @@ import {
   identityApi,
   marketplaceApi,
   IDENTITY_URL,
+  ORDER_STATUS_LABELS,
   type Address,
   type CommunityCategory,
   type CommunityComment,
@@ -72,12 +73,6 @@ const PAYMENT_METHOD_LABELS: Record<string, string> = {
   referans: "Referans Linkli %50+ İndirim",
   kart: "Kredi Kartı",
   elden: "Elden Teslim",
-};
-
-const ORDER_STATUS_LABELS: Record<string, string> = {
-  pending: "Beklemede",
-  shipped: "Kargoya Verildi",
-  delivered: "Teslim Edildi",
 };
 
 /** Backend'de karşılığı olmayan bölümler için ortak "yakında" notu — kullanıcıyı yanıltmamak için. */
@@ -226,9 +221,11 @@ function ProfilContent() {
   const confirmDelivery = async (orderId: string) => {
     setConfirmingDeliveryId(orderId);
     try {
-      await marketplaceApi.deliverOrder(orderId);
+      const updated = await marketplaceApi.deliverOrder(orderId);
+      // Sadece bu bir siparişin durumu değişti — tek alanlık bir güncelleme için tüm profili
+      // (favoriler/siparişler/yorumlar dahil 4 istek) yeniden çekmeye gerek yok (bkz. /simplify incelemesi).
+      setOrders((prev) => prev.map((x) => (x.order.id === orderId ? { ...x, order: updated } : x)));
       toast.success("Sipariş teslim alındı olarak işaretlendi.");
-      await load();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "İşlem başarısız.");
     } finally {
@@ -766,7 +763,7 @@ function ProfilContent() {
                           order.status === "delivered" ? "bg-brand-soft text-brand" : "bg-muted text-muted-foreground"
                         )}
                       >
-                        {ORDER_STATUS_LABELS[order.status] ?? order.status}
+                        {ORDER_STATUS_LABELS[order.status]}
                       </span>
                     </div>
                     <div className="mt-1 text-xs text-muted-foreground">

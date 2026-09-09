@@ -134,24 +134,15 @@ function MesajlarContent() {
   const [pendingOnly, setPendingOnly] = useState(false);
   const [talepOnly, setTalepOnly] = useState(false);
   const [contextOpen, setContextOpen] = useState(true);
-  const [selectedId, setSelectedId] = useState<string | null>(initialOfferId);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   /** Mobilde (md altı) liste mi sohbet mi gösteriliyor — masaüstünde ikisi zaten yan yana, bu sadece
    * dar ekranda "ya liste ya sohbet" tek-kolonlu geçiş için (bkz. proje kararı). */
-  const [mobileShowChat, setMobileShowChat] = useState(initialOfferId !== null);
+  const [mobileShowChat, setMobileShowChat] = useState(false);
 
   const [verifiedMap, setVerifiedMap] = useState<Map<string, boolean>>(new Map());
   const [onlineMap, setOnlineMap] = useState<Map<string, boolean>>(new Map());
   const [revisions, setRevisions] = useState<OfferRevision[]>([]);
-
-  useEffect(() => {
-    // İlan/talep detayından ?offerId= ile gelindiğinde o sohbeti okundu işaretle — normal tıklamada
-    // bunu openThread yapar, URL'den doğrudan geldiğinde de aynısı olsun diye.
-    if (initialOfferId) {
-      messagingApi.markMessagesRead(initialOfferId).catch(() => {});
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- yalnızca mount'ta, URL'deki offerId'ye göre bir kez
-  }, []);
 
   const loadAll = useCallback(async () => {
     if (!hasToken || !myId) return;
@@ -304,6 +295,17 @@ function MesajlarContent() {
     },
     [myId]
   );
+
+  useEffect(() => {
+    // İlan/talep detayından ?offerId= ile gelindiğinde o sohbeti aç — openThread zaten okundu
+    // işaretleme/taslak sıfırlama/mobil görünüm geçişini yapıyor, burada ayrıca tekrarlamaya gerek
+    // yok (bkz. /simplify incelemesi).
+    if (initialOfferId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- mount'ta URL'deki offerId'ye göre sohbeti açar
+      openThread(initialOfferId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- yalnızca mount'ta, URL'deki offerId'ye göre bir kez
+  }, []);
 
   useEffect(() => {
     if (!active) return;

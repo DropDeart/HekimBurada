@@ -91,9 +91,51 @@ internal sealed class CreateOrderHandler : ICommandHandler<CreateOrderCommand, G
     }
 }
 
+/// <summary>ShipOrderHandler/DeliverOrderHandler'ın ortak "önce canlı push dene, olmazsa e-postaya
+/// düş" mantığı — ikisine de elle kopyalamak yerine tek yerden (bkz. proje kararı, /simplify
+/// incelemesi). CodeGen dışı, elle eklendi.</summary>
+internal static class OrderNotifications
+{
+    public static async Task SendAsync(
+        IPresenceClient presenceClient,
+        IUserClient userClient,
+        IEmailSender emailSender,
+        ILogger logger,
+        Guid recipientId,
+        string emailLabel,
+        string title,
+        string body,
+        string linkPath,
+        CancellationToken cancellationToken)
+    {
+        var deliveredLive = await presenceClient.NotifyAsync(recipientId, title, body, linkPath, cancellationToken);
+        if (deliveredLive)
+        {
+            return;
+        }
+
+        try
+        {
+            var recipient = await userClient.GetByIdAsync(recipientId, cancellationToken);
+            if (recipient is null || string.IsNullOrWhiteSpace(recipient.Email))
+            {
+                return;
+            }
+
+            var html = EmailTemplate.Build(emailLabel, title, body, "Siparişi Görüntüle", $"https://hekimburada.com{linkPath}");
+            await emailSender.SendAsync(recipient.Email, "HekimBurada — " + title, html, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Sipariş bildirim e-postası gönderilemedi (RecipientId: {RecipientId}).", recipientId);
+        }
+    }
+}
+
 /// <summary>Satıcının siparişi kargoya verdiğini işaretlemesi — kargo firması/takip no opsiyonel
-/// (ör. "elden" teslimde kargo yok, doğrudan DeliverOrderCommand'a geçilir). CodeGen dışı, elle eklendi.</summary>
-public sealed class ShipOrderCommand : ICommand
+/// (ör. "elden" teslimde kargo yok, doğrudan DeliverOrderCommand'a geçilir). Güncel kaydı döner ki
+/// çağıran taraf ayrıca bir liste isteği atmadan yerel durumunu güncelleyebilsin. CodeGen dışı, elle eklendi.</summary>
+public sealed class ShipOrderCommand : ICommand<OrderDto>
 {
     public Guid Id { get; set; }
     [MaxLength(100)]
@@ -102,7 +144,7 @@ public sealed class ShipOrderCommand : ICommand
     public string? TrackingNumber { get; set; }
 }
 
-internal sealed class ShipOrderHandler : ICommandHandler<ShipOrderCommand>
+internal sealed class ShipOrderHandler : ICommandHandler<ShipOrderCommand, OrderDto>
 {
     private readonly IRepository<Order> _repository;
     private readonly IRepository<Listing> _listingRepository;
@@ -133,7 +175,7 @@ internal sealed class ShipOrderHandler : ICommandHandler<ShipOrderCommand>
         _logger = logger;
     }
 
-    public async Task Handle(ShipOrderCommand request, CancellationToken cancellationToken)
+    public async Task<OrderDto> Handle(ShipOrderCommand request, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
         var order = await _repository.GetByIdAsync(request.Id, cancellationToken)
@@ -168,35 +210,19 @@ internal sealed class ShipOrderHandler : ICommandHandler<ShipOrderCommand>
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        var deliveredLive = await _presenceClient.NotifyAsync(order.BuyerId, title, body, linkPath, cancellationToken);
-        if (deliveredLive)
-        {
-            return;
-        }
+        await OrderNotifications.SendAsync(
+            _presenceClient, _userClient, _emailSender, _logger,
+            order.BuyerId, "KARGOYA VERİLDİ", title, body, linkPath, cancellationToken);
 
-        try
-        {
-            var buyer = await _userClient.GetByIdAsync(order.BuyerId, cancellationToken);
-            if (buyer is null || string.IsNullOrWhiteSpace(buyer.Email))
-            {
-                return;
-            }
-
-            var html = EmailTemplate.Build("KARGOYA VERİLDİ", title, body, "Siparişi Görüntüle", $"https://hekimburada.com{linkPath}");
-            await _emailSender.SendAsync(buyer.Email, "HekimBurada — " + title, html, cancellationToken);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Kargo e-postası gönderilemedi (BuyerId: {BuyerId}).", order.BuyerId);
-        }
+        return OrderDto.From(order);
     }
 }
 
 /// <summary>Siparişin teslim edildiğini işaretler — hem alıcı hem satıcı çağırabilir (bkz.
 /// OrdersController yetki kontrolü); "shipped" adımı atlanıp doğrudan buradan da geçilebilir
-/// (ör. "elden" teslimde kargo yok). Karşı tarafa (çağıran kim değilse) bildirim gider.
-/// CodeGen dışı, elle eklendi.</summary>
-public sealed class DeliverOrderCommand : ICommand
+/// (ör. "elden" teslimde kargo yok). Karşı tarafa (çağıran kim değilse) bildirim gider. Güncel kaydı
+/// döner (bkz. ShipOrderCommand doc yorumu). CodeGen dışı, elle eklendi.</summary>
+public sealed class DeliverOrderCommand : ICommand<OrderDto>
 {
     public Guid Id { get; set; }
     /// <summary>Bu işlemi tetikleyen kullanıcı — controller'da çağıranın kendi kimliğiyle doldurulur,
@@ -204,7 +230,7 @@ public sealed class DeliverOrderCommand : ICommand
     public Guid CallerId { get; set; }
 }
 
-internal sealed class DeliverOrderHandler : ICommandHandler<DeliverOrderCommand>
+internal sealed class DeliverOrderHandler : ICommandHandler<DeliverOrderCommand, OrderDto>
 {
     private readonly IRepository<Order> _repository;
     private readonly IRepository<Listing> _listingRepository;
@@ -235,7 +261,7 @@ internal sealed class DeliverOrderHandler : ICommandHandler<DeliverOrderCommand>
         _logger = logger;
     }
 
-    public async Task Handle(DeliverOrderCommand request, CancellationToken cancellationToken)
+    public async Task<OrderDto> Handle(DeliverOrderCommand request, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
         var order = await _repository.GetByIdAsync(request.Id, cancellationToken)
@@ -267,26 +293,10 @@ internal sealed class DeliverOrderHandler : ICommandHandler<DeliverOrderCommand>
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        var deliveredLive = await _presenceClient.NotifyAsync(recipientId, title, body, linkPath, cancellationToken);
-        if (deliveredLive)
-        {
-            return;
-        }
+        await OrderNotifications.SendAsync(
+            _presenceClient, _userClient, _emailSender, _logger,
+            recipientId, "TESLİM EDİLDİ", title, body, linkPath, cancellationToken);
 
-        try
-        {
-            var recipient = await _userClient.GetByIdAsync(recipientId, cancellationToken);
-            if (recipient is null || string.IsNullOrWhiteSpace(recipient.Email))
-            {
-                return;
-            }
-
-            var html = EmailTemplate.Build("TESLİM EDİLDİ", title, body, "Siparişi Görüntüle", $"https://hekimburada.com{linkPath}");
-            await _emailSender.SendAsync(recipient.Email, "HekimBurada — " + title, html, cancellationToken);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Teslimat e-postası gönderilemedi (RecipientId: {RecipientId}).", recipientId);
-        }
+        return OrderDto.From(order);
     }
 }
