@@ -121,8 +121,14 @@ public sealed class LogsController : BaseController
 
         if (KnownLevels.Contains(level))
         {
+            // "level" adında bir alanı "level" diye çıkarmaya çalışmak Loki'de var olan bir stream
+            // label'ıyla (Serilog'un Loki sink'i her akışa "debug" sabit değerli bir "level" etiketi
+            // ekliyor — uygulama seviyesiyle alakasız) ÇAKIŞIYOR: LogQL var olan bir label'ın üzerine
+            // yazmıyor, çıkarılan alan sessizce görünmez kalıyor ve filtre HİÇBİR ZAMAN eşleşmiyordu
+            // (canlıda "warn" filtresi Kestrel/DataProtection uyarılarını hiç döndürmediğinde yakalandı).
+            // Farklı bir isimle (appLevel) çıkarıp onun üzerinden filtrelemek çakışmayı ortadan kaldırıyor.
             // level zaten KnownLevels'a karşı denetlendiğinden serbest metin değil — düz interpolasyon güvenli.
-            logQl += $" | json | level=~`{LevelPattern(level)}`";
+            logQl += $" | json appLevel=\"level\" | appLevel=~`{LevelPattern(level)}`";
         }
 
         var end = DateTimeOffset.UtcNow;
