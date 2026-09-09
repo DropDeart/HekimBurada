@@ -28,9 +28,38 @@ public sealed class LogsController : BaseController
 {
     private static readonly string[] KnownServices = ["identity", "marketplace", "messaging", "community", "gateway"];
 
-    /// <summary>Serilog.Sinks.Grafana.Loki'nin ürettiği kısaltılmış seviye adları — frontend'deki
-    /// seviye filtresi bu kümeyle sınırlı (bkz. proje kararı: keyfi bir LogQL parçası enjekte edilmesin).</summary>
+    /// <summary>Frontend'in kullandığı kısaltılmış, kanonik seviye adları — LogQL'e gönderilecek keyfi
+    /// metin bu kümeyle sınırlı (bkz. proje kararı: enjeksiyon riski olmasın). Serilog'un olayları AYNI
+    /// çalıştırma içinde bile tutarsız yazdığı gözlemlendi (bazı olaylarda "info", bazılarında "warning"/
+    /// "information"/"fatal") — bu yüzden her kanonik değer LogQL'e regex OLARAK, hem kısa hem uzun
+    /// biçimi kapsayacak şekilde gönderiliyor (bkz. <see cref="LevelPattern"/>).</summary>
     private static readonly string[] KnownLevels = ["trace", "debug", "info", "warn", "error", "critical"];
+
+    /// <summary>Her kanonik seviyenin LogQL'de eşleşmesi gereken ham değer(ler)i — Serilog'un aynı
+    /// seviyeyi bazen kısa (info/warn) bazen uzun (information/warning/fatal) yazması yüzünden.</summary>
+    private static string LevelPattern(string canonical) => canonical switch
+    {
+        "trace" => "(?i)^(trace|verbose)$",
+        "debug" => "(?i)^debug$",
+        "info" => "(?i)^(info|information)$",
+        "warn" => "(?i)^(warn|warning)$",
+        "error" => "(?i)^error$",
+        "critical" => "(?i)^(critical|fatal)$",
+        _ => "(?i)^$",
+    };
+
+    /// <summary>Loki'den dönen ham seviye metnini (info/information/warn/warning/error/fatal/...) frontend'in
+    /// tanıdığı kanonik kısa forma indirger — hem filtre hem renkli rozet bu yüzden hep tutarlı çalışır.</summary>
+    private static string CanonicalizeLevel(string raw) => raw.ToLowerInvariant() switch
+    {
+        "trace" or "verbose" => "trace",
+        "debug" => "debug",
+        "info" or "information" => "info",
+        "warn" or "warning" => "warn",
+        "error" => "error",
+        "critical" or "fatal" => "critical",
+        _ => raw.ToLowerInvariant(),
+    };
 
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly string _lokiUrl;
@@ -93,7 +122,7 @@ public sealed class LogsController : BaseController
         if (KnownLevels.Contains(level))
         {
             // level zaten KnownLevels'a karşı denetlendiğinden serbest metin değil — düz interpolasyon güvenli.
-            logQl += $" | json | level=\"{level}\"";
+            logQl += $" | json | level=~`{LevelPattern(level)}`";
         }
 
         var end = DateTimeOffset.UtcNow;
@@ -171,7 +200,7 @@ public sealed class LogsController : BaseController
             using var doc = JsonDocument.Parse(line);
             var root = doc.RootElement;
             var message = root.TryGetProperty("Message", out var m) ? m.GetString() ?? line : line;
-            var lvl = root.TryGetProperty("level", out var l) ? l.GetString() ?? "" : "";
+            var lvl = root.TryGetProperty("level", out var l) ? CanonicalizeLevel(l.GetString() ?? "") : "";
             var sourceContext = root.TryGetProperty("SourceContext", out var sc) ? sc.GetString() : null;
             return new LogEntryDto(timestamp, service, lvl, message, sourceContext);
         }
