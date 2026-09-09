@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Check, CheckCheck, ListFilter, Search, Send } from "lucide-react";
+import { Check, CheckCheck, ChevronLeft, ListFilter, Search, Send } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/UserAvatar";
@@ -132,6 +132,9 @@ export default function MesajlarPage() {
   const [contextOpen, setContextOpen] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
+  /** Mobilde (md altı) liste mi sohbet mi gösteriliyor — masaüstünde ikisi zaten yan yana, bu sadece
+   * dar ekranda "ya liste ya sohbet" tek-kolonlu geçiş için (bkz. proje kararı). */
+  const [mobileShowChat, setMobileShowChat] = useState(false);
 
   const [verifiedMap, setVerifiedMap] = useState<Map<string, boolean>>(new Map());
   const [onlineMap, setOnlineMap] = useState<Map<string, boolean>>(new Map());
@@ -280,6 +283,7 @@ export default function MesajlarPage() {
     (id: string) => {
       setSelectedId(id);
       setDraft("");
+      setMobileShowChat(true);
       messagingApi.markMessagesRead(id).catch(() => {});
       setMessages((prev) =>
         prev.map((m) => (m.offerId === id && m.senderId !== myId && !m.readAt ? { ...m, readAt: new Date().toISOString() } : m))
@@ -498,8 +502,14 @@ export default function MesajlarPage() {
           </div>
         </aside>
 
-        {/* Orta: sohbet listesi */}
-        <section className="flex w-full max-w-[340px] shrink-0 flex-col border-r border-border">
+        {/* Orta: sohbet listesi — mobilde sohbet açıkken tamamen gizlenir (bkz. proje kararı: dar
+            ekranda "ya liste ya sohbet" tek-kolonlu görünüm). */}
+        <section
+          className={cn(
+            "w-full shrink-0 flex-col border-r border-border md:flex md:max-w-[340px]",
+            mobileShowChat && active ? "hidden" : "flex"
+          )}
+        >
           <div className="flex items-center gap-2 border-b border-border px-4 py-3.5">
             <div className="flex flex-1 items-center gap-2 rounded-lg bg-muted px-2.5 py-2">
               <Search size={15} className="text-muted-foreground" />
@@ -595,11 +605,20 @@ export default function MesajlarPage() {
           </div>
         </section>
 
-        {/* Orta-sağ: aktif sohbet */}
-        <section className="flex min-w-0 flex-1 flex-col bg-[#f5f6f7]">
+        {/* Orta-sağ: aktif sohbet — mobilde liste kapalıyken tamamen gizlenir. */}
+        <section
+          className={cn("min-w-0 flex-1 flex-col bg-[#f5f6f7] md:flex", mobileShowChat && active ? "flex" : "hidden")}
+        >
           {active ? (
             <>
               <div className="flex items-center gap-3 border-b border-border bg-white px-5 py-3">
+                <button
+                  onClick={() => setMobileShowChat(false)}
+                  className="shrink-0 rounded-lg p-1.5 hover:bg-muted md:hidden"
+                  aria-label="Sohbet listesine dön"
+                >
+                  <ChevronLeft size={20} />
+                </button>
                 <div className="relative shrink-0">
                   <UserAvatar avatarUrl={otherUser?.avatarUrl} name={otherLabel} size={38} />
                   {isOnline && (
