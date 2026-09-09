@@ -55,10 +55,13 @@ public sealed class LogsController : BaseController
 
     /// <summary>
     /// Son <paramref name="minutes"/> dakikadaki logları döner (en yeni en üstte). <paramref name="service"/>
-    /// "all" ise tüm servisler taranır. <paramref name="level"/> ("all" veya boşsa uygulanmaz) satırın
-    /// JSON gövdesinden çözülen seviyeye göre bu uçta filtrelenir. <paramref name="search"/>, LogQL'e
-    /// regex olarak eklenmeden önce <see cref="Regex.Escape(string)"/> ile kaçırılır — kullanıcı
-    /// girdisinin sorguyu bozması/başka bir seçiciye sızması engellenir.
+    /// "all" ise tüm servisler taranır. <paramref name="level"/> ("all" veya boşsa uygulanmaz) Loki'nin
+    /// kendi LogQL'inde <c>| json | level="..."</c> aşamasıyla filtrelenir — ilk denemede bunu bu uçta
+    /// (ham kümeyi çekip C# tarafında eleyerek) yapmıştık, ama "son N satır" zaten INFO gürültüsüyle
+    /// dolup taştığından eski/seyrek bir "error" seviyesi o pencerenin dışında kalıp hiç dönmüyordu —
+    /// LogQL'in kendisine bırakınca bu sorun kalmıyor. <paramref name="search"/>, LogQL'e regex olarak
+    /// eklenmeden önce <see cref="Regex.Escape(string)"/> ile kaçırılır — kullanıcı girdisinin sorguyu
+    /// bozması/başka bir seçiciye sızması engellenir.
     /// </summary>
     [HttpGet]
     public async Task<ActionResult<List<LogEntryDto>>> Query(
@@ -76,20 +79,22 @@ public sealed class LogsController : BaseController
 
         var clampedMinutes = Math.Clamp(minutes, 1, 24 * 60);
         var clampedLimit = Math.Clamp(limit, 1, 1000);
-        var levelFilter = KnownLevels.Contains(level) ? level : null;
 
         var selector = service == "all" || !KnownServices.Contains(service)
             ? "{service=~\".+\"}"
             : $$"""{service="{{service}}"}""";
 
-        var logQl = string.IsNullOrWhiteSpace(search)
-            ? selector
-            : $"{selector} |~ \"(?i){Regex.Escape(search)}\"";
+        var logQl = selector;
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            logQl += $" |~ \"(?i){Regex.Escape(search)}\"";
+        }
 
-        // Seviyeye göre filtrelenecekse önce Loki'den daha geniş bir ham küme çekilir (JSON içindeki
-        // seviye Loki'nin kendi seçicisinde yok, burada satır satır çözülüp filtreleniyor) —
-        // yoksa istenenden azı, hatta hiçbiri "error" gibi seyrek bir seviyeye denk gelmeyebilir.
-        var fetchLimit = levelFilter is null ? clampedLimit : Math.Min(2000, clampedLimit * 10);
+        if (KnownLevels.Contains(level))
+        {
+            // level zaten KnownLevels'a karşı denetlendiğinden serbest metin değil — düz interpolasyon güvenli.
+            logQl += $" | json | level=\"{level}\"";
+        }
 
         var end = DateTimeOffset.UtcNow;
         var start = end.AddMinutes(-clampedMinutes);
@@ -98,7 +103,7 @@ public sealed class LogsController : BaseController
             ["query"] = logQl,
             ["start"] = (start.ToUnixTimeMilliseconds() * 1_000_000).ToString(),
             ["end"] = (end.ToUnixTimeMilliseconds() * 1_000_000).ToString(),
-            ["limit"] = fetchLimit.ToString(),
+            ["limit"] = clampedLimit.ToString(),
             ["direction"] = "backward",
         });
 
@@ -119,14 +124,7 @@ public sealed class LogsController : BaseController
         }
 
         var body = await response.Content.ReadAsStringAsync(cancellationToken);
-        var entries = ParseLokiResponse(body);
-
-        if (levelFilter is not null)
-        {
-            entries = [.. entries.Where(e => e.Level == levelFilter)];
-        }
-
-        return Ok(entries.Count > clampedLimit ? entries[..clampedLimit] : entries);
+        return Ok(ParseLokiResponse(body));
     }
 
     /// <summary>Loki'nin ham {"data":{"result":[{"stream":{...},"values":[[ns,"line"],...]}]}} şeklini
