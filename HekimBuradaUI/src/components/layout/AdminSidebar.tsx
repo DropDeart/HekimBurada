@@ -10,6 +10,7 @@ import {
   MessageSquareWarning,
   Megaphone,
   Package,
+  ScrollText,
   Settings,
   ShieldCheck,
   ShieldQuestion,
@@ -58,7 +59,7 @@ export const LINKS = [
     href: "/admin/kullanicilar",
     label: "Kullanıcı Yönetimi",
     icon: Users,
-    roles: ["Admin"],
+    roles: STAFF_ADMIN_ROLES,
   },
   {
     href: "/admin/uzmanlik-alanlari",
@@ -67,6 +68,12 @@ export const LINKS = [
     roles: ["SuperAdmin"],
   },
   { href: "/admin/ayarlar", label: "Ayarlar", icon: Settings, roles: STAFF_ADMIN_ROLES },
+  {
+    href: "/admin/loglar",
+    label: "Sistem Logları",
+    icon: ScrollText,
+    roles: ["SuperAdmin"],
+  },
 ];
 
 export function AdminSidebar({ roles }: { roles: string[] }) {

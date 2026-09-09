@@ -29,6 +29,9 @@ builder.Services.AddCors(cors =>
 });
 
 builder.Services.AddControllers();
+// LogsController'ın Loki'nin sorgu API'sine (http://hekimburada-loki:3100) istek atması için —
+// CodeGen dışı, elle eklendi.
+builder.Services.AddHttpClient();
 builder.Services.AddGrpc(grpc => grpc.Interceptors.Add<BaseForge.API.Grpc.CorrelationIdServerInterceptor>());
 builder.Services.AddOpenApi(openApi =>
 {

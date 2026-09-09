@@ -422,7 +422,7 @@ export interface AdminUserRow {
   roles: string[];
 }
 
-/** Yalnızca Admin rolü — AdminUsersApiController controller seviyesinde bunu zorunlu kılıyor. */
+/** Admin ve SuperAdmin rolleri — AdminUsersApiController controller seviyesinde bunu zorunlu kılıyor. */
 export const adminUsersApi = {
   listRoles: () => authedReq<string[]>("/api/admin/roles"),
 
@@ -1070,4 +1070,18 @@ export const gatewayApi = {
 
   /** Logo/favicon/carousel görseli yükler — category "site" (logo/favicon) veya "carousel". */
   uploadImage: (file: File, category: "site" | "carousel" | "announcements") => uploadMedia(GATEWAY_URL, file, category),
+};
+
+export interface LogEntry {
+  timestamp: string;
+  service: string;
+  line: string;
+}
+
+/** Yalnızca SuperAdmin — Loki'ye Gateway üzerinden dar kapsamlı bir proxy (bkz. LogsController). */
+export const logsApi = {
+  listServices: () => gAuthedReq<string[]>("/api/logs/services"),
+
+  query: (params: { service?: string; search?: string; minutes?: number; limit?: number }) =>
+    gAuthedReq<LogEntry[]>(`/api/logs${toQuery(params)}`),
 };

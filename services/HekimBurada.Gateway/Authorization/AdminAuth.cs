@@ -19,6 +19,10 @@ internal static class AdminAuth
     public static bool IsStaffAdmin(ClaimsPrincipal user) =>
         HasRole(user, AdminRole) || HasRole(user, SuperAdminRole);
 
+    /// <summary>Log görüntüleyici gibi tüm platformun iç durumunu açık eden yerler için — sadece
+    /// SuperAdmin, düz Admin dahil değil.</summary>
+    public static bool IsSuperAdmin(ClaimsPrincipal user) => HasRole(user, SuperAdminRole);
+
     private static bool HasRole(ClaimsPrincipal user, string role) =>
         user.Claims.Any(c => (c.Type == "role" || c.Type == ClaimTypes.Role) && c.Value == role);
 

@@ -7,10 +7,12 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Identity.Controllers;
 
-/// <summary>Ortak Giriş SPA'sının admin panelindeki kullanıcı/rol yönetimi uçları. Sadece Admin rolüne açık.</summary>
+/// <summary>Ortak Giriş SPA'sının admin panelindeki kullanıcı/rol yönetimi uçları. Admin ve SuperAdmin
+/// rollerine açık — SuperAdmin her zaman Admin'in üst kümesi olduğundan (bkz. AdminSidebar.tsx
+/// STAFF_ADMIN_ROLES deseni), sadece Admin'e izin vermek SuperAdmin'i dışlayan bir hataydı.</summary>
 [ApiController]
 [Route("api/admin")]
-[Authorize(AuthenticationSchemes = ProfileAuthSchemes, Roles = SeedData.AdminRole)]
+[Authorize(AuthenticationSchemes = ProfileAuthSchemes, Roles = $"{SeedData.AdminRole},{SeedData.SuperAdminRole}")]
 public sealed class AdminUsersApiController : ControllerBase
 {
     /// <summary>
