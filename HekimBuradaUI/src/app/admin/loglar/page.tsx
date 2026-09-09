@@ -16,18 +16,32 @@ const TIME_RANGES = [
   { value: "1440", label: "Son 24 saat" },
 ];
 
-/** Serilog'un konsol formatındaki "[HH:mm:ss WRN]"/"warn:"/"error:" gibi işaretlere göre kaba bir
- * seviye tahmini — Loki seviyeyi ayrı bir etiket olarak tutmuyor, satırın kendisinden çıkarılıyor. */
-function levelOf(line: string): "error" | "warn" | "info" {
-  if (/\b(ERR|error|Exception|Hata)\b/.test(line)) return "error";
-  if (/\b(WRN|warn)\b/i.test(line)) return "warn";
-  return "info";
-}
+const LEVELS = [
+  { value: "all", label: "Tüm seviyeler" },
+  { value: "critical", label: "Critical" },
+  { value: "error", label: "Error" },
+  { value: "warn", label: "Warning" },
+  { value: "info", label: "Info" },
+  { value: "debug", label: "Debug" },
+  { value: "trace", label: "Trace" },
+];
 
 const LEVEL_STYLE: Record<string, string> = {
+  critical: "text-red-400 font-semibold",
   error: "text-red-400",
   warn: "text-amber-400",
   info: "text-slate-300",
+  debug: "text-slate-500",
+  trace: "text-slate-600",
+};
+
+const LEVEL_BADGE_STYLE: Record<string, string> = {
+  critical: "bg-red-950 text-red-300",
+  error: "bg-red-950 text-red-300",
+  warn: "bg-amber-950 text-amber-300",
+  info: "bg-slate-800 text-slate-300",
+  debug: "bg-slate-800 text-slate-400",
+  trace: "bg-slate-800 text-slate-500",
 };
 
 function formatTime(iso: string) {
@@ -43,6 +57,7 @@ function formatTime(iso: string) {
 export default function LoglarPage() {
   const [services, setServices] = useState<string[]>([]);
   const [service, setService] = useState("all");
+  const [level, setLevel] = useState("all");
   const [minutes, setMinutes] = useState("60");
   const [search, setSearch] = useState("");
   const [entries, setEntries] = useState<LogEntry[]>([]);
@@ -62,6 +77,7 @@ export default function LoglarPage() {
     try {
       const items = await logsApi.query({
         service,
+        level,
         search: search.trim() || undefined,
         minutes: Number(minutes),
         limit: 500,
@@ -72,7 +88,7 @@ export default function LoglarPage() {
     } finally {
       setLoading(false);
     }
-  }, [service, minutes, search]);
+  }, [service, level, minutes, search]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- mount'ta/filtre değişince veri çekme (React'in "Fetching data" deseni)
@@ -96,7 +112,7 @@ export default function LoglarPage() {
 
       <div className="flex flex-wrap items-center gap-2.5">
         <Select value={service} onValueChange={setService}>
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-[170px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -109,8 +125,21 @@ export default function LoglarPage() {
           </SelectContent>
         </Select>
 
+        <Select value={level} onValueChange={setLevel}>
+          <SelectTrigger className="w-[150px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {LEVELS.map((l) => (
+              <SelectItem key={l.value} value={l.value}>
+                {l.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
         <Select value={minutes} onValueChange={setMinutes}>
-          <SelectTrigger className="w-[160px]">
+          <SelectTrigger className="w-[150px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -126,7 +155,7 @@ export default function LoglarPage() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && load()}
-          placeholder="Log içinde ara…"
+          placeholder="Mesaj içinde ara…"
           className="max-w-xs"
         />
 
@@ -150,11 +179,26 @@ export default function LoglarPage() {
           <p className="text-slate-500">Bu filtrelerle gösterilecek log yok.</p>
         ) : (
           entries.map((e, i) => (
-            <div key={i} className="flex gap-3 border-b border-white/5 py-1">
+            <div key={i} className="flex gap-3 border-b border-white/5 py-1.5">
               <span className="shrink-0 text-slate-500">{formatTime(e.timestamp)}</span>
               <span className="w-[90px] shrink-0 truncate text-emerald-400">{e.service}</span>
-              <span className={cn("min-w-0 flex-1 break-all whitespace-pre-wrap", LEVEL_STYLE[levelOf(e.line)])}>
-                {e.line}
+              {e.level && (
+                <span
+                  className={cn(
+                    "h-fit shrink-0 rounded px-1.5 py-0.5 text-[10.5px] font-semibold uppercase",
+                    LEVEL_BADGE_STYLE[e.level] ?? "bg-slate-800 text-slate-400"
+                  )}
+                >
+                  {e.level}
+                </span>
+              )}
+              <span className="min-w-0 flex-1">
+                {e.sourceContext && (
+                  <span className="mr-2 text-slate-600">{e.sourceContext.split(".").pop()}:</span>
+                )}
+                <span className={cn("break-all whitespace-pre-wrap", LEVEL_STYLE[e.level] ?? "text-slate-300")}>
+                  {e.message}
+                </span>
               </span>
             </div>
           ))

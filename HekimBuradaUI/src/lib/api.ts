@@ -1072,16 +1072,22 @@ export const gatewayApi = {
   uploadImage: (file: File, category: "site" | "carousel" | "announcements") => uploadMedia(GATEWAY_URL, file, category),
 };
 
+/** Serilog.Sinks.Grafana.Loki'nin kısaltılmış seviye adları. */
+export type LogLevel = "trace" | "debug" | "info" | "warn" | "error" | "critical";
+
 export interface LogEntry {
   timestamp: string;
   service: string;
-  line: string;
+  /** Boş dönebilir — satır Serilog'un JSON gövdesi olarak ayrıştırılamadıysa (ör. altyapı çıktısı). */
+  level: string;
+  message: string;
+  sourceContext: string | null;
 }
 
 /** Yalnızca SuperAdmin — Loki'ye Gateway üzerinden dar kapsamlı bir proxy (bkz. LogsController). */
 export const logsApi = {
   listServices: () => gAuthedReq<string[]>("/api/logs/services"),
 
-  query: (params: { service?: string; search?: string; minutes?: number; limit?: number }) =>
+  query: (params: { service?: string; level?: string; search?: string; minutes?: number; limit?: number }) =>
     gAuthedReq<LogEntry[]>(`/api/logs${toQuery(params)}`),
 };
