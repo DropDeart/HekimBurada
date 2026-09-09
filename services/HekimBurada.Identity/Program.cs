@@ -211,6 +211,10 @@ builder.Services.AddSingleton(new RabbitMqOptions
 builder.Services.AddSingleton<RabbitMqConnectionManager>();
 builder.Services.AddSingleton<IRabbitMqPublisher, RabbitMqPublisher>();
 
+// CorrelationIdMiddleware'in ihtiyaç duyduğu tek servis — normalde AddBaseForge() ile gelir, ama
+// Identity onu (CQRS/repository DI paketi olduğu için) çağırmıyor, bu yüzden tek başına eklendi.
+builder.Services.AddSingleton<BaseForge.Core.Logging.ICorrelationIdAccessor, BaseForge.Infrastructure.Logging.CorrelationIdAccessor>();
+
 // Kayıt sonrası e-posta OTP doğrulaması için (bkz. Email/, Controllers/EmailVerificationController.cs).
 var smtpOptions = builder.Configuration.GetSection(SmtpOptions.SectionName).Get<SmtpOptions>() ?? new SmtpOptions();
 builder.Services.AddSingleton(smtpOptions);
@@ -228,9 +232,18 @@ var forwardedHeadersOptions = new ForwardedHeadersOptions
 {
     ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,
 };
-forwardedHeadersOptions.KnownNetworks.Clear();
+forwardedHeadersOptions.KnownIPNetworks.Clear();
 forwardedHeadersOptions.KnownProxies.Clear();
 app.UseForwardedHeaders(forwardedHeadersOptions);
+
+// Diğer 4 servis UseBaseForge() ile bunu otomatik alıyor; Identity CodeGen'in AddBaseForge()'unu
+// (CQRS/repository DI) hiç kullanmadığından buradan tek tek eklendi — CodeGen dışı, elle eklendi.
+// Öncesinde Identity'de hiçbir merkezi hata yakalama yoktu: yakalanmamış bir istisna (null ref,
+// DB hatası vb.) tamamen gövdesiz/boş bir 500 dönüyordu, diğer servislerdeki gibi
+// {status,title,type=errorCode} biçiminde bir ProblemDetails değil (bkz. proje kararı).
+app.UseMiddleware<BaseForge.API.Middleware.CorrelationIdMiddleware>();
+app.UseMiddleware<BaseForge.API.Middleware.ExceptionHandlingMiddleware>();
+app.UseMiddleware<BaseForge.API.Middleware.RequestLoggingMiddleware>();
 
 // Şema oluştur + seed (dev kolaylığı; prod'da migration kullanılır).
 await using (var scope = app.Services.CreateAsyncScope())
