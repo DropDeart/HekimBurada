@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { marketplaceApi, type MarketplaceCategory, type MarketplaceRequest } from "@/lib/api";
 import { useHasToken } from "@/lib/auth";
+import { useLiveRefresh } from "@/lib/useLiveRefresh";
 
 function currency(n: number) {
   return `${n.toLocaleString("tr-TR")} ₺`;
@@ -16,12 +17,12 @@ export default function TaleplerPage() {
   const [categories, setCategories] = useState<MarketplaceCategory[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const load = useCallback(() => {
     if (!hasToken) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- mount'ta/oturum değişince veri çekme (React'in "Fetching data" deseni)
       setLoading(false);
       return;
     }
+    setLoading(true);
     Promise.all([
       marketplaceApi.listRequests({ pageSize: 100 }),
       marketplaceApi.listCategories({ pageSize: 100 }),
@@ -33,6 +34,13 @@ export default function TaleplerPage() {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [hasToken]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- mount'ta/oturum değişince veri çekme (React'in "Fetching data" deseni)
+    load();
+  }, [load]);
+
+  useLiveRefresh(load);
 
   if (!hasToken) {
     return (

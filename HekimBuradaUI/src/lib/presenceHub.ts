@@ -8,6 +8,11 @@ export interface LiveNotification {
   linkPath: string;
 }
 
+/** Navbar'ın kurduğu tek presence bağlantısından, o an açık olan HERHANGİ bir sayfaya "veri bayatladı,
+ * kendini yenile" sinyali — sayfa bileşenleri bunu dinleyip kendi load()/loadAll() fonksiyonlarını
+ * tekrar çağırır (bkz. proje kararı: aynı sayfadayken F5 gerekmesin). */
+export const LIVE_NOTIFICATION_EVENT = "hekimburada:notification";
+
 /**
  * Uygulama genelinde (her sayfada, sadece sohbet ekranında değil) bağlı kalınan presence bağlantısı —
  * kullanıcının "çevrimiçi" sayılmasını sağlar (bkz. Messaging/Hubs/PresenceHub.cs) ve teklif/mesaj
@@ -24,7 +29,10 @@ export function connectPresence(onNotification: (notification: LiveNotification)
     .withAutomaticReconnect()
     .build();
 
-  connection.on("notificationReceived", (notification: LiveNotification) => onNotification(notification));
+  connection.on("notificationReceived", (notification: LiveNotification) => {
+    onNotification(notification);
+    window.dispatchEvent(new CustomEvent<LiveNotification>(LIVE_NOTIFICATION_EVENT, { detail: notification }));
+  });
   connection.start().catch(() => {});
 
   return () => {

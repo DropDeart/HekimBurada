@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/table";
 import { marketplaceApi, type Listing, type ListingStatus } from "@/lib/api";
 import { auth, useHasToken } from "@/lib/auth";
+import { useLiveRefresh } from "@/lib/useLiveRefresh";
 import { cn } from "@/lib/utils";
 
 const STATUS_LABEL: Record<ListingStatus, string> = {
@@ -65,6 +66,8 @@ export default function IlanlarimPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- mount'ta/oturum değişince veri çekme (React'in "Fetching data" deseni)
     void load();
   }, [hasToken, load]);
+
+  useLiveRefresh(load);
 
   const renew = async (id: string) => {
     setBusyId(id);

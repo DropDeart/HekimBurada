@@ -13,6 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { ADMIN_ROLES, auth, useAuthRoles, useHasToken } from "@/lib/auth";
 import {
   communityApi,
@@ -458,8 +459,8 @@ export function Navbar() {
           </button>
 
           {hasToken && (
-            <DropdownMenu open={notifOpen} onOpenChange={openNotifications}>
-              <DropdownMenuTrigger asChild>
+            <Sheet open={notifOpen} onOpenChange={openNotifications}>
+              <SheetTrigger asChild>
                 <button
                   className="relative hidden text-foreground hover:text-brand sm:block"
                   aria-label="Bildirimler"
@@ -471,43 +472,54 @@ export function Navbar() {
                     </span>
                   )}
                 </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="min-w-[280px]">
-                <div className="px-2.5 py-1.5 text-xs font-bold text-foreground">
-                  Yeni Teklifler
-                </div>
+              </SheetTrigger>
+              <SheetContent className="overflow-y-auto">
+                <SheetHeader>
+                  <SheetTitle>Bildirimler</SheetTitle>
+                </SheetHeader>
+
+                <div className="text-xs font-bold text-foreground">Yeni Teklifler</div>
                 {pendingOffers.length === 0 ? (
-                  <p className="px-2.5 py-1.5 text-xs text-muted-foreground">
-                    Bekleyen teklif yok.
-                  </p>
+                  <p className="text-xs text-muted-foreground">Bekleyen teklif yok.</p>
                 ) : (
-                  pendingOffers.map((o) => (
-                    <DropdownMenuItem key={o.id} asChild>
-                      <Link href={`/ilanlar/${o.listingId}`}>
+                  <div className="flex flex-col gap-1">
+                    {pendingOffers.map((o) => (
+                      <Link
+                        key={o.id}
+                        href={`/ilanlar/${o.listingId}`}
+                        onClick={() => setNotifOpen(false)}
+                        className="rounded-md px-2.5 py-2 text-sm text-foreground hover:bg-muted"
+                      >
                         {o.amount.toLocaleString("tr-TR")} ₺ teklif
                       </Link>
-                    </DropdownMenuItem>
-                  ))
+                    ))}
+                  </div>
                 )}
 
-                <DropdownMenuSeparator />
-                <div className="px-2.5 py-1.5 text-xs font-bold text-foreground">Bildirimler</div>
+                <div className="mt-2 border-t border-border pt-4 text-xs font-bold text-foreground">
+                  Tüm Bildirimler
+                </div>
                 {notifications.length === 0 ? (
-                  <p className="px-2.5 py-1.5 text-xs text-muted-foreground">Henüz bildirim yok.</p>
+                  <p className="text-xs text-muted-foreground">Henüz bildirim yok.</p>
                 ) : (
-                  notifications.slice(0, 8).map((n) => (
-                    <DropdownMenuItem key={n.id} asChild>
-                      <Link href={n.linkPath} className="flex flex-col items-start gap-0.5 whitespace-normal">
-                        <span className={n.isRead ? "text-foreground" : "font-semibold text-foreground"}>
+                  <div className="flex flex-col gap-1">
+                    {notifications.map((n) => (
+                      <Link
+                        key={n.id}
+                        href={n.linkPath}
+                        onClick={() => setNotifOpen(false)}
+                        className="flex flex-col items-start gap-0.5 rounded-md px-2.5 py-2 hover:bg-muted"
+                      >
+                        <span className={n.isRead ? "text-sm text-foreground" : "text-sm font-semibold text-foreground"}>
                           {n.title}
                         </span>
-                        <span className="text-[11px] text-muted-foreground">{n.body}</span>
+                        <span className="text-xs text-muted-foreground">{n.body}</span>
                       </Link>
-                    </DropdownMenuItem>
-                  ))
+                    ))}
+                  </div>
                 )}
-              </DropdownMenuContent>
-            </DropdownMenu>
+              </SheetContent>
+            </Sheet>
           )}
 
           {hasToken ? (

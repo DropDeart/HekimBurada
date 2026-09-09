@@ -29,6 +29,7 @@ import {
 } from "@/lib/api";
 import { auth, useHasToken } from "@/lib/auth";
 import { connectToOfferChat } from "@/lib/messageHub";
+import { useLiveRefresh } from "@/lib/useLiveRefresh";
 import { cn } from "@/lib/utils";
 
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
@@ -149,6 +150,8 @@ export default function ListingDetailPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- mount'ta/oturum değişince veri çekme (React'in "Fetching data" deseni)
     void loadAll();
   }, [loadAll]);
+
+  useLiveRefresh(loadAll);
 
   useEffect(() => {
     marketplaceApi.incrementListingViewCount(listingId).catch(() => {});
