@@ -20,6 +20,7 @@ import {
   GATEWAY_URL,
   gatewayApi,
   identityApi,
+  isAnnouncementActive,
   marketplaceApi,
   messagingApi,
   type Announcement,
@@ -37,6 +38,10 @@ import { cn } from "@/lib/utils";
 
 /** 5'ten fazla alt kategorisi olan bir grup, mega-menüde tek uzun sütun yerine 2 sütuna yayılır. */
 const WIDE_SUBCATEGORY_THRESHOLD = 5;
+
+/** Mega menülerdeki "son N" listeleri (talepler, duyurular, topluluklarım) bu sayıyla sınırlanır —
+ * daha fazlası için ilgili "Tümünü Gör" linki kullanılır. */
+const RECENT_LIST_LIMIT = 5;
 
 const FALLBACK_NAV_LINKS: MenuItem[] = [{ id: "fallback-home", location: "header", label: "Ana Sayfa", url: "/", sortOrder: 0 }];
 
@@ -74,9 +79,19 @@ export function Navbar() {
 
   useEffect(() => {
     // Duyuru panosu/navbar banner'ı login öncesi de görünür — anonim, hasToken'a bağlı değil.
+    // pageSize 5'ten geniş çekilip aktif olmayanlar (süresi geçmiş/henüz yayınlanmamış) elenip son
+    // RECENT_LIST_LIMIT tanesi gösteriliyor — aksi halde ilk 5 kayıt arasında aktif olmayan varsa
+    // eksik gösterim olurdu.
     gatewayApi
-      .listAnnouncements({ pageSize: 5 })
-      .then((r) => setAnnouncements([...r.items].sort((a, b) => b.publishedAt.localeCompare(a.publishedAt))))
+      .listAnnouncements({ pageSize: 20 })
+      .then((r) =>
+        setAnnouncements(
+          r.items
+            .filter((a) => isAnnouncementActive(a))
+            .sort((a, b) => b.publishedAt.localeCompare(a.publishedAt))
+            .slice(0, RECENT_LIST_LIMIT)
+        )
+      )
       .catch(() => {});
   }, []);
 
@@ -110,8 +125,14 @@ export function Navbar() {
       .then((r) => setCategories(r.items))
       .catch(() => {});
     marketplaceApi
-      .listRequests({ pageSize: 5 })
-      .then((r) => setRequests(r.items.slice(0, 3)))
+      .listRequests({ pageSize: 20 })
+      .then((r) =>
+        setRequests(
+          [...r.items]
+            .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+            .slice(0, RECENT_LIST_LIMIT)
+        )
+      )
       .catch(() => {});
     communityApi
       .listCategories({ pageSize: 100 })
@@ -312,9 +333,13 @@ export function Navbar() {
                         <p className="text-xs text-muted-foreground">Henüz talep yok.</p>
                       ) : (
                         requests.map((req) => (
-                          <div key={req.id} className="border-t border-[#F0F2F3] py-1.5">
-                            <div className="text-xs font-semibold text-foreground">{req.title}</div>
-                          </div>
+                          <Link
+                            key={req.id}
+                            href={`/talepler/${req.id}`}
+                            className="block border-t border-[#F0F2F3] py-1.5 text-xs font-semibold text-foreground hover:text-brand"
+                          >
+                            {req.title}
+                          </Link>
                         ))
                       )}
                       <div className="mt-3 flex items-center justify-between">
@@ -393,7 +418,7 @@ export function Navbar() {
                     {myCommunityCategories.length === 0 ? (
                       <p className="text-xs text-muted-foreground">Henüz bir topluluğa üye değilsiniz.</p>
                     ) : (
-                      myCommunityCategories.map((c) => (
+                      myCommunityCategories.slice(0, RECENT_LIST_LIMIT).map((c) => (
                         <Link
                           key={c.id}
                           href={`/topluluk/${c.id}`}

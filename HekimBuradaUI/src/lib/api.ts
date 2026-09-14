@@ -561,6 +561,7 @@ export interface MarketplaceRequest {
   status: RequestStatus;
   categoryId: string;
   requesterId: string;
+  createdAt: string;
 }
 
 export interface Favorite {
@@ -1009,7 +1010,15 @@ export interface Announcement {
   /** Duyuru görseli — boşsa duyuru panosu/navbar/popup görselsiz render eder. */
   imageUrl: string | null;
   publishedAt: string;
+  /** Boşsa süresiz — dolu ve geçmişte kaldıysa navbar/popup artık göstermez (bkz. isAnnouncementActive). */
+  expiresAt: string | null;
   authorId: string;
+}
+
+/** Bir duyuru şu an navbar/popup'ta gösterilmeli mi — yayın tarihi gelmiş VE (varsa) bitiş tarihi
+ * henüz geçmemiş olmalı. "Duyuru Panosu" (tüm duyurular arşivi) buna bakmaz, hepsini gösterir. */
+export function isAnnouncementActive(a: Announcement, now: Date = new Date()): boolean {
+  return new Date(a.publishedAt) <= now && (a.expiresAt === null || new Date(a.expiresAt) > now);
 }
 
 export interface SiteSettings {
@@ -1061,7 +1070,13 @@ export const gatewayApi = {
   /** Yalnızca Admin/SuperAdmin — backend AuthorId'yi çağıranın kendi kimliğiyle dolduruyor, burada
    * gönderilmiyor (boş string geçerli bir Guid değil; gönderilirse JSON deserialize aşamasında
    * patlayıp "The command field is required" hatasına yol açıyordu). */
-  createAnnouncement: (input: { title: string; body: string; imageUrl: string | null; publishedAt: string }) =>
+  createAnnouncement: (input: {
+    title: string;
+    body: string;
+    imageUrl: string | null;
+    publishedAt: string;
+    expiresAt: string | null;
+  }) =>
     gAuthedReq<string>("/api/Announcements", {
       method: "POST",
       body: JSON.stringify(input),
@@ -1069,7 +1084,14 @@ export const gatewayApi = {
 
   updateAnnouncement: (
     id: string,
-    input: { title: string; body: string; imageUrl: string | null; publishedAt: string; authorId: string }
+    input: {
+      title: string;
+      body: string;
+      imageUrl: string | null;
+      publishedAt: string;
+      expiresAt: string | null;
+      authorId: string;
+    }
   ) => gAuthedReq<void>(`/api/Announcements/${id}`, { method: "PUT", body: JSON.stringify(input) }),
 
   deleteAnnouncement: (id: string) =>

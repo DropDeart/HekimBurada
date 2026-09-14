@@ -18,6 +18,8 @@ public sealed class CreateAnnouncementCommand : ICommand<Guid>
     public string? ImageUrl { get; set; }
     /// <summary>PublishedAt.</summary>
     public DateTimeOffset PublishedAt { get; set; }
+    /// <summary>ExpiresAt — CodeGen dışı, elle eklendi. Boşsa süresiz gösterilir.</summary>
+    public DateTimeOffset? ExpiresAt { get; set; }
     /// <summary>AuthorId.</summary>
     public Guid AuthorId { get; set; }
 }
@@ -35,12 +37,18 @@ internal sealed class CreateAnnouncementHandler : ICommandHandler<CreateAnnounce
     public async Task<Guid> Handle(CreateAnnouncementCommand request, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
+        if (request.ExpiresAt is { } expiresAt && expiresAt <= request.PublishedAt)
+        {
+            throw new BaseForge.Core.Exceptions.ValidationException("ExpiresAt", "Bitiş tarihi, yayın tarihinden sonra olmalıdır.");
+        }
+
         var entity = new Announcement
         {
             Title = request.Title,
             Body = request.Body,
             ImageUrl = request.ImageUrl,
             PublishedAt = request.PublishedAt,
+            ExpiresAt = request.ExpiresAt,
             AuthorId = request.AuthorId,
         };
         await _repository.AddAsync(entity, cancellationToken);
@@ -63,6 +71,8 @@ public sealed class UpdateAnnouncementCommand : ICommand
     public string? ImageUrl { get; set; }
     /// <summary>PublishedAt.</summary>
     public DateTimeOffset PublishedAt { get; set; }
+    /// <summary>ExpiresAt — CodeGen dışı, elle eklendi. Boşsa süresiz gösterilir.</summary>
+    public DateTimeOffset? ExpiresAt { get; set; }
     /// <summary>AuthorId.</summary>
     public Guid AuthorId { get; set; }
 }
@@ -80,12 +90,18 @@ internal sealed class UpdateAnnouncementHandler : ICommandHandler<UpdateAnnounce
     public async Task Handle(UpdateAnnouncementCommand request, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
+        if (request.ExpiresAt is { } expiresAt && expiresAt <= request.PublishedAt)
+        {
+            throw new BaseForge.Core.Exceptions.ValidationException("ExpiresAt", "Bitiş tarihi, yayın tarihinden sonra olmalıdır.");
+        }
+
         var entity = await _repository.GetByIdAsync(request.Id, cancellationToken)
             ?? throw new NotFoundException("Announcement", request.Id);
         entity.Title = request.Title;
         entity.Body = request.Body;
         entity.ImageUrl = request.ImageUrl;
         entity.PublishedAt = request.PublishedAt;
+        entity.ExpiresAt = request.ExpiresAt;
         entity.AuthorId = request.AuthorId;
         await _repository.UpdateAsync(entity, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);

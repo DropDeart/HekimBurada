@@ -19,6 +19,12 @@ public sealed class Announcement : BaseEntity
 
     /// <summary>PublishedAt.</summary>
     public DateTimeOffset PublishedAt { get; set; }
+
+    /// <summary>Duyurunun navbar/popup'ta otomatik gizleneceği tarih — CodeGen dışı, elle eklendi.
+    /// Boşsa süresiz gösterilir. "Duyuru Panosu" (tüm duyurular arşivi) bundan etkilenmez, yalnızca
+    /// navbar'daki üst şerit ve giriş popup'ı bu alana bakar (bkz. proje kararı).</summary>
+    public DateTimeOffset? ExpiresAt { get; set; }
+
     /// <summary>AuthorId.</summary>
     public Guid AuthorId { get; set; }
 }

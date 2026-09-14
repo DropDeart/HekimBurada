@@ -10,7 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { GATEWAY_URL, gatewayApi, type Announcement } from "@/lib/api";
+import { GATEWAY_URL, gatewayApi, isAnnouncementActive, type Announcement } from "@/lib/api";
 
 /** En son görülen duyuru ID'si — bir sonraki ziyarette aynı duyuru tekrar popup olarak çıkmasın diye. */
 const LAST_SEEN_KEY = "hekimburada_last_seen_announcement_id";
@@ -30,7 +30,9 @@ export function AnnouncementPopup() {
     gatewayApi
       .listAnnouncements({ pageSize: 20 })
       .then((r) => {
-        const latest = [...r.items].sort((a, b) => b.publishedAt.localeCompare(a.publishedAt))[0];
+        const latest = r.items
+          .filter((a) => isAnnouncementActive(a))
+          .sort((a, b) => b.publishedAt.localeCompare(a.publishedAt))[0];
         if (!latest) return;
         const lastSeenId = window.localStorage.getItem(LAST_SEEN_KEY);
         if (latest.id !== lastSeenId) {

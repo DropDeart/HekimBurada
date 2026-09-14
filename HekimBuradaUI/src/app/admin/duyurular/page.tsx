@@ -47,10 +47,12 @@ interface FormState {
   body: string;
   imageUrl: string;
   publishedAt: Date | undefined;
+  /** Boş bırakılırsa duyuru süresiz gösterilir. */
+  expiresAt: Date | undefined;
 }
 
 function emptyForm(): FormState {
-  return { title: "", body: "", imageUrl: "", publishedAt: new Date() };
+  return { title: "", body: "", imageUrl: "", publishedAt: new Date(), expiresAt: undefined };
 }
 
 export default function AdminDuyurularPage() {
@@ -107,6 +109,10 @@ export default function AdminDuyurularPage() {
       setCreateError("Yayın tarihi gerekli.");
       return;
     }
+    if (createForm.expiresAt && createForm.expiresAt <= createForm.publishedAt) {
+      setCreateError("Bitiş tarihi, yayın tarihinden sonra olmalıdır.");
+      return;
+    }
     setCreateError(null);
     setCreateSubmitting(true);
     try {
@@ -115,6 +121,7 @@ export default function AdminDuyurularPage() {
         body: createForm.body.trim(),
         imageUrl: createForm.imageUrl || null,
         publishedAt: createForm.publishedAt.toISOString(),
+        expiresAt: createForm.expiresAt ? createForm.expiresAt.toISOString() : null,
       });
       toast.success("Duyuru eklendi.");
       setCreateOpen(false);
@@ -129,7 +136,13 @@ export default function AdminDuyurularPage() {
 
   const startEdit = (a: Announcement) => {
     setEditing(a);
-    setEditForm({ title: a.title, body: a.body, imageUrl: a.imageUrl ?? "", publishedAt: new Date(a.publishedAt) });
+    setEditForm({
+      title: a.title,
+      body: a.body,
+      imageUrl: a.imageUrl ?? "",
+      publishedAt: new Date(a.publishedAt),
+      expiresAt: a.expiresAt ? new Date(a.expiresAt) : undefined,
+    });
     setEditError(null);
   };
 
@@ -140,6 +153,10 @@ export default function AdminDuyurularPage() {
       setEditError("Yayın tarihi gerekli.");
       return;
     }
+    if (editForm.expiresAt && editForm.expiresAt <= editForm.publishedAt) {
+      setEditError("Bitiş tarihi, yayın tarihinden sonra olmalıdır.");
+      return;
+    }
     setEditError(null);
     setEditSubmitting(true);
     try {
@@ -148,6 +165,7 @@ export default function AdminDuyurularPage() {
         body: editForm.body.trim(),
         imageUrl: editForm.imageUrl || null,
         publishedAt: editForm.publishedAt.toISOString(),
+        expiresAt: editForm.expiresAt ? editForm.expiresAt.toISOString() : null,
         authorId: editing.authorId,
       });
       toast.success("Duyuru güncellendi.");
@@ -279,6 +297,26 @@ export default function AdminDuyurularPage() {
                   onChange={(date) => setCreateForm((f) => ({ ...f, publishedAt: date }))}
                 />
               </div>
+              <div className="grid gap-1.5">
+                <Label>Bitiş Tarihi (opsiyonel)</Label>
+                <div className="flex items-center gap-2">
+                  <DatePicker
+                    value={createForm.expiresAt}
+                    onChange={(date) => setCreateForm((f) => ({ ...f, expiresAt: date }))}
+                    placeholder="Süresiz"
+                  />
+                  {createForm.expiresAt && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setCreateForm((f) => ({ ...f, expiresAt: undefined }))}
+                    >
+                      <X className="size-3.5" />
+                    </Button>
+                  )}
+                </div>
+              </div>
               <DialogFooter>
                 <Button type="submit" disabled={createSubmitting}>
                   {createSubmitting ? "Ekleniyor…" : "Ekle"}
@@ -296,19 +334,20 @@ export default function AdminDuyurularPage() {
               <TableHead>Görsel</TableHead>
               <TableHead>Başlık</TableHead>
               <TableHead>Yayın Tarihi</TableHead>
+              <TableHead>Bitiş Tarihi</TableHead>
               <TableHead>İşlemler</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
+                <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
                   Yükleniyor…
                 </TableCell>
               </TableRow>
             ) : announcements.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
+                <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
                   Gösterilecek duyuru yok.
                 </TableCell>
               </TableRow>
@@ -325,6 +364,13 @@ export default function AdminDuyurularPage() {
                   </TableCell>
                   <TableCell>{a.title}</TableCell>
                   <TableCell>{formatDate(a.publishedAt)}</TableCell>
+                  <TableCell>
+                    {a.expiresAt ? (
+                      formatDate(a.expiresAt)
+                    ) : (
+                      <span className="text-xs text-muted-foreground">Süresiz</span>
+                    )}
+                  </TableCell>
                   <TableCell>
                     <div className="flex gap-2">
                       <Button size="sm" variant="outline" onClick={() => startEdit(a)}>
@@ -434,6 +480,26 @@ export default function AdminDuyurularPage() {
                 value={editForm.publishedAt}
                 onChange={(date) => setEditForm((f) => ({ ...f, publishedAt: date }))}
               />
+            </div>
+            <div className="grid gap-1.5">
+              <Label>Bitiş Tarihi (opsiyonel)</Label>
+              <div className="flex items-center gap-2">
+                <DatePicker
+                  value={editForm.expiresAt}
+                  onChange={(date) => setEditForm((f) => ({ ...f, expiresAt: date }))}
+                  placeholder="Süresiz"
+                />
+                {editForm.expiresAt && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setEditForm((f) => ({ ...f, expiresAt: undefined }))}
+                  >
+                    <X className="size-3.5" />
+                  </Button>
+                )}
+              </div>
             </div>
             <DialogFooter>
               <Button type="submit" disabled={editSubmitting}>

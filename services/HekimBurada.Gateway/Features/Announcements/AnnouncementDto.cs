@@ -15,6 +15,8 @@ public sealed class AnnouncementDto
     public string? ImageUrl { get; set; }
     /// <summary>PublishedAt.</summary>
     public DateTimeOffset PublishedAt { get; set; }
+    /// <summary>ExpiresAt — CodeGen dışı, elle eklendi.</summary>
+    public DateTimeOffset? ExpiresAt { get; set; }
     /// <summary>AuthorId.</summary>
     public Guid AuthorId { get; set; }
 
@@ -29,6 +31,7 @@ public sealed class AnnouncementDto
             Body = entity.Body,
             ImageUrl = entity.ImageUrl,
             PublishedAt = entity.PublishedAt,
+            ExpiresAt = entity.ExpiresAt,
             AuthorId = entity.AuthorId,
         };
     }

@@ -20,6 +20,10 @@ public sealed class RequestDto
     /// <summary>RequesterId.</summary>
     public Guid RequesterId { get; set; }
 
+    /// <summary>Oluşturulma zamanı — navbar'daki "Son Talepler" listesini gerçekten en yeniye göre
+    /// sıralayabilmek için (bkz. proje kararı). CodeGen dışı, elle eklendi.</summary>
+    public DateTimeOffset CreatedAt { get; set; }
+
     /// <summary>Bir Request entity'sinden DTO üretir.</summary>
     public static RequestDto From(Request entity)
     {
@@ -33,6 +37,7 @@ public sealed class RequestDto
             Status = entity.Status,
             CategoryId = entity.CategoryId,
             RequesterId = entity.RequesterId,
+            CreatedAt = entity.CreatedAt,
         };
     }
 }
