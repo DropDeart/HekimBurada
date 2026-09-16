@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
-import { CONTACT_COLUMNS } from "@/lib/staticContent";
+import { CONTACT_COLUMNS, CONTACT_EMAIL, OFFICE_ADDRESS } from "@/lib/staticContent";
 
 export const metadata: Metadata = {
   title: "İletişim",
-  description: "HekimBurada destek ve kurumsal iletişim bilgileri — sorularınız için bize ulaşın.",
+  description: `HekimBurada destek ve kurumsal iletişim bilgileri — ${CONTACT_EMAIL} üzerinden bize ulaşın.`,
 };
 
 export default function IletisimPage() {
@@ -19,6 +19,9 @@ export default function IletisimPage() {
                 {s.label}
               </div>
             ))}
+            <a href={`mailto:${CONTACT_EMAIL}`} className="text-sm text-brand hover:underline">
+              {CONTACT_EMAIL}
+            </a>
           </div>
         </div>
         <div>
@@ -30,6 +33,20 @@ export default function IletisimPage() {
               </div>
             ))}
           </div>
+        </div>
+      </div>
+
+      <div className="mt-12">
+        <div className="mb-3 text-sm font-bold text-foreground">Adres</div>
+        <p className="mb-4 text-sm text-muted-foreground">{OFFICE_ADDRESS.full}</p>
+        <div className="overflow-hidden rounded-lg border border-border">
+          <iframe
+            title="HekimBurada konum haritası"
+            src={`https://www.google.com/maps?q=${encodeURIComponent(OFFICE_ADDRESS.mapsQuery)}&output=embed`}
+            className="h-[320px] w-full"
+            loading="lazy"
+            referrerPolicy="no-referrer-when-downgrade"
+          />
         </div>
       </div>
     </div>

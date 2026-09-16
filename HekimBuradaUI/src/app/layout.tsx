@@ -3,6 +3,7 @@ import { Poppins } from "next/font/google";
 import Script from "next/script";
 import { Toaster } from "@/components/ui/sonner";
 import type { SiteSettings } from "@/lib/api";
+import { CONTACT_EMAIL, OFFICE_ADDRESS } from "@/lib/staticContent";
 import "./globals.css";
 
 const poppins = Poppins({
@@ -79,6 +80,14 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
     name: DEFAULT_TITLE,
     url: SITE_URL,
     description: settings?.defaultMetaDescription || DEFAULT_DESCRIPTION,
+    email: CONTACT_EMAIL,
+    address: {
+      "@type": "PostalAddress",
+      streetAddress: OFFICE_ADDRESS.streetAddress,
+      addressLocality: OFFICE_ADDRESS.addressLocality,
+      addressRegion: OFFICE_ADDRESS.addressRegion,
+      addressCountry: OFFICE_ADDRESS.addressCountry,
+    },
     ...(settings?.logoUrl ? { logo: `${GATEWAY_URL}${settings.logoUrl}` } : {}),
   };
   const websiteJsonLd = {
