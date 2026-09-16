@@ -49,7 +49,7 @@ export async function generateMetadata(): Promise<Metadata> {
     metadataBase: new URL(SITE_URL),
     title: { default: title, template: `%s | ${DEFAULT_TITLE}` },
     description,
-    icons: iconUrl ? { icon: iconUrl } : undefined,
+    icons: iconUrl ? { icon: iconUrl, apple: iconUrl } : undefined,
     alternates: { canonical: "/" },
     openGraph: {
       type: "website",

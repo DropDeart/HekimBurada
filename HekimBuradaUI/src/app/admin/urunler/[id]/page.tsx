@@ -132,9 +132,14 @@ export default function AdminUrunDetayPage() {
           <h2 className="mb-3 text-sm font-bold text-foreground">Görseller</h2>
           {images.length > 0 ? (
             <div className="grid grid-cols-2 gap-2">
-              {images.map((url) => (
+              {images.map((url, i) => (
                 // eslint-disable-next-line @next/next/no-img-element -- kullanıcı tarafından yüklenen keyfi harici görsel
-                <img key={url} src={`${MARKETPLACE_URL}${url}`} alt="" className="h-[105px] w-full rounded-md object-cover" />
+                <img
+                  key={url}
+                  src={`${MARKETPLACE_URL}${url}`}
+                  alt={`${listing.title} - görsel ${i + 1}`}
+                  className="h-[105px] w-full rounded-md object-cover"
+                />
               ))}
             </div>
           ) : (

@@ -76,7 +76,11 @@ export function ListingPreviewCard({
               )}
             >
               {/* eslint-disable-next-line @next/next/no-img-element -- kullanıcı tarafından yüklenen keyfi harici görsel */}
-              <img src={`${MARKETPLACE_URL}${url}`} alt="" className="h-full w-full object-cover" />
+              <img
+                src={`${MARKETPLACE_URL}${url}`}
+                alt={`${title} - küçük görsel ${i + 1}`}
+                className="h-full w-full object-cover"
+              />
             </button>
           ))}
         </div>

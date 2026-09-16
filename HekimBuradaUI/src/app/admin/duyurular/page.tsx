@@ -250,7 +250,11 @@ export default function AdminDuyurularPage() {
                   {createForm.imageUrl ? (
                     <div className="relative">
                       {/* eslint-disable-next-line @next/next/no-img-element -- admin panelde yüklenen keyfi harici görsel */}
-                      <img src={`${GATEWAY_URL}${createForm.imageUrl}`} alt="" className="h-12 w-20 rounded border border-border object-cover" />
+                      <img
+                        src={`${GATEWAY_URL}${createForm.imageUrl}`}
+                        alt={createForm.title || "Duyuru görseli"}
+                        className="h-12 w-20 rounded border border-border object-cover"
+                      />
                       <button
                         type="button"
                         onClick={() => setImageRemoveTarget("create")}
@@ -357,7 +361,11 @@ export default function AdminDuyurularPage() {
                   <TableCell>
                     {a.imageUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element -- admin panelde yüklenen keyfi harici görsel
-                      <img src={`${GATEWAY_URL}${a.imageUrl}`} alt="" className="h-10 w-16 rounded border border-border object-cover" />
+                      <img
+                        src={`${GATEWAY_URL}${a.imageUrl}`}
+                        alt={a.title || "Duyuru görseli"}
+                        className="h-10 w-16 rounded border border-border object-cover"
+                      />
                     ) : (
                       <span className="text-xs text-muted-foreground">—</span>
                     )}
@@ -434,7 +442,11 @@ export default function AdminDuyurularPage() {
                 {editForm.imageUrl ? (
                   <div className="relative">
                     {/* eslint-disable-next-line @next/next/no-img-element -- admin panelde yüklenen keyfi harici görsel */}
-                    <img src={`${GATEWAY_URL}${editForm.imageUrl}`} alt="" className="h-12 w-20 rounded border border-border object-cover" />
+                    <img
+                      src={`${GATEWAY_URL}${editForm.imageUrl}`}
+                      alt={editForm.title || "Duyuru görseli"}
+                      className="h-12 w-20 rounded border border-border object-cover"
+                    />
                     <button
                       type="button"
                       onClick={() => setImageRemoveTarget("edit")}

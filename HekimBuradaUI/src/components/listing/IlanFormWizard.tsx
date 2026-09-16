@@ -450,10 +450,14 @@ export function IlanFormWizard({ initial }: { initial?: Listing }) {
                   <div className="mb-2 text-sm font-semibold text-foreground">Fotoğraflar</div>
                   {imageUrls.length > 0 && (
                     <div className="mb-3 flex flex-wrap justify-center gap-2">
-                      {imageUrls.map((url) => (
+                      {imageUrls.map((url, i) => (
                         <div key={url} className="relative h-14 w-20 overflow-hidden rounded-md bg-white">
                           {/* eslint-disable-next-line @next/next/no-img-element -- kullanıcı tarafından yüklenen keyfi harici görsel */}
-                          <img src={`${MARKETPLACE_URL}${url}`} alt="" className="h-full w-full object-cover" />
+                          <img
+                            src={`${MARKETPLACE_URL}${url}`}
+                            alt={`Yüklenen ilan fotoğrafı ${i + 1}`}
+                            className="h-full w-full object-cover"
+                          />
                           <button
                             type="button"
                             onClick={() => setImageUrls((prev) => prev.filter((u) => u !== url))}

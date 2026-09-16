@@ -859,7 +859,11 @@ function CarouselTab() {
                     {createForm.backgroundImageUrl ? (
                       <div className="relative">
                         {/* eslint-disable-next-line @next/next/no-img-element -- admin panelde yüklenen keyfi harici görsel */}
-                        <img src={`${GATEWAY_URL}${createForm.backgroundImageUrl}`} alt="" className="h-12 w-20 rounded border border-border object-cover" />
+                        <img
+                          src={`${GATEWAY_URL}${createForm.backgroundImageUrl}`}
+                          alt={createForm.title || "Carousel slaytı arka plan görseli"}
+                          className="h-12 w-20 rounded border border-border object-cover"
+                        />
                         <button
                           type="button"
                           onClick={() => setImageRemoveTarget({ scope: "create", field: "backgroundImageUrl" })}
@@ -957,7 +961,11 @@ function CarouselTab() {
                   <TableCell>
                     {slide.backgroundType === "image" && slide.backgroundImageUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element -- admin panelde yüklenen keyfi harici görsel
-                      <img src={`${GATEWAY_URL}${slide.backgroundImageUrl}`} alt="" className="h-10 w-16 rounded border border-border object-cover" />
+                      <img
+                        src={`${GATEWAY_URL}${slide.backgroundImageUrl}`}
+                        alt={slide.title || "Carousel slaytı arka plan görseli"}
+                        className="h-10 w-16 rounded border border-border object-cover"
+                      />
                     ) : (
                       <div
                         className="h-10 w-16 rounded border border-border"
@@ -1077,7 +1085,11 @@ function CarouselTab() {
                   {editForm.backgroundImageUrl ? (
                     <div className="relative">
                       {/* eslint-disable-next-line @next/next/no-img-element -- admin panelde yüklenen keyfi harici görsel */}
-                      <img src={`${GATEWAY_URL}${editForm.backgroundImageUrl}`} alt="" className="h-12 w-20 rounded border border-border object-cover" />
+                      <img
+                        src={`${GATEWAY_URL}${editForm.backgroundImageUrl}`}
+                        alt={editForm.title || "Carousel slaytı arka plan görseli"}
+                        className="h-12 w-20 rounded border border-border object-cover"
+                      />
                       <button
                         type="button"
                         onClick={() => setImageRemoveTarget({ scope: "edit", field: "backgroundImageUrl" })}
