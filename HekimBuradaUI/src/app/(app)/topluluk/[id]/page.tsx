@@ -52,23 +52,30 @@ export default function TopluluDetay() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [cat, topicsRes, commentsRes, likesRes, membershipsRes] = await Promise.all([
+      const [cat, topicsRes, commentsRes] = await Promise.all([
         communityApi.getCategory(categoryId),
         communityApi.listTopics({ pageSize: 100 }),
         communityApi.listComments({ pageSize: 100 }),
-        communityApi.listLikes({ pageSize: 100 }),
-        communityApi.listMemberships({ pageSize: 100 }),
       ]);
       setCategory(cat);
       setTopics(topicsRes.items.filter((t) => t.categoryId === categoryId));
       setComments(commentsRes.items);
-      setLikes(likesRes.items);
-      setMemberships(membershipsRes.items.filter((m) => m.categoryId === categoryId));
 
-      const memberIds = [...new Set(membershipsRes.items.filter((m) => m.categoryId === categoryId).map((m) => m.userId))];
-      if (memberIds.length > 0) {
-        const rows = await identityApi.lookupUsers(memberIds);
-        setUsers(new Map(rows.map((r) => [r.id, r])));
+      // Beğeni/üyelik listeleri login gerektirir (bkz. api.ts) — anonim ziyaretçi kapalı olmayan
+      // topluluğun konularını/yorumlarını görebilir ama bunları görmez.
+      if (hasToken) {
+        const [likesRes, membershipsRes] = await Promise.all([
+          communityApi.listLikes({ pageSize: 100 }),
+          communityApi.listMemberships({ pageSize: 100 }),
+        ]);
+        setLikes(likesRes.items);
+        setMemberships(membershipsRes.items.filter((m) => m.categoryId === categoryId));
+
+        const memberIds = [...new Set(membershipsRes.items.filter((m) => m.categoryId === categoryId).map((m) => m.userId))];
+        if (memberIds.length > 0) {
+          const rows = await identityApi.lookupUsers(memberIds);
+          setUsers(new Map(rows.map((r) => [r.id, r])));
+        }
       }
     } catch (err) {
       if (err instanceof Error && err.message.includes("404")) {
@@ -79,18 +86,21 @@ export default function TopluluDetay() {
     } finally {
       setLoading(false);
     }
-  }, [categoryId]);
+  }, [categoryId, hasToken]);
 
   useEffect(() => {
-    if (!hasToken) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- mount'ta veri çekme
     void load();
-  }, [hasToken, load]);
+  }, [load]);
 
   const myMembership = memberships.find((m) => m.userId === myId);
   const joined = !!myMembership;
 
   const toggleJoin = async () => {
+    if (!hasToken) {
+      router.push("/giris-yap");
+      return;
+    }
     setBusy(true);
     try {
       if (myMembership) {
@@ -158,14 +168,6 @@ export default function TopluluDetay() {
     }
   };
 
-  if (!hasToken) {
-    return (
-      <div className="flex min-h-[50vh] items-center justify-center p-8 text-center text-sm text-muted-foreground">
-        Bu içeriği görmek için giriş yapın.
-      </div>
-    );
-  }
-
   if (loading) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
@@ -181,6 +183,14 @@ export default function TopluluDetay() {
         <Link href="/topluluk" className="text-sm font-medium text-brand hover:underline">
           ← Tüm topluluklar
         </Link>
+      </div>
+    );
+  }
+
+  if (category.isClosed && !hasToken) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center p-8 text-center text-sm text-muted-foreground">
+        Bu kapalı topluluğu görmek için giriş yapın.
       </div>
     );
   }

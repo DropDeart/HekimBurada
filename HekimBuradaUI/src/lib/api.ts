@@ -115,6 +115,36 @@ async function authedReqAt<T>(baseUrl: string, path: string, init?: RequestInit)
   }
 }
 
+/** Token varsa ekler (ve 401'de yeniler), yoksa anonim ister — kapalı olmayan topluluk içeriği gibi
+ * "girişli görürse daha fazlasını görsün, girişsiz de temel içeriği görebilsin" uçları için. */
+async function optionalAuthReqAt<T>(baseUrl: string, path: string, init?: RequestInit): Promise<T> {
+  const token = auth.getToken();
+  if (!token) {
+    return reqAt<T>(baseUrl, path, init);
+  }
+
+  try {
+    return await reqAt<T>(baseUrl, path, {
+      ...init,
+      headers: { Authorization: `Bearer ${token}`, ...(init?.headers ?? {}) },
+    });
+  } catch (err) {
+    if (!(err instanceof ApiError) || err.status !== 401) {
+      throw err;
+    }
+
+    refreshInFlight ??= refreshAccessToken().finally(() => {
+      refreshInFlight = null;
+    });
+    const newToken = await refreshInFlight;
+
+    return reqAt<T>(baseUrl, path, {
+      ...init,
+      headers: { Authorization: `Bearer ${newToken}`, ...(init?.headers ?? {}) },
+    });
+  }
+}
+
 const req = <T>(path: string, init?: RequestInit) => reqAt<T>(IDENTITY_URL, path, init);
 const authedReq = <T>(path: string, init?: RequestInit) => authedReqAt<T>(IDENTITY_URL, path, init);
 
@@ -827,6 +857,9 @@ export const marketplaceApi = {
 // ---- Community ----
 
 const cAuthedReq = <T>(path: string, init?: RequestInit) => authedReqAt<T>(COMMUNITY_URL, path, init);
+/** Kapalı olmayan topluluklarda okuma uçları için — backend kapalı kategori içeriğini anonime zaten
+ * 401'ler, burada sadece "token varsa gönder" davranışı sağlanır. */
+const cReq = <T>(path: string, init?: RequestInit) => optionalAuthReqAt<T>(COMMUNITY_URL, path, init);
 
 export interface CommunityCategory {
   id: string;
@@ -879,9 +912,9 @@ export interface Like {
 
 export const communityApi = {
   listCategories: (params?: { page?: number; pageSize?: number }) =>
-    cAuthedReq<PagedResult<CommunityCategory>>(`/api/communitycategorys${toQuery(params)}`),
+    cReq<PagedResult<CommunityCategory>>(`/api/communitycategorys${toQuery(params)}`),
 
-  getCategory: (id: string) => cAuthedReq<CommunityCategory>(`/api/communitycategorys/${id}`),
+  getCategory: (id: string) => cReq<CommunityCategory>(`/api/communitycategorys/${id}`),
 
   /** Yeni bir topluluk kurar — backend CreatorId'yi çağıranın kimliğiyle ezer ve kurucuyu otomatik
    * ilk üye + moderatör yapar. */
@@ -912,9 +945,9 @@ export const communityApi = {
     cAuthedReq<void>(`/api/memberships/${membershipId}`, { method: "DELETE" }),
 
   listTopics: (params?: { page?: number; pageSize?: number; search?: string }) =>
-    cAuthedReq<PagedResult<Topic>>(`/api/topics${toQuery(params)}`),
+    cReq<PagedResult<Topic>>(`/api/topics${toQuery(params)}`),
 
-  getTopic: (id: string) => cAuthedReq<Topic>(`/api/topics/${id}`),
+  getTopic: (id: string) => cReq<Topic>(`/api/topics/${id}`),
 
   createTopic: (input: { title: string; body: string; categoryId: string; authorId: string }) =>
     cAuthedReq<string>("/api/topics", {
@@ -925,10 +958,10 @@ export const communityApi = {
   deleteTopic: (id: string) => cAuthedReq<void>(`/api/topics/${id}`, { method: "DELETE" }),
 
   incrementTopicViewCount: (id: string) =>
-    cAuthedReq<void>(`/api/topics/${id}/increment-viewcount`, { method: "POST" }),
+    cReq<void>(`/api/topics/${id}/increment-viewcount`, { method: "POST" }),
 
   listComments: (params?: { page?: number; pageSize?: number }) =>
-    cAuthedReq<PagedResult<CommunityComment>>(`/api/comments${toQuery(params)}`),
+    cReq<PagedResult<CommunityComment>>(`/api/comments${toQuery(params)}`),
 
   createComment: (input: { body: string; topicId: string; authorId: string; parentId?: string | null }) =>
     cAuthedReq<string>("/api/comments", { method: "POST", body: JSON.stringify(input) }),

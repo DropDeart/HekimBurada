@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,7 @@ import { auth, useHasToken } from "@/lib/auth";
 export default function KonuDetay() {
   const params = useParams<{ id: string; topicId: string }>();
   const { id: categoryId, topicId } = params;
+  const router = useRouter();
   const hasToken = useHasToken();
   const myId = auth.getUserId();
 
@@ -42,22 +43,27 @@ export default function KonuDetay() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [cat, t, commentsRes, likesRes] = await Promise.all([
+      const [cat, t, commentsRes] = await Promise.all([
         communityApi.getCategory(categoryId),
         communityApi.getTopic(topicId),
         communityApi.listComments({ pageSize: 100 }),
-        communityApi.listLikes({ pageSize: 100 }),
       ]);
       setCategory(cat);
       setTopic(t);
       const topicComments = commentsRes.items.filter((c) => c.topicId === topicId);
       setComments(topicComments);
-      setLikes(likesRes.items);
 
       const authorIds = [...new Set([t.authorId, ...topicComments.map((c) => c.authorId)])];
       if (authorIds.length > 0) {
         const rows = await identityApi.lookupUsers(authorIds);
         setUsers(new Map(rows.map((r) => [r.id, r])));
+      }
+
+      // Beğeni listesi login gerektirir (bkz. api.ts) — anonim ziyaretçi konuyu/yorumları okuyabilir
+      // ama kimin neyi beğendiğini görmez.
+      if (hasToken) {
+        const likesRes = await communityApi.listLikes({ pageSize: 100 });
+        setLikes(likesRes.items);
       }
 
       if (!viewCounted.current) {
@@ -73,13 +79,12 @@ export default function KonuDetay() {
     } finally {
       setLoading(false);
     }
-  }, [categoryId, topicId]);
+  }, [categoryId, topicId, hasToken]);
 
   useEffect(() => {
-    if (!hasToken) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- mount'ta veri çekme
     void load();
-  }, [hasToken, load]);
+  }, [load]);
 
   const userLabel = (userId: string) => {
     const u = users.get(userId);
@@ -95,6 +100,10 @@ export default function KonuDetay() {
     );
 
   const toggleTopicLike = async () => {
+    if (!hasToken) {
+      router.push("/giris-yap");
+      return;
+    }
     if (!topic || !myId) return;
     setBusyLike(topic.id);
     try {
@@ -113,6 +122,10 @@ export default function KonuDetay() {
   };
 
   const toggleCommentLike = async (commentId: string) => {
+    if (!hasToken) {
+      router.push("/giris-yap");
+      return;
+    }
     if (!myId) return;
     setBusyLike(commentId);
     try {
@@ -131,6 +144,10 @@ export default function KonuDetay() {
   };
 
   const postComment = async () => {
+    if (!hasToken) {
+      router.push("/giris-yap");
+      return;
+    }
     if (!newComment.trim() || !myId) return;
     setPosting(true);
     try {
@@ -145,6 +162,10 @@ export default function KonuDetay() {
   };
 
   const postReply = async (parentId: string) => {
+    if (!hasToken) {
+      router.push("/giris-yap");
+      return;
+    }
     if (!replyBody.trim() || !myId) return;
     setPosting(true);
     try {
@@ -158,14 +179,6 @@ export default function KonuDetay() {
       setPosting(false);
     }
   };
-
-  if (!hasToken) {
-    return (
-      <div className="flex min-h-[50vh] items-center justify-center p-8 text-center text-sm text-muted-foreground">
-        Bu içeriği görmek için giriş yapın.
-      </div>
-    );
-  }
 
   if (loading) {
     return (
@@ -182,6 +195,14 @@ export default function KonuDetay() {
         <Link href={`/topluluk/${categoryId}`} className="text-sm font-medium text-brand hover:underline">
           ← Topluluğa dön
         </Link>
+      </div>
+    );
+  }
+
+  if (category.isClosed && !hasToken) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center p-8 text-center text-sm text-muted-foreground">
+        Bu kapalı topluluğu görmek için giriş yapın.
       </div>
     );
   }

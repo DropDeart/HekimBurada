@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -31,6 +32,7 @@ const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 export default function Topluluk() {
   const hasToken = useHasToken();
   const myId = auth.getUserId();
+  const router = useRouter();
 
   const [categories, setCategories] = useState<CommunityCategory[]>([]);
   const [memberships, setMemberships] = useState<Membership[]>([]);
@@ -46,39 +48,45 @@ export default function Topluluk() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [catsRes, membershipsRes, topicsRes] = await Promise.all([
+      const [catsRes, topicsRes] = await Promise.all([
         communityApi.listCategories({ pageSize: 100 }),
-        communityApi.listMemberships({ pageSize: 100 }),
         communityApi.listTopics({ pageSize: 100 }),
       ]);
       setCategories(catsRes.items);
-      setMemberships(membershipsRes.items);
       setTopics(topicsRes.items);
       setLoadedAt(Date.now());
 
-      const otherMemberIds = [...new Set(membershipsRes.items.map((m) => m.userId))].filter(
-        (id) => id !== myId
-      );
-      if (otherMemberIds.length > 0) {
-        const rows = await identityApi.lookupUsers(otherMemberIds);
-        setUsers(new Map(rows.map((r) => [r.id, r])));
+      // Üyelikler (kimin hangi topluluğa üye olduğu) girişli görünüm için — anonim ziyaretçi
+      // sadece açık toplulukların listesini/içeriğini görür, üyelik login gerektirir.
+      if (hasToken) {
+        const membershipsRes = await communityApi.listMemberships({ pageSize: 100 });
+        setMemberships(membershipsRes.items);
+
+        const otherMemberIds = [...new Set(membershipsRes.items.map((m) => m.userId))].filter(
+          (id) => id !== myId
+        );
+        if (otherMemberIds.length > 0) {
+          const rows = await identityApi.lookupUsers(otherMemberIds);
+          setUsers(new Map(rows.map((r) => [r.id, r])));
+        }
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Topluluklar alınamadı.");
     } finally {
       setLoading(false);
     }
-  }, [myId]);
+  }, [myId, hasToken]);
 
   useEffect(() => {
-    if (!hasToken) {
-      return;
-    }
     // eslint-disable-next-line react-hooks/set-state-in-effect -- mount'ta veri çekme (React'in "Fetching data" deseni)
     void load();
-  }, [hasToken, load]);
+  }, [load]);
 
   const join = async (categoryId: string) => {
+    if (!hasToken) {
+      router.push("/giris-yap");
+      return;
+    }
     setBusyId(categoryId);
     try {
       await communityApi.joinCommunity(categoryId);
@@ -89,6 +97,14 @@ export default function Topluluk() {
     } finally {
       setBusyId(null);
     }
+  };
+
+  const openWizard = () => {
+    if (!hasToken) {
+      router.push("/giris-yap");
+      return;
+    }
+    setWizardOpen(true);
   };
 
   const kick = async () => {
@@ -121,15 +137,6 @@ export default function Topluluk() {
     }
     return byCategory;
   }, [topics, loadedAt]);
-
-  if (!hasToken) {
-    return (
-      <div className="flex min-h-[50vh] flex-col items-center justify-center gap-2 p-8 text-center">
-        <h1 className="text-xl font-bold text-foreground">Topluluk</h1>
-        <p className="text-sm text-muted-foreground">Topluluklarınızı görmek için giriş yapın.</p>
-      </div>
-    );
-  }
 
   if (loading) {
     return (
@@ -164,7 +171,7 @@ export default function Topluluk() {
           açar, deneyim paylaşır, yorumlarda birbirinize yanıt verirsiniz.
         </p>
         <div className="flex gap-3">
-          <Button size="lg" onClick={() => setWizardOpen(true)}>
+          <Button size="lg" onClick={openWizard}>
             Topluluk oluştur
           </Button>
           <Button size="lg" variant="outline" asChild>
@@ -190,7 +197,9 @@ export default function Topluluk() {
 
       <section className="mb-10">
         <h2 className="mb-3 text-base font-bold text-foreground">Topluluklarım</h2>
-        {myCategories.length === 0 ? (
+        {!hasToken ? (
+          <p className="text-sm text-muted-foreground">Topluluklarınızı görmek için giriş yapın.</p>
+        ) : myCategories.length === 0 ? (
           <p className="text-sm text-muted-foreground">Henüz bir topluluğa üye değilsiniz.</p>
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -334,7 +343,7 @@ export default function Topluluk() {
           <h3 className="mb-1 text-xl font-semibold text-background">Aradığın topluluk yoksa, sen kur.</h3>
           <p className="text-sm text-background/70">Üç adım: tanım, erişim, kurallar. Moderatörü sen olursun.</p>
         </div>
-        <Button size="lg" className="bg-brand text-white hover:bg-brand/90" onClick={() => setWizardOpen(true)}>
+        <Button size="lg" className="bg-brand text-white hover:bg-brand/90" onClick={openWizard}>
           Topluluk oluştur
         </Button>
       </section>

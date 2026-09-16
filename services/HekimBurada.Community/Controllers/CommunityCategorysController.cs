@@ -16,7 +16,10 @@ namespace Community.Controllers;
 [Route("api/[controller]")]
 public sealed class CommunityCategorysController : BaseController
 {
-    /// <summary>Kimliğe göre tek bir CommunityCategory getirir.</summary>
+    /// <summary>Kimliğe göre tek bir CommunityCategory getirir — herkese açık: kategori adı/açıklaması/
+    /// kapalılık durumu (içeriği değil) anonim ziyaretçiye ve arama motorlarına da gösterilir, CodeGen
+    /// dışı elle eklendi.</summary>
+    [AllowAnonymous]
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<CommunityCategoryDto>> GetById(Guid id, CancellationToken cancellationToken)
     {
@@ -24,7 +27,9 @@ public sealed class CommunityCategorysController : BaseController
         return result is null ? NotFound() : Ok(result);
     }
 
-    /// <summary>CommunityCategory kayıtlarını sayfalı listeler (query string: page, pageSize, sortBy, search).</summary>
+    /// <summary>CommunityCategory kayıtlarını sayfalı listeler (query string: page, pageSize, sortBy, search)
+    /// — herkese açık, CodeGen dışı elle eklendi (bkz. GetById doc yorumu).</summary>
+    [AllowAnonymous]
     [HttpGet]
     public async Task<ActionResult<PagedResult<CommunityCategoryDto>>> List([FromQuery] ListCommunityCategoryQuery query, CancellationToken cancellationToken)
         => Ok(await Mediator.Send(query, cancellationToken));

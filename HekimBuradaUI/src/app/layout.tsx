@@ -14,6 +14,8 @@ const poppins = Poppins({
 const DEFAULT_TITLE = "HekimBurada";
 const DEFAULT_DESCRIPTION = "Doktorlara özel 2. el pazaryeri ve topluluk platformu";
 const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL ?? "http://localhost:5080";
+/** Kanonik prod adresi — OG/Twitter/canonical mutlak URL üretimi (metadataBase) ve JSON-LD için. */
+export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://hekimburada.com";
 
 /** `lib/api.ts`'i (ve onun transitif olarak import ettiği, `useSyncExternalStore` kullanan
  * `lib/auth.ts`'i) Server Component grafiğine sokmamak için kendi başına, minimal bir fetch —
@@ -22,9 +24,11 @@ const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL ?? "http://localhost:508
  * silinir, çalışma zamanı etkisi yok), gatewayApi runtime kodu değil. */
 async function getSiteSettingsServer(): Promise<SiteSettings | null> {
   try {
-    // no-store: admin panelinden logo/favicon/SEO değiştiğinde yeniden deploy gerekmeden
-    // bir sonraki istekte yansısın diye — build-time'da (veya route cache'inde) donmasın.
-    const res = await fetch(`${GATEWAY_URL}/api/site-settings`, { cache: "no-store" });
+    // revalidate: 300 — admin panelinden logo/favicon/SEO değiştiğinde yeniden deploy gerekmeden en
+    // geç 5 dakika içinde yansısın diye; no-store'un aksine sayfaların statik/ISR üretilmesine izin
+    // verir (önceden no-store TÜM uygulamayı dinamik yapıp Cloudflare/CDN önbelleklemesini
+    // engelliyordu, bkz. proje SEO incelemesi notu).
+    const res = await fetch(`${GATEWAY_URL}/api/site-settings`, { next: { revalidate: 300 } });
     if (!res.ok) return null;
     return (await res.json()) as SiteSettings;
   } catch {
@@ -36,14 +40,32 @@ async function getSiteSettingsServer(): Promise<SiteSettings | null> {
  * erişilemezse (dev'de servis kapalıysa vb.) statik varsayılanlara sessizce düşer. */
 export async function generateMetadata(): Promise<Metadata> {
   const settings = await getSiteSettingsServer();
-  if (!settings) {
-    return { title: DEFAULT_TITLE, description: DEFAULT_DESCRIPTION };
-  }
+  const title = settings?.defaultMetaTitle || DEFAULT_TITLE;
+  const description = settings?.defaultMetaDescription || DEFAULT_DESCRIPTION;
+  const iconUrl = settings?.faviconUrl ? `${GATEWAY_URL}${settings.faviconUrl}` : undefined;
+  const ogImageUrl = settings?.logoUrl ? `${GATEWAY_URL}${settings.logoUrl}` : undefined;
 
   return {
-    title: settings.defaultMetaTitle || DEFAULT_TITLE,
-    description: settings.defaultMetaDescription || DEFAULT_DESCRIPTION,
-    icons: settings.faviconUrl ? { icon: `${GATEWAY_URL}${settings.faviconUrl}` } : undefined,
+    metadataBase: new URL(SITE_URL),
+    title: { default: title, template: `%s | ${DEFAULT_TITLE}` },
+    description,
+    icons: iconUrl ? { icon: iconUrl } : undefined,
+    alternates: { canonical: "/" },
+    openGraph: {
+      type: "website",
+      locale: "tr_TR",
+      siteName: DEFAULT_TITLE,
+      title,
+      description,
+      url: SITE_URL,
+      images: ogImageUrl ? [{ url: ogImageUrl }] : undefined,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: ogImageUrl ? [ogImageUrl] : undefined,
+    },
   };
 }
 
@@ -51,9 +73,32 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   const settings = await getSiteSettingsServer();
   const gaMeasurementId = settings?.gaMeasurementId ?? null;
 
+  const organizationJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: DEFAULT_TITLE,
+    url: SITE_URL,
+    description: settings?.defaultMetaDescription || DEFAULT_DESCRIPTION,
+    ...(settings?.logoUrl ? { logo: `${GATEWAY_URL}${settings.logoUrl}` } : {}),
+  };
+  const websiteJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: DEFAULT_TITLE,
+    url: SITE_URL,
+  };
+
   return (
     <html lang="tr" className={`${poppins.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col bg-background text-foreground">
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
+        />
         {children}
         <Toaster />
         {gaMeasurementId && (
