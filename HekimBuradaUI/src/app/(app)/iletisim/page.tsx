@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ContactForm } from "@/components/contact/ContactForm";
 import { CONTACT_COLUMNS, CONTACT_EMAIL, OFFICE_ADDRESS } from "@/lib/staticContent";
 
 export const metadata: Metadata = {
@@ -34,6 +35,11 @@ export default function IletisimPage() {
             ))}
           </div>
         </div>
+      </div>
+
+      <div className="mt-12">
+        <div className="mb-3 text-sm font-bold text-foreground">Destek Talebi Oluştur</div>
+        <ContactForm />
       </div>
 
       <div className="mt-12">

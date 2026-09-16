@@ -7,6 +7,7 @@ import {
   Home,
   LayoutGrid,
   LogOut,
+  Mail,
   MessageSquareWarning,
   Megaphone,
   Package,
@@ -49,6 +50,7 @@ export const LINKS = [
     roles: STAFF_ADMIN_ROLES,
   },
   { href: "/admin/duyurular", label: "Duyuru Yönetimi", icon: Megaphone, roles: STAFF_ADMIN_ROLES },
+  { href: "/admin/destek-talepleri", label: "Destek Talepleri", icon: Mail, roles: STAFF_ADMIN_ROLES },
   {
     href: "/admin/kurallar",
     label: "Kurallar ve Yetkiler",

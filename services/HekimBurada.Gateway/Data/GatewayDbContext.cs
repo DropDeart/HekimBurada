@@ -26,6 +26,9 @@ public sealed class GatewayDbContext : BaseForgeDbContext
     /// <summary>Anasayfa hero carousel slaytları — CodeGen dışı, elle eklendi.</summary>
     public DbSet<CarouselSlide> CarouselSlides => Set<CarouselSlide>();
 
+    /// <summary>İletişim formundan gelen destek talepleri — CodeGen dışı, elle eklendi.</summary>
+    public DbSet<ContactMessage> ContactMessages => Set<ContactMessage>();
+
     /// <inheritdoc />
     protected override void OnModelCreating(ModelBuilder builder)
     {

@@ -3,7 +3,7 @@
  * bkz. gatewayApi.listAnnouncements (Gateway servisi).
  */
 export const CONTACT_COLUMNS = {
-  support: [{ label: "Sıkça Sorulan Sorular" }, { label: "Destek Talebi Oluştur" }],
+  support: [{ label: "Sıkça Sorulan Sorular" }],
   corporate: [{ label: "Hakkımızda" }, { label: "Kariyer" }, { label: "Basın" }],
 };
 

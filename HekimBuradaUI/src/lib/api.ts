@@ -1095,6 +1095,17 @@ export interface CarouselSlide {
   isActive: boolean;
 }
 
+export type ContactMessageStatus = "Yeni" | "İnceleniyor" | "Çözüldü";
+
+export interface ContactMessage {
+  id: string;
+  name: string;
+  email: string;
+  body: string;
+  status: ContactMessageStatus;
+  createdAt: string;
+}
+
 export const gatewayApi = {
   /** Duyuru panosu/navbar herkese açık (login öncesi de görünür) — anonim. */
   listAnnouncements: (params?: { page?: number; pageSize?: number }) =>
@@ -1163,6 +1174,19 @@ export const gatewayApi = {
 
   /** Logo/favicon/carousel görseli yükler — category "site" (logo/favicon) veya "carousel". */
   uploadImage: (file: File, category: "site" | "carousel" | "announcements") => uploadMedia(GATEWAY_URL, file, category),
+
+  /** Anonim — iletişim formu, giriş gerektirmez. */
+  createContactMessage: (input: { name: string; email: string; body: string }) =>
+    gReq<string>("/api/ContactMessages", { method: "POST", body: JSON.stringify(input) }),
+
+  /** Yalnızca Admin/SuperAdmin. */
+  listContactMessages: (params?: { page?: number; pageSize?: number; search?: string; status?: ContactMessageStatus }) =>
+    gAuthedReq<PagedResult<ContactMessage>>(`/api/ContactMessages${toQuery(params)}`),
+
+  updateContactMessageStatus: (id: string, status: ContactMessageStatus) =>
+    gAuthedReq<void>(`/api/ContactMessages/${id}/status`, { method: "PUT", body: JSON.stringify({ status }) }),
+
+  deleteContactMessage: (id: string) => gAuthedReq<void>(`/api/ContactMessages/${id}`, { method: "DELETE" }),
 };
 
 /** Serilog.Sinks.Grafana.Loki'nin kısaltılmış seviye adları. */
