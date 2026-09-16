@@ -3,8 +3,18 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
-import { Check, CheckCheck, ChevronLeft, ListFilter, Search, Send } from "lucide-react";
+import { Check, CheckCheck, ChevronLeft, ListFilter, Search, Send, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/UserAvatar";
 import {
@@ -132,6 +142,8 @@ function MesajlarContent() {
   /** Mobilde (md altı) liste mi sohbet mi gösteriliyor — masaüstünde ikisi zaten yan yana, bu sadece
    * dar ekranda "ya liste ya sohbet" tek-kolonlu geçiş için (bkz. proje kararı). */
   const [mobileShowChat, setMobileShowChat] = useState(false);
+  const [deleteMessageTarget, setDeleteMessageTarget] = useState<Message | null>(null);
+  const [deletingMessage, setDeletingMessage] = useState(false);
 
   const [verifiedMap, setVerifiedMap] = useState<Map<string, boolean>>(new Map());
   const [onlineMap, setOnlineMap] = useState<Map<string, boolean>>(new Map());
@@ -288,6 +300,21 @@ function MesajlarContent() {
     },
     [myId]
   );
+
+  const removeMessage = async () => {
+    if (!deleteMessageTarget) return;
+    setDeletingMessage(true);
+    try {
+      await messagingApi.deleteMessage(deleteMessageTarget.id);
+      setMessages((prev) => prev.filter((m) => m.id !== deleteMessageTarget.id));
+      toast.success("Mesaj silindi.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Mesaj silinemedi.");
+    } finally {
+      setDeletingMessage(false);
+      setDeleteMessageTarget(null);
+    }
+  };
 
   useEffect(() => {
     // İlan/talep detayından ?offerId= ile gelindiğinde o sohbeti aç — openThread zaten okundu
@@ -703,15 +730,35 @@ function MesajlarContent() {
                   ) : (
                     <div
                       key={item.message.id}
-                      className={cn("flex flex-col", item.message.senderId === myId ? "items-end" : "items-start")}
+                      className={cn(
+                        "group flex flex-col",
+                        item.message.senderId === myId ? "items-end" : "items-start"
+                      )}
                     >
                       <div
                         className={cn(
-                          "max-w-[62%] min-w-0 rounded-xl border px-3.5 py-2.5 text-[13.5px] leading-relaxed whitespace-pre-line",
-                          item.message.senderId === myId ? "border-[#cdeedd] bg-brand-soft" : "border-border bg-white"
+                          "flex items-center gap-1.5",
+                          item.message.senderId === myId ? "flex-row-reverse" : "flex-row"
                         )}
                       >
-                        {item.message.body}
+                        <div
+                          className={cn(
+                            "max-w-[62%] min-w-0 rounded-xl border px-3.5 py-2.5 text-[13.5px] leading-relaxed whitespace-pre-line",
+                            item.message.senderId === myId ? "border-[#cdeedd] bg-brand-soft" : "border-border bg-white"
+                          )}
+                        >
+                          {item.message.body}
+                        </div>
+                        {item.message.senderId === myId && (
+                          <button
+                            type="button"
+                            onClick={() => setDeleteMessageTarget(item.message)}
+                            aria-label="Mesajı sil"
+                            className="shrink-0 rounded-md p-1 text-muted-foreground opacity-0 hover:bg-muted hover:text-destructive group-hover:opacity-100"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        )}
                       </div>
                       <div className="mt-1 flex items-center gap-1.5 px-0.5 text-[11px] text-muted-foreground">
                         <span>{formatStamp(item.message.createdAt)}</span>
@@ -847,6 +894,21 @@ function MesajlarContent() {
           </aside>
         )}
       </div>
+
+      <AlertDialog open={deleteMessageTarget !== null} onOpenChange={(next) => !next && setDeleteMessageTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Mesaj silinsin mi?</AlertDialogTitle>
+            <AlertDialogDescription>Bu mesaj kalıcı olarak silinecek. Bu işlem geri alınamaz.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Vazgeç</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void removeMessage()} disabled={deletingMessage}>
+              {deletingMessage ? "Siliniyor…" : "Sil"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

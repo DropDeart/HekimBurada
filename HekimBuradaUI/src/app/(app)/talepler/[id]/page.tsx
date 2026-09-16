@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -34,6 +34,7 @@ function currency(n: number) {
 export default function RequestDetailPage() {
   const params = useParams<{ id: string }>();
   const requestId = params.id;
+  const router = useRouter();
   const hasToken = useHasToken();
   const myId = auth.getUserId();
 
@@ -46,6 +47,8 @@ export default function RequestDetailPage() {
   const [loading, setLoading] = useState(true);
   const [closeConfirmOpen, setCloseConfirmOpen] = useState(false);
   const [closing, setClosing] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const loadAll = useCallback(async () => {
     if (!hasToken) return;
@@ -59,7 +62,7 @@ export default function RequestDetailPage() {
       setCategories(catsRes.items);
 
       const relevant = offersRes.items.filter(
-        (o) => requestRes.requesterId === myId || o.responderId === myId
+        (o) => requestRes.requesterId === myId || o.responderId === myId || auth.isAdmin()
       );
       setOffers(relevant);
       if (relevant.length > 0 && !selectedOfferId) {
@@ -88,6 +91,8 @@ export default function RequestDetailPage() {
 
   const category = categories.find((c) => c.id === request?.categoryId);
   const isRequester = request?.requesterId === myId;
+  const isAdmin = auth.isAdmin();
+  const canManage = isRequester || isAdmin;
   const selectedOffer = offers.find((o) => o.id === selectedOfferId) ?? null;
   const myOwnOffer = !isRequester ? offers.find((o) => o.responderId === myId) : null;
 
@@ -140,6 +145,21 @@ export default function RequestDetailPage() {
     }
   };
 
+  const deleteRequest = async () => {
+    if (!request) return;
+    setDeleting(true);
+    try {
+      await marketplaceApi.deleteRequest(request.id);
+      toast.success("Talep silindi.");
+      router.push("/talepler");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Talep silinemedi.");
+    } finally {
+      setDeleting(false);
+      setDeleteConfirmOpen(false);
+    }
+  };
+
   if (!hasToken) {
     return (
       <div className="flex min-h-[50vh] flex-col items-center justify-center gap-2 p-8 text-center">
@@ -189,11 +209,18 @@ export default function RequestDetailPage() {
             {request.budgetMax ? `Bütçe: ${currency(request.budgetMax)}` : "Bütçe belirtilmedi"}
           </div>
 
-          {isRequester && request.status === "open" && (
-            <Button variant="outline" onClick={() => setCloseConfirmOpen(true)} className="mb-2">
-              Talebi Kapat
-            </Button>
-          )}
+          <div className="flex gap-2">
+            {canManage && request.status === "open" && (
+              <Button variant="outline" onClick={() => setCloseConfirmOpen(true)} className="mb-2">
+                Talebi Kapat
+              </Button>
+            )}
+            {canManage && (
+              <Button variant="destructive" onClick={() => setDeleteConfirmOpen(true)} className="mb-2">
+                Talebi Sil
+              </Button>
+            )}
+          </div>
         </div>
 
         <div>
@@ -326,6 +353,23 @@ export default function RequestDetailPage() {
             <AlertDialogCancel>Vazgeç</AlertDialogCancel>
             <AlertDialogAction onClick={closeRequest} disabled={closing}>
               {closing ? "Kapatılıyor…" : "Talebi Kapat"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Talep silinsin mi?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Bu talep ve ona ait tüm teklif geçmişi kalıcı olarak kaldırılacak. Bu işlem geri alınamaz.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Vazgeç</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void deleteRequest()} disabled={deleting}>
+              {deleting ? "Siliniyor…" : "Talebi Sil"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

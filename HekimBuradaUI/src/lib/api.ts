@@ -1020,6 +1020,9 @@ export const messagingApi = {
   markMessagesRead: (offerId: string) =>
     msgAuthedReq<void>("/api/Messages/mark-read", { method: "POST", body: JSON.stringify({ offerId }) }),
 
+  /** Yalnızca kendi mesajını silebilir (backend'de sahiplik şartı var, bkz. MessagesController). */
+  deleteMessage: (id: string) => msgAuthedReq<void>(`/api/Messages/${id}`, { method: "DELETE" }),
+
   listNotifications: () => msgAuthedReq<AppNotification[]>("/api/notifications"),
 
   markAllNotificationsRead: () => msgAuthedReq<void>("/api/notifications/mark-all-read", { method: "POST" }),

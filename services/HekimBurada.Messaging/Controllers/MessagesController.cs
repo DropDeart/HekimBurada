@@ -33,20 +33,47 @@ public sealed class MessagesController : BaseController
         return CreatedAtAction(nameof(GetById), new { id }, id);
     }
 
-    /// <summary>Var olan bir Message kaydını günceller.</summary>
+    /// <summary>Var olan bir Message kaydını günceller — CodeGen dışı: sahiplik şartı elle eklendi
+    /// (aynı gerekçeyle, bkz. Delete doc yorumu).</summary>
     [HttpPut("{id:guid}")]
     public async Task<IActionResult> Update(Guid id, UpdateMessageCommand command, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(command);
+        var message = await Mediator.Send(new GetMessageByIdQuery { Id = id }, cancellationToken);
+        if (message is null)
+        {
+            return NotFound();
+        }
+
+        var callerId = AdminAuth.GetUserId(User);
+        if (callerId is null || message.SenderId != callerId)
+        {
+            return Forbid();
+        }
+
         command.Id = id;
         await Mediator.Send(command, cancellationToken);
         return NoContent();
     }
 
-    /// <summary>Bir Message kaydını siler.</summary>
+    /// <summary>Bir Message kaydını siler — CodeGen dışı: sahiplik şartı elle eklendi (önceden hiç
+    /// yoktu, herhangi bir giriş yapmış kullanıcı başkasının mesajını silebiliyordu). Messaging
+    /// servisinde staff-admin kavramı yok (bkz. AdminAuth), yalnızca gönderen silebilir.</summary>
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
     {
+        var message = await Mediator.Send(new GetMessageByIdQuery { Id = id }, cancellationToken);
+        if (message is null)
+        {
+            return NotFound();
+        }
+
+        var callerId = AdminAuth.GetUserId(User);
+        if (callerId is null || message.SenderId != callerId)
+        {
+            return Forbid();
+        }
+
         await Mediator.Send(new DeleteMessageCommand { Id = id }, cancellationToken);
         return NoContent();
     }
