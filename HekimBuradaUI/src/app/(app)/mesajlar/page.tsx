@@ -167,24 +167,54 @@ function MesajlarContent() {
       setRequestsById(requestMap);
       setCategories(categoriesRes.items);
 
+      // İlan/talep silinince (soft-delete) global query filter yüzünden listingMap/requestMap'te hiç
+      // görünmüyor — daha önce bu durumda thread tamamen düşürülüyordu, mesaj geçmişi hâlâ DB'de
+      // olsa da hiçbir kullanıcıya (alıcı/satıcı ya da requester/responder fark etmez) hiçbir zaman
+      // görünmüyordu (bkz. proje notu: "Mesajlar" kritik hata incelemesi). Karşı tarafı Offer/
+      // RequestOffer'ın kendi alanlarından çıkaramadığımız durumda (biz satıcıysak/requester'sak ve
+      // ilan/talep silinmişse) mesajların gönderen bilgisinden geriye dönük çıkarıyoruz.
       const ilanThreads: Thread[] = offersRes.items.flatMap((o) => {
         const listing = listingMap.get(o.listingId);
-        if (!listing) return [];
-        if (listing.sellerId !== myId && o.buyerId !== myId) return [];
-        const side: ThreadSide = o.buyerId === myId ? "sent" : "incoming";
-        const otherUserId = side === "sent" ? listing.sellerId : o.buyerId;
+        if (listing) {
+          if (listing.sellerId !== myId && o.buyerId !== myId) return [];
+          const side: ThreadSide = o.buyerId === myId ? "sent" : "incoming";
+          const otherUserId = side === "sent" ? listing.sellerId : o.buyerId;
+          return [
+            {
+              id: o.id,
+              kind: "ilan" as const,
+              side,
+              amount: o.amount,
+              status: o.status,
+              otherUserId,
+              navPath: `/ilanlar/${listing.id}`,
+              groupKey: `ilan:${listing.id}`,
+              groupTitle: listing.title,
+              groupMeta: `${listing.condition} · ${listing.city} · Liste: ${listing.price ? currency(listing.price) : "Belirtilmedi"}`,
+              createdAt: o.createdAt,
+              source: o,
+            },
+          ];
+        }
+
+        const iAmBuyer = o.buyerId === myId;
+        const otherUserId = iAmBuyer
+          ? messagesRes.items.find((m) => m.offerId === o.id && m.senderId !== myId)?.senderId
+          : o.buyerId;
+        const iParticipated = iAmBuyer || messagesRes.items.some((m) => m.offerId === o.id && m.senderId === myId);
+        if (!iParticipated || !otherUserId) return [];
         return [
           {
             id: o.id,
-            kind: "ilan",
-            side,
+            kind: "ilan" as const,
+            side: (iAmBuyer ? "sent" : "incoming") as ThreadSide,
             amount: o.amount,
             status: o.status,
             otherUserId,
-            navPath: `/ilanlar/${listing.id}`,
-            groupKey: `ilan:${listing.id}`,
-            groupTitle: listing.title,
-            groupMeta: `${listing.condition} · ${listing.city} · Liste: ${listing.price ? currency(listing.price) : "Belirtilmedi"}`,
+            navPath: `/ilanlar/${o.listingId}`,
+            groupKey: `ilan:${o.listingId}`,
+            groupTitle: "İlan silinmiş",
+            groupMeta: "Bu ilan artık mevcut değil",
             createdAt: o.createdAt,
             source: o,
           },
@@ -193,22 +223,46 @@ function MesajlarContent() {
 
       const talepThreads: Thread[] = requestOffersRes.items.flatMap((ro) => {
         const request = requestMap.get(ro.requestId);
-        if (!request) return [];
-        if (request.requesterId !== myId && ro.responderId !== myId) return [];
-        const side: ThreadSide = ro.responderId === myId ? "sent" : "incoming";
-        const otherUserId = side === "sent" ? request.requesterId : ro.responderId;
+        if (request) {
+          if (request.requesterId !== myId && ro.responderId !== myId) return [];
+          const side: ThreadSide = ro.responderId === myId ? "sent" : "incoming";
+          const otherUserId = side === "sent" ? request.requesterId : ro.responderId;
+          return [
+            {
+              id: ro.id,
+              kind: "talep" as const,
+              side,
+              amount: ro.amount,
+              status: ro.status,
+              otherUserId,
+              navPath: `/talepler/${request.id}`,
+              groupKey: `talep:${request.id}`,
+              groupTitle: request.title,
+              groupMeta: `Bütçe üst sınırı: ${request.budgetMax ? currency(request.budgetMax) : "Belirtilmemiş"} · ${request.status === "open" ? "Açık" : "Kapatıldı"}`,
+              createdAt: ro.createdAt,
+              source: ro,
+            },
+          ];
+        }
+
+        const iAmResponder = ro.responderId === myId;
+        const otherUserId = iAmResponder
+          ? messagesRes.items.find((m) => m.offerId === ro.id && m.senderId !== myId)?.senderId
+          : ro.responderId;
+        const iParticipated = iAmResponder || messagesRes.items.some((m) => m.offerId === ro.id && m.senderId === myId);
+        if (!iParticipated || !otherUserId) return [];
         return [
           {
             id: ro.id,
-            kind: "talep",
-            side,
+            kind: "talep" as const,
+            side: (iAmResponder ? "sent" : "incoming") as ThreadSide,
             amount: ro.amount,
             status: ro.status,
             otherUserId,
-            navPath: `/talepler/${request.id}`,
-            groupKey: `talep:${request.id}`,
-            groupTitle: request.title,
-            groupMeta: `Bütçe üst sınırı: ${request.budgetMax ? currency(request.budgetMax) : "Belirtilmemiş"} · ${request.status === "open" ? "Açık" : "Kapatıldı"}`,
+            navPath: `/talepler/${ro.requestId}`,
+            groupKey: `talep:${ro.requestId}`,
+            groupTitle: "Talep silinmiş",
+            groupMeta: "Bu talep artık mevcut değil",
             createdAt: ro.createdAt,
             source: ro,
           },
