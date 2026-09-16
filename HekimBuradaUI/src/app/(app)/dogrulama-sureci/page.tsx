@@ -1,3 +1,11 @@
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Doktor Doğrulama Süreci",
+  description:
+    "HekimBurada'da hesabınızın nasıl doğrulandığını öğrenin: kayıt, e-posta doğrulama ve doktorluk belgesi onayı adımları.",
+};
+
 export default function DogrulamaSureciPage() {
   const steps = [
     {

@@ -1,3 +1,10 @@
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Kullanım Koşulları",
+  description: "HekimBurada platformunu kullanırken uymanız gereken kurallar ve şartlar.",
+};
+
 export default function KullanimKosullariPage() {
   return (
     <div className="mx-auto max-w-2xl px-6 py-16">

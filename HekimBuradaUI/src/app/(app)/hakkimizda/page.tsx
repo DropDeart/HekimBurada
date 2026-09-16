@@ -1,3 +1,11 @@
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Hakkımızda",
+  description:
+    "HekimBurada, yalnızca doğrulanmış doktorların katılabildiği 2. el pazaryeri ve topluluk platformudur. Kimlik, diploma ve uzmanlık doğrulaması admin onayından geçer.",
+};
+
 export default function HakkimizdaPage() {
   return (
     <div className="mx-auto max-w-2xl px-6 py-16">

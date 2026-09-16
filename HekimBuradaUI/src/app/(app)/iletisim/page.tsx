@@ -1,4 +1,10 @@
+import type { Metadata } from "next";
 import { CONTACT_COLUMNS } from "@/lib/staticContent";
+
+export const metadata: Metadata = {
+  title: "İletişim",
+  description: "HekimBurada destek ve kurumsal iletişim bilgileri — sorularınız için bize ulaşın.",
+};
 
 export default function IletisimPage() {
   return (
