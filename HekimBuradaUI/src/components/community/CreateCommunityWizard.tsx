@@ -163,7 +163,7 @@ export function CreateCommunityWizard({ open, onOpenChange, onCreated }: CreateC
                   >
                     <span className="text-sm font-medium text-foreground">Kapalı grup</span>
                     <span className="text-xs text-muted-foreground">
-                      Herkes görür, yalnızca doğrulanmış doktorlar konuşabilir.
+                      İçeriği yalnızca giriş yapmış kullanıcılar görür — Google&apos;da görünmez.
                     </span>
                   </button>
                   <button
@@ -175,7 +175,10 @@ export function CreateCommunityWizard({ open, onOpenChange, onCreated }: CreateC
                     )}
                   >
                     <span className="text-sm font-medium text-foreground">Açık grup</span>
-                    <span className="text-xs text-muted-foreground">Katılım ve okuma tamamen serbest.</span>
+                    <span className="text-xs text-muted-foreground">
+                      Konu/yorumları giriş yapmadan da herkes okuyabilir, Google&apos;da görünür. Yorum/konu açmak ve
+                      katılmak yine giriş ister.
+                    </span>
                   </button>
                 </div>
               </div>

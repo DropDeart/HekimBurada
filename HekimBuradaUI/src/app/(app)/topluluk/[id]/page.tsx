@@ -23,6 +23,7 @@ import {
   type UserLookupRow,
 } from "@/lib/api";
 import { auth, useHasToken } from "@/lib/auth";
+import { EditCommunityDialog } from "@/components/community/EditCommunityDialog";
 
 const SORTS = ["Son hareket", "Yeni", "En çok beğenilen"] as const;
 
@@ -44,6 +45,7 @@ export default function TopluluDetay() {
   const [busy, setBusy] = useState(false);
   const [sort, setSort] = useState<(typeof SORTS)[number]>("Son hareket");
 
+  const [editOpen, setEditOpen] = useState(false);
   const [composerOpen, setComposerOpen] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newBody, setNewBody] = useState("");
@@ -227,6 +229,11 @@ export default function TopluluDetay() {
           </div>
         </div>
         <div className="flex gap-2">
+          {(myMembership?.isAdmin || auth.isAdmin()) && (
+            <Button variant="outline" onClick={() => setEditOpen(true)}>
+              Ayarları düzenle
+            </Button>
+          )}
           <Button onClick={() => setComposerOpen(true)} disabled={!joined}>
             Konu aç
           </Button>
@@ -345,6 +352,13 @@ export default function TopluluDetay() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <EditCommunityDialog
+        category={category}
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        onSaved={() => void load()}
+      />
     </div>
   );
 }
