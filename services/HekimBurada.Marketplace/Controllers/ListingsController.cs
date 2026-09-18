@@ -12,18 +12,48 @@ namespace Marketplace.Controllers;
 [Route("api/[controller]")]
 public sealed class ListingsController : BaseController
 {
-    /// <summary>Kimliğe göre tek bir Listing getirir.</summary>
+    /// <summary>Anonim ziyaretçinin görebileceği tek ilan durumu. Diğerleri (draft/pending/rejected/
+    /// expired/sold) yalnızca giriş yapmış kullanıcıya döner.</summary>
+    private const string PublicStatus = "active";
+
+    /// <summary>Çağıran giriş yapmış mı. [AllowAnonymous] yalnızca YETKİLENDİRMEYİ atlar, kimlik
+    /// doğrulama yine çalışır — token gönderilmişse User dolu gelir.</summary>
+    private bool IsAuthenticated => User.Identity?.IsAuthenticated == true;
+
+    /// <summary>Kimliğe göre tek bir Listing getirir — herkese açık: anonim çağrıda yalnızca yayındaki
+    /// ("active") ilan döner, taslak/onay bekleyen/reddedilen ilan 404 alır. CodeGen dışı, elle
+    /// eklendi (ilan vitrinini aramaya açmak için).</summary>
+    [AllowAnonymous]
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<ListingDto>> GetById(Guid id, CancellationToken cancellationToken)
     {
         var result = await Mediator.Send(new GetListingByIdQuery { Id = id }, cancellationToken);
-        return result is null ? NotFound() : Ok(result);
+        if (result is null)
+        {
+            return NotFound();
+        }
+
+        // Yayında olmayan ilanda 403 değil 404 dönüyoruz — 403, o kimlikte bir taslağın VAR olduğunu
+        // sızdırır; 404 var olmayan ilanla aynı cevabı verir.
+        return !IsAuthenticated && result.Status != PublicStatus ? NotFound() : Ok(result);
     }
 
-    /// <summary>Listing kayıtlarını sayfalı listeler (query string: page, pageSize, sortBy, search).</summary>
+    /// <summary>Listing kayıtlarını sayfalı listeler (query string: page, pageSize, sortBy, search)
+    /// — herkese açık. Anonim çağrıda Status daima "active"e SABİTLENİR; client'ın gönderdiği Status
+    /// bilinçli olarak yok sayılır, aksi halde ?status=draft ile yayınlanmamış ilanlar listelenebilirdi.
+    /// CodeGen dışı, elle eklendi.</summary>
+    [AllowAnonymous]
     [HttpGet]
     public async Task<ActionResult<PagedResult<ListingDto>>> List([FromQuery] ListListingQuery query, CancellationToken cancellationToken)
-        => Ok(await Mediator.Send(query, cancellationToken));
+    {
+        ArgumentNullException.ThrowIfNull(query);
+        if (!IsAuthenticated)
+        {
+            query.Status = PublicStatus;
+        }
+
+        return Ok(await Mediator.Send(query, cancellationToken));
+    }
 
     /// <summary>Yeni bir Listing oluşturur — CodeGen dışı: SellerId sahtekarlığını önlemek için
     /// çağıranın kendi kimliğiyle elle ezildi (client-supplied değerine güvenilmiyor).</summary>

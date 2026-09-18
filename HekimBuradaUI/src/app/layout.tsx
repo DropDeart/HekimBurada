@@ -12,8 +12,17 @@ const poppins = Poppins({
   weight: ["400", "500", "600", "700", "800"],
 });
 
-const DEFAULT_TITLE = "HekimBurada";
-const DEFAULT_DESCRIPTION = "Doktorlara özel 2. el pazaryeri ve topluluk platformu";
+/** Marka adı — başlık şablonunda, og:site_name'de ve JSON-LD'de sabit kalmalı; aşağıdaki
+ * DEFAULT_TITLE ile karıştırma: o, arama sonucunda görünen tıklanabilir başlık satırıdır. */
+const BRAND_NAME = "HekimBurada";
+/** Ana sayfanın (ve kendi metadata'sını vermeyen sayfaların) başlığı. Yalnızca marka adı
+ * yazmak arama sonucunda hiçbir şey anlatmıyordu — ne yaptığımızı da söylemesi gerekiyor.
+ * ~60 karakteri aşmasın, Google fazlasını kırpıyor. */
+const DEFAULT_TITLE = "HekimBurada — Doktorlara Özel 2. El Pazaryeri";
+/** Google kısa/genel açıklamaları yok sayıp snippet'i sayfa metninden kendisi yazıyordu;
+ * bu yüzden somut ve ~155 karakter. */
+const DEFAULT_DESCRIPTION =
+  "Doğrulanmış doktorların tıbbi cihaz, muayenehane ekipmanı ve daha fazlasını güvenle alıp sattığı; branşlarına özel topluluklarda buluştuğu kapalı platform.";
 const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL ?? "http://localhost:5080";
 /** Kanonik prod adresi — OG/Twitter/canonical mutlak URL üretimi (metadataBase) ve JSON-LD için. */
 export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://hekimburada.com";
@@ -48,14 +57,14 @@ export async function generateMetadata(): Promise<Metadata> {
 
   return {
     metadataBase: new URL(SITE_URL),
-    title: { default: title, template: `%s | ${DEFAULT_TITLE}` },
+    title: { default: title, template: `%s | ${BRAND_NAME}` },
     description,
     icons: iconUrl ? { icon: iconUrl, apple: iconUrl } : undefined,
     alternates: { canonical: "/" },
     openGraph: {
       type: "website",
       locale: "tr_TR",
-      siteName: DEFAULT_TITLE,
+      siteName: BRAND_NAME,
       title,
       description,
       url: SITE_URL,
@@ -77,7 +86,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   const organizationJsonLd = {
     "@context": "https://schema.org",
     "@type": "Organization",
-    name: DEFAULT_TITLE,
+    name: BRAND_NAME,
     url: SITE_URL,
     description: settings?.defaultMetaDescription || DEFAULT_DESCRIPTION,
     email: CONTACT_EMAIL,
@@ -93,7 +102,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   const websiteJsonLd = {
     "@context": "https://schema.org",
     "@type": "WebSite",
-    name: DEFAULT_TITLE,
+    name: BRAND_NAME,
     url: SITE_URL,
   };
 

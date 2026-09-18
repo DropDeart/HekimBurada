@@ -13,7 +13,10 @@ namespace Marketplace.Controllers;
 [Route("api/[controller]")]
 public sealed class CategorysController : BaseController
 {
-    /// <summary>Kimliğe göre tek bir Category getirir.</summary>
+    /// <summary>Kimliğe göre tek bir Category getirir — herkese açık: kategori ağacı kişisel veri
+    /// içermeyen global bir taksonomi, anonim ziyaretçiye ve arama motorlarına da gösterilir.
+    /// CodeGen dışı, elle eklendi.</summary>
+    [AllowAnonymous]
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<CategoryDto>> GetById(Guid id, CancellationToken cancellationToken)
     {
@@ -21,7 +24,9 @@ public sealed class CategorysController : BaseController
         return result is null ? NotFound() : Ok(result);
     }
 
-    /// <summary>Category kayıtlarını sayfalı listeler (query string: page, pageSize, sortBy, search).</summary>
+    /// <summary>Category kayıtlarını sayfalı listeler (query string: page, pageSize, sortBy, search)
+    /// — herkese açık, CodeGen dışı elle eklendi (bkz. GetById doc yorumu).</summary>
+    [AllowAnonymous]
     [HttpGet]
     public async Task<ActionResult<PagedResult<CategoryDto>>> List([FromQuery] ListCategoryQuery query, CancellationToken cancellationToken)
         => Ok(await Mediator.Send(query, cancellationToken));

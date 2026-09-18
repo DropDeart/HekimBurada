@@ -2,10 +2,14 @@ import type { MetadataRoute } from "next";
 import { SITE_URL } from "./layout";
 
 const COMMUNITY_URL = process.env.NEXT_PUBLIC_COMMUNITY_URL ?? "http://localhost:5110";
+const MARKETPLACE_URL = process.env.NEXT_PUBLIC_MARKETPLACE_URL ?? "http://localhost:5100";
 
 const STATIC_ROUTES = [
   "",
+  "/ilanlar",
+  "/talepler",
   "/hakkimizda",
+  "/sss",
   "/iletisim",
   "/gizlilik-politikasi",
   "/kullanim-kosullari",
@@ -67,6 +71,35 @@ async function fetchOpenCommunityUrls(): Promise<MetadataRoute.Sitemap> {
   }
 }
 
+/**
+ * Yayındaki ilanların URL'leri. Marketplace okuma uçları anonime açıldığı için token'sız
+ * çekilebiliyor; backend anonim çağrıda zaten yalnızca "active" ilan döndürüyor.
+ * Sitemap'in tamamı tek bir servise bağlı kalmasın diye hata durumunda boş dizi dönüyor.
+ */
+async function fetchListingUrls(): Promise<MetadataRoute.Sitemap> {
+  try {
+    const res = await fetch(`${MARKETPLACE_URL}/api/Listings?pageSize=1000`, {
+      next: { revalidate: 3600 },
+    });
+    if (!res.ok) return [];
+    const result = (await res.json()) as PagedResult<{
+      id: string;
+      status: string;
+      publishedAt: string | null;
+    }>;
+    return result.items
+      .filter((l) => l.status === "active")
+      .map((l) => ({
+        url: `${SITE_URL}/ilanlar/${l.id}`,
+        lastModified: l.publishedAt ?? undefined,
+        changeFrequency: "weekly" as const,
+        priority: 0.6,
+      }));
+  } catch {
+    return [];
+  }
+}
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticEntries: MetadataRoute.Sitemap = STATIC_ROUTES.map((path) => ({
     url: `${SITE_URL}${path}`,
@@ -74,6 +107,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: path === "" ? 1 : 0.7,
   }));
 
-  const communityEntries = await fetchOpenCommunityUrls();
-  return [...staticEntries, ...communityEntries];
+  const [communityEntries, listingEntries] = await Promise.all([
+    fetchOpenCommunityUrls(),
+    fetchListingUrls(),
+  ]);
+  return [...staticEntries, ...listingEntries, ...communityEntries];
 }

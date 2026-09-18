@@ -6,8 +6,8 @@ import { Suspense, useEffect, useState } from "react";
 import { ListingImage } from "@/components/ListingImage";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { marketplaceApi, regionsApi, type Listing, type MarketplaceCategory, type Province } from "@/lib/api";
-import { useHasToken } from "@/lib/auth";
 import { CategoryIcon } from "@/lib/categoryIcons";
+import { PAYMENT_METHODS } from "@/lib/homeContent";
 import { cn } from "@/lib/utils";
 
 // ilan-ver sayfasındaki CONDITIONS ile birebir aynı olmalı — Listing.condition serbest metin
@@ -34,7 +34,6 @@ function IlanlarContent() {
   const altId = searchParams.get("alt");
   const q = searchParams.get("q") ?? "";
 
-  const hasToken = useHasToken();
   const [categories, setCategories] = useState<MarketplaceCategory[]>([]);
   const [provinces, setProvinces] = useState<Province[]>([]);
   const [listings, setListings] = useState<Listing[]>([]);
@@ -42,15 +41,15 @@ function IlanlarContent() {
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
   const [selectedConditions, setSelectedConditions] = useState<string[]>([]);
+  /** Seçili ödeme yöntemleri (Listing.paymentMethod değerleri). Boşsa süzgeç uygulanmaz. */
+  const [selectedPayments, setSelectedPayments] = useState<string[]>([]);
   const [selectedCity, setSelectedCity] = useState("");
   const [sortBy, setSortBy] = useState<SortOption>("newest");
 
+  // Marketplace'in okuma uçları anonime açık (backend anonim çağrıda yalnızca "active" ilan döner),
+  // bu yüzden liste artık token olmadan da çekiliyor — ilan vitrini giriş duvarının arkasında değil.
   useEffect(() => {
-    if (!hasToken) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- mount'ta/oturum değişince veri çekme (React'in "Fetching data" deseni)
-      setLoading(false);
-      return;
-    }
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- mount'ta/aramada veri çekme (React'in "Fetching data" deseni)
     setLoading(true);
     Promise.all([
       marketplaceApi.listCategories({ pageSize: 100 }),
@@ -64,7 +63,7 @@ function IlanlarContent() {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [hasToken, q]);
+  }, [q]);
 
   const topCategories = categories.filter((c) => !c.parentId);
   const activeCategory = categories.find((c) => c.id === kategoriId);
@@ -81,6 +80,10 @@ function IlanlarContent() {
     setSelectedConditions((prev) => (prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c]));
   };
 
+  const togglePayment = (p: string) => {
+    setSelectedPayments((prev) => (prev.includes(p) ? prev.filter((x) => x !== p) : [...prev, p]));
+  };
+
   const min = minPrice ? Number(minPrice) : null;
   const max = maxPrice ? Number(maxPrice) : null;
   const filtered = listings
@@ -95,6 +98,7 @@ function IlanlarContent() {
       if (min !== null && (l.price ?? 0) < min) return false;
       if (max !== null && l.price !== null && l.price > max) return false;
       if (selectedConditions.length > 0 && !selectedConditions.includes(l.condition)) return false;
+      if (selectedPayments.length > 0 && !selectedPayments.includes(l.paymentMethod)) return false;
       if (selectedCity && l.city !== selectedCity) return false;
       return true;
     })
@@ -111,15 +115,6 @@ function IlanlarContent() {
           return (b.publishedAt ?? "").localeCompare(a.publishedAt ?? "");
       }
     });
-
-  if (!hasToken) {
-    return (
-      <div className="flex min-h-[50vh] flex-col items-center justify-center gap-2 p-8 text-center">
-        <h1 className="text-xl font-bold text-foreground">İlanlar</h1>
-        <p className="text-sm text-muted-foreground">İlanları görmek için giriş yapın.</p>
-      </div>
-    );
-  }
 
   return (
     <div className="px-6 py-6 sm:px-10">
@@ -252,6 +247,26 @@ function IlanlarContent() {
                     className="size-3.5"
                   />
                   {c}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* Ödeme yöntemi ayrı bir kategori DEĞİL, ilanın bir alanı — bu yüzden kategori ağacında
+              değil burada, süzgeç olarak duruyor. "Bedelsiz" ve "Bağış ile" seçenekleri bağış
+              akışının vitrinini oluşturuyor. */}
+          <div className="rounded-[10px] border border-border bg-white p-4.5">
+            <div className="mb-3 text-[13px] font-bold text-foreground">Ödeme Yöntemi</div>
+            <div className="flex flex-col gap-1.5">
+              {PAYMENT_METHODS.map((p) => (
+                <label key={p.value} className="flex items-center gap-2 text-[13px] text-foreground">
+                  <input
+                    type="checkbox"
+                    checked={selectedPayments.includes(p.value)}
+                    onChange={() => togglePayment(p.value)}
+                    className="size-3.5"
+                  />
+                  {p.label}
                 </label>
               ))}
             </div>

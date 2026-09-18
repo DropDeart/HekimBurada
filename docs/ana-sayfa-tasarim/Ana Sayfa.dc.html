@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@0.417.0/dist/umd/lucide.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+<script src="./image-slot.js"></script>
+<style>
+  body { margin: 0; background: #f5f6f7; color: #141718; font-family: Poppins, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  * { box-sizing: border-box; }
+  a { color: #141718; text-decoration: none; }
+  a:hover { color: #1f9c65; }
+  summary { cursor: pointer; list-style: none; }
+  summary::-webkit-details-marker { display: none; }
+  .hb-scroll::-webkit-scrollbar { height: 0; }
+  @keyframes hb-rise { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { [data-anim] { animation: none !important; } }
+</style>
+</helmet>
+
+<div style="font-family:Poppins,system-ui,sans-serif;background:#f5f6f7;color:#141718;min-height:100vh">
+
+  <div style="position:sticky;top:0;z-index:60;display:flex;justify-content:center;padding:8px">
+    <div style="display:flex;gap:4px;padding:4px;background:#fff;border:1px solid #dadee0;border-radius:10px;box-shadow:0 2px 10px rgba(20,23,24,.08)">
+      <button onClick="{{ setGuest }}" style="{{ guestTabStyle }}">Giriş yapılmadan</button>
+      <button onClick="{{ setMember }}" style="{{ memberTabStyle }}">Giriş yapıldıktan sonra</button>
+    </div>
+  </div>
+
+  <header style="background:#fff;border-bottom:1px solid #dadee0">
+    <div style="max-width:1200px;margin:0 auto;padding:0 24px;display:flex;align-items:center;gap:16px;height:64px">
+      <a href="#" style="flex-shrink:0;font-size:18px;font-weight:700;color:#141718">Hekim<span style="color:#1f9c65">Burada</span></a>
+      <label style="flex:1 1 auto;min-width:0;display:flex;align-items:center;gap:8px;background:#f3f4f6;border:1px solid #dadee0;border-radius:10px;padding:9px 12px;color:#6c7275">
+        <i data-lucide="search" style="width:16px;height:16px;flex-shrink:0"></i>
+        <input placeholder="İlan, kategori veya branş ara" style="border:none;background:transparent;outline:none;font-family:inherit;font-size:13px;color:#141718;width:100%;min-width:0">
+      </label>
+      <div style="flex-shrink:0;display:flex;align-items:center;gap:12px">
+        <a href="#" aria-label="Favorilerim" style="color:#141718;display:flex"><i data-lucide="heart" style="width:20px;height:20px"></i></a>
+        <sc-if value="{{ signedIn }}" hint-placeholder-val="{{ false }}">
+          <a href="#" aria-label="Mesajlar" style="color:#141718;display:flex"><i data-lucide="message-square" style="width:20px;height:20px"></i></a>
+        </sc-if>
+        <sc-if value="{{ signedIn }}" hint-placeholder-val="{{ false }}">
+          <a href="#" aria-label="Bildirimler" style="position:relative;color:#141718;display:flex">
+            <i data-lucide="bell" style="width:20px;height:20px"></i>
+            <span style="position:absolute;top:-6px;right:-6px;display:flex;width:16px;height:16px;align-items:center;justify-content:center;border-radius:999px;background:#dc2626;font-size:10px;font-weight:700;color:#fff">3</span>
+          </a>
+        </sc-if>
+        <sc-if value="{{ signedIn }}" hint-placeholder-val="{{ false }}">
+          <button style="width:36px;height:36px;border:none;border-radius:999px;background:#1f9c65;color:#fff;font-size:13px;font-weight:600;cursor:pointer">EY</button>
+        </sc-if>
+        <sc-if value="{{ guest }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;align-items:center;gap:10px">
+            <a href="#" style="font-size:13px;font-weight:600;color:#141718;white-space:nowrap">Giriş Yap</a>
+            <a href="#" style="background:#141718;color:#fff;border-radius:10px;padding:9px 14px;font-size:13px;font-weight:600;white-space:nowrap">Kayıt Ol</a>
+          </div>
+        </sc-if>
+      </div>
+    </div>
+    <div style="border-top:1px solid #eef1f2">
+      <nav class="hb-scroll" style="max-width:1200px;margin:0 auto;padding:0 24px;display:flex;align-items:center;gap:22px;height:44px;overflow-x:auto;font-size:13px;font-weight:500;white-space:nowrap">
+        <a href="#" style="color:#141718;font-weight:600">Ana Sayfa</a>
+        <a href="#kategoriler" style="color:#6c7275">Kategoriler</a>
+        <a href="#ilanlar" style="color:#6c7275">İlanlar</a>
+        <a href="#talepler" style="color:#6c7275">Talepler</a>
+        <a href="#topluluk" style="color:#6c7275">Topluluk</a>
+        <a href="#bagis" style="color:#6c7275">Bağış &amp; Bedelsiz</a>
+        <a href="#sss" style="color:#6c7275">Sıkça Sorulan Sorular</a>
+        <a href="#" style="color:#6c7275">İletişim</a>
+      </nav>
+    </div>
+  </header>
+
+  <sc-if value="{{ guest }}" hint-placeholder-val="{{ true }}">
+  <main>
+    <section style="position:relative;min-height:clamp(420px,52vw,540px);display:flex;align-items:center;overflow:hidden">
+      <div style="position:absolute;inset:0">
+        <image-slot id="hb-hero-bg" shape="rect" placeholder="Hero görseli — geniş yatay fotoğraf (hekimler / muayenehane)"></image-slot>
+      </div>
+      <div style="position:absolute;inset:0;pointer-events:none;background:linear-gradient(90deg,rgba(14,17,18,.92) 0%,rgba(14,17,18,.78) 45%,rgba(14,17,18,.25) 100%)"></div>
+      <div style="position:relative;max-width:1200px;margin:0 auto;padding:48px 24px;width:100%">
+        <div style="max-width:620px;color:#fff">
+          <div data-anim="hero" style="animation:hb-rise 0.8s ease-out both 0.1s;display:inline-flex;align-items:center;gap:8px;background:rgba(31,156,101,.18);border:1px solid rgba(56,203,137,.45);border-radius:999px;padding:6px 12px;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#38cb89">
+            <i data-lucide="shield-check" style="width:14px;height:14px"></i>Sadece doğrulanmış hekimler
+          </div>
+          <h1 data-anim="hero" style="animation:hb-rise 0.8s ease-out both 0.32s;margin:18px 0 14px;font-size:clamp(28px,4.4vw,46px);line-height:1.1;font-weight:800;text-wrap:pretty">Hekimlerin ikinci el pazaryeri ve meslektaş topluluğu.</h1>
+          <p data-anim="hero" style="animation:hb-rise 0.8s ease-out both 0.54s;margin:0 0 24px;max-width:540px;font-size:15px;line-height:1.7;color:#D7DBDC">
+            Elinizde durmayan cihazdan kitaba, telefondan mobilyaya kadar her şeyi meslektaşlarınızla alıp satın; aradığınızı bulamıyorsanız talep açın, branş topluluklarında konuşun. Üyelik diploma ve tabip odası kaydı doğrulandıktan sonra açılır.
+          </p>
+          <div data-anim="hero" style="animation:hb-rise 0.8s ease-out both 0.76s;display:flex;flex-wrap:wrap;gap:12px;margin-bottom:26px">
+            <a href="#" style="display:flex;align-items:center;gap:8px;background:#fff;color:#141718;border-radius:10px;padding:13px 20px;font-size:14px;font-weight:600">Ücretsiz Kayıt Ol<i data-lucide="arrow-right" style="width:16px;height:16px"></i></a>
+            <a href="#ilanlar" style="background:transparent;color:#fff;border:1px solid rgba(255,255,255,.35);border-radius:10px;padding:13px 20px;font-size:14px;font-weight:600">İlanlara Göz At</a>
+          </div>
+          <div data-anim="hero" style="animation:hb-rise 0.8s ease-out both 0.98s;display:flex;flex-wrap:wrap;gap:8px">
+            <span style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.12);border-radius:999px;padding:6px 12px;font-size:12px;color:#fff"><i data-lucide="badge-check" style="width:13px;height:13px;color:#38cb89"></i>Belge onaylı üyelik</span>
+            <span style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.12);border-radius:999px;padding:6px 12px;font-size:12px;color:#fff"><i data-lucide="lock" style="width:13px;height:13px;color:#38cb89"></i>Kapalı platform</span>
+            <span style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.12);border-radius:999px;padding:6px 12px;font-size:12px;color:#fff"><i data-lucide="gift" style="width:13px;height:13px;color:#38cb89"></i>Bağış ve bedelsiz ürün</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section style="max-width:1200px;margin:0 auto;padding:28px 24px 0">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:14px">
+        <div data-anim="stat" style="animation:hb-rise 0.7s ease-out both 0.35s;display:flex;align-items:center;gap:14px;background:#fff;border:1px solid #dadee0;border-radius:10px;padding:18px">
+          <span style="display:flex;width:40px;height:40px;flex-shrink:0;align-items:center;justify-content:center;border-radius:10px;background:#eaf6ef;color:#1f9c65"><i data-lucide="badge-check" style="width:20px;height:20px"></i></span>
+          <div><div style="font-size:22px;font-weight:800;line-height:1.1">1.200+</div><div style="font-size:12px;color:#6c7275">doğrulanmış doktor</div></div>
+        </div>
+        <div data-anim="stat" style="animation:hb-rise 0.7s ease-out both 0.51s;display:flex;align-items:center;gap:14px;background:#fff;border:1px solid #dadee0;border-radius:10px;padding:18px">
+          <span style="display:flex;width:40px;height:40px;flex-shrink:0;align-items:center;justify-content:center;border-radius:10px;background:#eaf6ef;color:#1f9c65"><i data-lucide="tag" style="width:20px;height:20px"></i></span>
+          <div><div style="font-size:22px;font-weight:800;line-height:1.1">3.400+</div><div style="font-size:12px;color:#6c7275">aktif ilan</div></div>
+        </div>
+        <div data-anim="stat" style="animation:hb-rise 0.7s ease-out both 0.67s;display:flex;align-items:center;gap:14px;background:#fff;border:1px solid #dadee0;border-radius:10px;padding:18px">
+          <span style="display:flex;width:40px;height:40px;flex-shrink:0;align-items:center;justify-content:center;border-radius:10px;background:#eaf6ef;color:#1f9c65"><i data-lucide="users" style="width:20px;height:20px"></i></span>
+          <div><div style="font-size:22px;font-weight:800;line-height:1.1">%100</div><div style="font-size:12px;color:#6c7275">meslektaş garantisi</div></div>
+        </div>
+        <div data-anim="stat" style="animation:hb-rise 0.7s ease-out both 0.83s;display:flex;align-items:center;gap:14px;background:#fff;border:1px solid #dadee0;border-radius:10px;padding:18px">
+          <span style="display:flex;width:40px;height:40px;flex-shrink:0;align-items:center;justify-content:center;border-radius:10px;background:#eaf6ef;color:#1f9c65"><i data-lucide="messages-square" style="width:20px;height:20px"></i></span>
+          <div><div style="font-size:22px;font-weight:800;line-height:1.1">38</div><div style="font-size:12px;color:#6c7275">branş topluluğu</div></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="kategoriler" style="max-width:1200px;margin:0 auto;padding:40px 24px 8px">
+      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:baseline;justify-content:space-between">
+        <h2 style="margin:0;font-size:22px;font-weight:700">Kategoriler</h2>
+        <a href="#ilanlar" style="font-size:13px;font-weight:600;color:#1f9c65">Tüm kategoriler</a>
+      </div>
+      <p style="margin:6px 0 18px;font-size:13px;color:#6c7275">İkinci el ürünlerden devren muayenehaneye, bağışlanan ekipmandan iş ilanına kadar hepsi meslektaşlarınızdan.</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px">
+        <a data-anim="cat" data-rise href="#ilanlar" style="animation:hb-rise 0.65s ease-out both 0.20s;background:#fff;border:1px solid #dadee0;border-radius:10px;padding:18px" style-hover="border-color:#1f9c65">
+          <i data-lucide="stethoscope" style="width:20px;height:20px;color:#1f9c65"></i>
+          <div style="margin:10px 0 4px;font-size:15px;font-weight:700">Tıbbi Cihaz &amp; Ekipman</div>
+          <div style="font-size:12px;color:#6c7275">İkinci el cihaz, sarf, mobilya</div>
+        </a>
+        <a data-anim="cat" data-rise href="#ilanlar" style="animation:hb-rise 0.65s ease-out both 0.29s;background:#fff;border:1px solid #dadee0;border-radius:10px;padding:18px" style-hover="border-color:#1f9c65">
+          <i data-lucide="laptop" style="width:20px;height:20px;color:#1f9c65"></i>
+          <div style="margin:10px 0 4px;font-size:15px;font-weight:700">Elektronik</div>
+          <div style="font-size:12px;color:#6c7275">Bilgisayar, tablet, kamera</div>
+        </a>
+        <a data-anim="cat" data-rise href="#ilanlar" style="animation:hb-rise 0.65s ease-out both 0.38s;background:#fff;border:1px solid #dadee0;border-radius:10px;padding:18px" style-hover="border-color:#1f9c65">
+          <i data-lucide="smartphone" style="width:20px;height:20px;color:#1f9c65"></i>
+          <div style="margin:10px 0 4px;font-size:15px;font-weight:700">Telefon &amp; Aksesuar</div>
+          <div style="font-size:12px;color:#6c7275">Akıllı telefon, saat, kulaklık</div>
+        </a>
+        <a data-anim="cat" data-rise href="#ilanlar" style="animation:hb-rise 0.65s ease-out both 0.47s;background:#fff;border:1px solid #dadee0;border-radius:10px;padding:18px" style-hover="border-color:#1f9c65">
+          <i data-lucide="book" style="width:20px;height:20px;color:#1f9c65"></i>
+          <div style="margin:10px 0 4px;font-size:15px;font-weight:700">Kitap &amp; Eğitim</div>
+          <div style="font-size:12px;color:#6c7275">TUS kaynakları, atlas, kurs</div>
+        </a>
+        <a data-anim="cat" data-rise href="#ilanlar" style="animation:hb-rise 0.65s ease-out both 0.56s;background:#fff;border:1px solid #dadee0;border-radius:10px;padding:18px" style-hover="border-color:#1f9c65">
+          <i data-lucide="armchair" style="width:20px;height:20px;color:#1f9c65"></i>
+          <div style="margin:10px 0 4px;font-size:15px;font-weight:700">Ev &amp; Mobilya</div>
+          <div style="font-size:12px;color:#6c7275">Mobilya, beyaz eşya, dekor</div>
+        </a>
+        <a data-anim="cat" data-rise href="#ilanlar" style="animation:hb-rise 0.65s ease-out both 0.65s;background:#fff;border:1px solid #dadee0;border-radius:10px;padding:18px" style-hover="border-color:#1f9c65">
+          <i data-lucide="shirt" style="width:20px;height:20px;color:#1f9c65"></i>
+          <div style="margin:10px 0 4px;font-size:15px;font-weight:700">Giyim &amp; Aksesuar</div>
+          <div style="font-size:12px;color:#6c7275">Önlük, ayakkabı, çanta</div>
+        </a>
+        <a data-anim="cat" data-rise href="#ilanlar" style="animation:hb-rise 0.65s ease-out both 0.74s;background:#fff;border:1px solid #dadee0;border-radius:10px;padding:18px" style-hover="border-color:#1f9c65">
+          <i data-lucide="baby" style="width:20px;height:20px;color:#1f9c65"></i>
+          <div style="margin:10px 0 4px;font-size:15px;font-weight:700">Anne &amp; Bebek</div>
+          <div style="font-size:12px;color:#6c7275">Puset, oyuncak, bebek eşyası</div>
+        </a>
+        <a data-anim="cat" data-rise href="#ilanlar" style="animation:hb-rise 0.65s ease-out both 0.83s;background:#fff;border:1px solid #dadee0;border-radius:10px;padding:18px" style-hover="border-color:#1f9c65">
+          <i data-lucide="dumbbell" style="width:20px;height:20px;color:#1f9c65"></i>
+          <div style="margin:10px 0 4px;font-size:15px;font-weight:700">Spor &amp; Hobi</div>
+          <div style="font-size:12px;color:#6c7275">Bisiklet, kamp, müzik</div>
+        </a>
+        <a data-anim="cat" data-rise href="#ilanlar" style="animation:hb-rise 0.65s ease-out both 0.92s;background:#fff;border:1px solid #dadee0;border-radius:10px;padding:18px" style-hover="border-color:#1f9c65">
+          <i data-lucide="house" style="width:20px;height:20px;color:#1f9c65"></i>
+          <div style="margin:10px 0 4px;font-size:15px;font-weight:700">Emlak &amp; Araç</div>
+          <div style="font-size:12px;color:#6c7275">Konut, arsa, otomobil</div>
+        </a>
+        <a data-anim="cat" data-rise href="#ilanlar" style="animation:hb-rise 0.65s ease-out both 1.01s;background:#fff;border:1px solid #dadee0;border-radius:10px;padding:18px" style-hover="border-color:#1f9c65">
+          <i data-lucide="briefcase" style="width:20px;height:20px;color:#1f9c65"></i>
+          <div style="margin:10px 0 4px;font-size:15px;font-weight:700">Devren &amp; Kariyer</div>
+          <div style="font-size:12px;color:#6c7275">Devren muayenehane, iş ilanı</div>
+        </a>
+        <a data-anim="cat" data-rise href="#bagis" style="animation:hb-rise 0.65s ease-out both 1.10s;background:#fff;border:1px solid #dadee0;border-radius:10px;padding:18px" style-hover="border-color:#1f9c65">
+          <i data-lucide="gift" style="width:20px;height:20px;color:#1f9c65"></i>
+          <div style="margin:10px 0 4px;font-size:15px;font-weight:700">Bağış &amp; Bedelsiz</div>
+          <div style="font-size:12px;color:#6c7275">Bedelsiz ürün, bağışa destek</div>
+        </a>
+        <a data-anim="cat" data-rise href="#topluluk" style="animation:hb-rise 0.65s ease-out both 1.19s;background:#fff;border:1px solid #dadee0;border-radius:10px;padding:18px" style-hover="border-color:#1f9c65">
+          <i data-lucide="messages-square" style="width:20px;height:20px;color:#1f9c65"></i>
+          <div style="margin:10px 0 4px;font-size:15px;font-weight:700">Topluluk</div>
+          <div style="font-size:12px;color:#6c7275">Branş grupları, soru-cevap</div>
+        </a>
+      </div>
+    </section>
+
+    <section id="nasil-calisir" style="max-width:1200px;margin:0 auto;padding:44px 24px 8px">
+      <h2 style="margin:0 0 6px;font-size:22px;font-weight:700">Nasıl çalışır?</h2>
+      <p style="margin:0 0 20px;font-size:13px;color:#6c7275">Üç adım: belgeni onaylat, ilanını yayınla, teklifleri platform içinde yönet.</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(255px,1fr));gap:14px">
+        <div data-anim="step" style="animation:hb-rise 0.7s ease-out both 0.15s;background:#fff;border:1px solid #dadee0;border-radius:10px;padding:20px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+            <span style="display:flex;width:28px;height:28px;align-items:center;justify-content:center;border-radius:8px;background:#eaf6ef;color:#1f9c65;font-size:13px;font-weight:700">1</span>
+            <div style="font-size:15px;font-weight:700">Kayıt ol, belgeni yükle</div>
+          </div>
+          <p style="margin:0;font-size:13px;line-height:1.65;color:#6c7275">E-posta ile kayıt olup diplomanı ve tabip odası kaydını yüklüyorsun. Onay gelene kadar profilin gizli kalıyor; ilan ve topluluklar açılmıyor.</p>
+        </div>
+        <div data-anim="step" style="animation:hb-rise 0.7s ease-out both 0.4s;background:#fff;border:1px solid #dadee0;border-radius:10px;padding:20px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+            <span style="display:flex;width:28px;height:28px;align-items:center;justify-content:center;border-radius:8px;background:#eaf6ef;color:#1f9c65;font-size:13px;font-weight:700">2</span>
+            <div style="font-size:15px;font-weight:700">İlan ver ya da talep aç</div>
+          </div>
+          <p style="margin:0;font-size:13px;line-height:1.65;color:#6c7275">Satmak, bağışlamak veya bedelsiz vermek istediğin ürünü fotoğraf, fiyat ve şehirle yayınla. Aradığın bir şey varsa bütçeni yazıp talep aç.</p>
+        </div>
+        <div data-anim="step" style="animation:hb-rise 0.7s ease-out both 0.65s;background:#fff;border:1px solid #dadee0;border-radius:10px;padding:20px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+            <span style="display:flex;width:28px;height:28px;align-items:center;justify-content:center;border-radius:8px;background:#eaf6ef;color:#1f9c65;font-size:13px;font-weight:700">3</span>
+            <div style="font-size:15px;font-weight:700">Teklifleş, mesajlaş, teslim et</div>
+          </div>
+          <p style="margin:0;font-size:13px;line-height:1.65;color:#6c7275">Gelen teklifleri kabul et veya reddet, detayları mesajlarda konuş. Karşındaki de doğrulanmış hekim olduğu için kimle konuştuğunu biliyorsun.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="ilanlar" style="max-width:1200px;margin:0 auto;padding:44px 24px 8px">
+      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:baseline;justify-content:space-between">
+        <h2 style="margin:0;font-size:22px;font-weight:700">Öne Çıkan İlanlar</h2>
+        <a href="#" style="font-size:13px;font-weight:600;color:#1f9c65">Tüm ilanlar</a>
+      </div>
+      <p style="margin:6px 0 18px;font-size:13px;color:#6c7275">Bu hafta en çok ilgi gören ilanlar. Fiyatı satıcı hekim belirler; teklif verebilir, elden teslim veya kargo seçebilirsin.</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px">
+        <a href="#" style="grid-column:span 2;display:flex;flex-wrap:wrap;overflow:hidden;background:#fff;border:1px solid #dadee0;border-radius:10px">
+          <div style="flex:1 1 260px;min-height:220px;position:relative">
+            <image-slot id="hb-featured" shape="rect" placeholder="Öne çıkan ilan görseli"></image-slot>
+          </div>
+          <div style="flex:1 1 260px;display:flex;flex-direction:column;justify-content:center;padding:22px">
+            <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
+              <span style="border-radius:8px;background:#eaf6ef;padding:3px 8px;font-size:11px;font-weight:700;color:#1f9c65">ÖNE ÇIKAN</span>
+              <span style="border-radius:8px;background:#f3f4f6;padding:3px 8px;font-size:11px;font-weight:700;color:#6c7275">Elden teslim</span>
+            </div>
+            <div style="margin-bottom:6px;font-size:18px;font-weight:700">Mindray DC-70 Ultrason · 2 prob dahil</div>
+            <div style="margin-bottom:10px;font-size:18px;font-weight:700;color:#1f9c65">248.000 ₺</div>
+            <div style="font-size:12px;color:#6c7275">Ankara · Dr. M. K. (Radyoloji) · 3 gün önce</div>
+          </div>
+        </a>
+        <a href="#" style="overflow:hidden;background:#fff;border:1px solid #dadee0;border-radius:10px">
+          <div style="height:150px;position:relative"><image-slot id="hb-l1" shape="rect" placeholder="İlan görseli"></image-slot></div>
+          <div style="padding:14px">
+            <div style="margin-bottom:4px;font-size:14px;font-weight:700">MacBook Air M2 · 16 GB</div>
+            <div style="font-size:15px;font-weight:700;color:#1f9c65">28.500 ₺</div>
+            <div style="margin-top:6px;font-size:12px;color:#6c7275">İzmir · 2 gün önce</div>
+          </div>
+        </a>
+        <a href="#" style="overflow:hidden;background:#fff;border:1px solid #dadee0;border-radius:10px">
+          <div style="height:150px;position:relative"><image-slot id="hb-l2" shape="rect" placeholder="İlan görseli"></image-slot></div>
+          <div style="padding:14px">
+            <div style="margin-bottom:4px;font-size:14px;font-weight:700">Dental Ünit · Otoklav ile</div>
+            <div style="font-size:15px;font-weight:700;color:#1f9c65">96.500 ₺</div>
+            <div style="margin-top:6px;font-size:12px;color:#6c7275">İstanbul · dün</div>
+          </div>
+        </a>
+        <a href="#" style="overflow:hidden;background:#fff;border:1px solid #dadee0;border-radius:10px">
+          <div style="height:150px;position:relative"><image-slot id="hb-l3" shape="rect" placeholder="İlan görseli"></image-slot></div>
+          <div style="padding:14px">
+            <div style="margin-bottom:4px;font-size:14px;font-weight:700">TUS Kaynak Seti (18 kitap)</div>
+            <div style="font-size:15px;font-weight:700;color:#1f9c65">2.250 ₺</div>
+            <div style="margin-top:6px;font-size:12px;color:#6c7275">Ankara · 4 gün önce</div>
+          </div>
+        </a>
+        <a href="#" style="overflow:hidden;background:#fff;border:1px solid #dadee0;border-radius:10px">
+          <div style="height:150px;position:relative"><image-slot id="hb-l4" shape="rect" placeholder="İlan görseli"></image-slot></div>
+          <div style="padding:14px">
+            <div style="margin-bottom:4px;font-size:14px;font-weight:700">Muayenehane Devri · Çankaya</div>
+            <div style="font-size:15px;font-weight:700;color:#1f9c65">Görüşülür</div>
+            <div style="margin-top:6px;font-size:12px;color:#6c7275">Ankara · 5 gün önce</div>
+          </div>
+        </a>
+        <a href="#" style="overflow:hidden;background:#fff;border:1px solid #dadee0;border-radius:10px">
+          <div style="height:150px;position:relative"><image-slot id="hb-l5" shape="rect" placeholder="İlan görseli"></image-slot></div>
+          <div style="padding:14px">
+            <div style="display:inline-block;margin-bottom:6px;border-radius:8px;background:#eaf6ef;padding:2px 8px;font-size:11px;font-weight:700;color:#1f9c65">BEDELSİZ</div>
+            <div style="margin-bottom:4px;font-size:14px;font-weight:700">Muayene Taburesi (2 adet)</div>
+            <div style="font-size:15px;font-weight:700;color:#1f9c65">Ücretsiz</div>
+            <div style="margin-top:6px;font-size:12px;color:#6c7275">Bursa · dün</div>
+          </div>
+        </a>
+        <a href="#" style="overflow:hidden;background:#fff;border:1px solid #dadee0;border-radius:10px">
+          <div style="height:150px;position:relative"><image-slot id="hb-l6" shape="rect" placeholder="İlan görseli"></image-slot></div>
+          <div style="padding:14px">
+            <div style="margin-bottom:4px;font-size:14px;font-weight:700">Bebek Arabası · Cybex</div>
+            <div style="font-size:15px;font-weight:700;color:#1f9c65">6.800 ₺</div>
+            <div style="margin-top:6px;font-size:12px;color:#6c7275">Konya · 3 gün önce</div>
+          </div>
+        </a>
+      </div>
+    </section>
+
+    <section id="talepler" style="max-width:1200px;margin:0 auto;padding:44px 24px 8px">
+      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:baseline;justify-content:space-between">
+        <h2 style="margin:0;font-size:22px;font-weight:700">Talepler</h2>
+        <a href="#" style="font-size:13px;font-weight:600;color:#1f9c65">Tümünü gör</a>
+      </div>
+      <p style="margin:6px 0 18px;font-size:13px;color:#6c7275">Meslektaşlarınızın aradığı ürünler. Elinizde varsa doğrudan teklif verin — durum ve tarih her kartta yazıyor.</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(255px,1fr));gap:14px">
+        <div style="background:#fff;border:1px solid #dadee0;border-radius:10px;padding:16px">
+          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
+            <span style="display:inline-flex;align-items:center;gap:4px;border-radius:8px;background:#eaf6ef;padding:3px 8px;font-size:11px;font-weight:700;color:#1f9c65"><i data-lucide="circle-dot" style="width:11px;height:11px"></i>Açık</span>
+            <span style="display:inline-flex;align-items:center;gap:4px;border-radius:8px;background:#fdeceb;padding:3px 8px;font-size:11px;font-weight:700;color:#c02718"><i data-lucide="zap" style="width:11px;height:11px"></i>Acil</span>
+            <span style="border-radius:8px;background:#f3f4f6;padding:3px 8px;font-size:11px;font-weight:700;color:#6c7275">Dermatoloji</span>
+          </div>
+          <div style="margin-bottom:6px;font-size:14px;font-weight:700">İkinci el dermatoskop arıyorum</div>
+          <div style="margin-bottom:12px;font-size:12px;color:#6c7275">Bütçe: 15.000 ₺ · İstanbul</div>
+          <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;border-top:1px solid #eef1f2;padding-top:10px;font-size:12px;color:#6c7275">
+            <span style="display:inline-flex;align-items:center;gap:5px"><i data-lucide="clock" style="width:12px;height:12px"></i>2 saat önce</span>
+            <span style="display:inline-flex;align-items:center;gap:5px"><i data-lucide="handshake" style="width:12px;height:12px"></i>4 teklif</span>
+          </div>
+        </div>
+        <div style="background:#fff;border:1px solid #dadee0;border-radius:10px;padding:16px">
+          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
+            <span style="display:inline-flex;align-items:center;gap:4px;border-radius:8px;background:#eaf6ef;padding:3px 8px;font-size:11px;font-weight:700;color:#1f9c65"><i data-lucide="circle-dot" style="width:11px;height:11px"></i>Açık</span>
+            <span style="border-radius:8px;background:#f3f4f6;padding:3px 8px;font-size:11px;font-weight:700;color:#6c7275">Ev &amp; Mobilya</span>
+          </div>
+          <div style="margin-bottom:6px;font-size:14px;font-weight:700">Bekleme salonu için koltuk takımı</div>
+          <div style="margin-bottom:12px;font-size:12px;color:#6c7275">Bütçe: 40.000 ₺ · Ankara</div>
+          <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;border-top:1px solid #eef1f2;padding-top:10px;font-size:12px;color:#6c7275">
+            <span style="display:inline-flex;align-items:center;gap:5px"><i data-lucide="clock" style="width:12px;height:12px"></i>dün</span>
+            <span style="display:inline-flex;align-items:center;gap:5px"><i data-lucide="handshake" style="width:12px;height:12px"></i>2 teklif</span>
+          </div>
+        </div>
+        <div style="background:#fff;border:1px solid #dadee0;border-radius:10px;padding:16px">
+          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
+            <span style="display:inline-flex;align-items:center;gap:4px;border-radius:8px;background:#eaf6ef;padding:3px 8px;font-size:11px;font-weight:700;color:#1f9c65"><i data-lucide="circle-dot" style="width:11px;height:11px"></i>Açık</span>
+            <span style="border-radius:8px;background:#fff6e6;padding:3px 8px;font-size:11px;font-weight:700;color:#8a5a00">Son 1 gün</span>
+            <span style="border-radius:8px;background:#f3f4f6;padding:3px 8px;font-size:11px;font-weight:700;color:#6c7275">Diş Hekimliği</span>
+          </div>
+          <div style="margin-bottom:6px;font-size:14px;font-weight:700">Kullanılmış otoklav (18 L üstü)</div>
+          <div style="margin-bottom:12px;font-size:12px;color:#6c7275">Bütçe belirtilmedi · İzmir</div>
+          <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;border-top:1px solid #eef1f2;padding-top:10px;font-size:12px;color:#6c7275">
+            <span style="display:inline-flex;align-items:center;gap:5px"><i data-lucide="clock" style="width:12px;height:12px"></i>3 gün önce</span>
+            <span style="display:inline-flex;align-items:center;gap:5px"><i data-lucide="handshake" style="width:12px;height:12px"></i>Teklif yok</span>
+          </div>
+        </div>
+        <div style="background:#FAFBFB;border:1px solid #dadee0;border-radius:10px;padding:16px">
+          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
+            <span style="display:inline-flex;align-items:center;gap:4px;border-radius:8px;background:#f3f4f6;padding:3px 8px;font-size:11px;font-weight:700;color:#6c7275"><i data-lucide="circle-check" style="width:11px;height:11px"></i>Kapandı</span>
+            <span style="border-radius:8px;background:#f3f4f6;padding:3px 8px;font-size:11px;font-weight:700;color:#6c7275">Elektronik</span>
+          </div>
+          <div style="margin-bottom:6px;font-size:14px;font-weight:700">Taşınabilir ekran · sunum için</div>
+          <div style="margin-bottom:12px;font-size:12px;color:#6c7275">Bütçe: 8.000 ₺ · Antalya</div>
+          <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;border-top:1px solid #eef1f2;padding-top:10px;font-size:12px;color:#6c7275">
+            <span style="display:inline-flex;align-items:center;gap:5px"><i data-lucide="clock" style="width:12px;height:12px"></i>1 hafta önce</span>
+            <span style="display:inline-flex;align-items:center;gap:5px"><i data-lucide="check" style="width:12px;height:12px"></i>Anlaşıldı</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="dogrulama" style="max-width:1200px;margin:0 auto;padding:44px 24px 8px">
+      <div style="background:#141718;border-radius:10px;overflow:hidden;padding:clamp(24px,4vw,40px)">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:36px;align-items:center">
+          <div>
+            <div style="display:inline-flex;align-items:center;gap:8px;border-radius:999px;background:rgba(31,156,101,.2);padding:6px 12px;font-size:12px;font-weight:700;color:#38cb89">
+              <i data-lucide="shield-check" style="width:14px;height:14px"></i>Doğrulama süreci
+            </div>
+            <h2 style="margin:16px 0 12px;font-size:clamp(20px,2.8vw,28px);font-weight:800;color:#fff;text-wrap:pretty">Platforma kimin girdiğini biliyoruz — bu yüzden siz de biliyorsunuz.</h2>
+            <p style="margin:0 0 20px;font-size:14px;line-height:1.7;color:#B7BCBE">Her üyelik dört adımdan geçer. Adımlar tamamlanmadan ilan verme, teklif ve topluluk erişimi açılmaz.</p>
+            <a href="#" style="display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:#38cb89">Doğrulama sürecini oku<i data-lucide="arrow-right" style="width:15px;height:15px"></i></a>
+          </div>
+          <div data-verify-track style="position:relative;padding-left:34px">
+            <div style="position:absolute;left:11px;top:6px;bottom:6px;width:2px;background:#2A2E30"></div>
+            <div data-verify-line style="position:absolute;left:11px;top:6px;bottom:6px;width:2px;background:#38cb89;transform-origin:top center"></div>
+            <div data-verify-step style="position:relative;margin-bottom:22px">
+              <span data-verify-dot style="position:absolute;left:-34px;top:2px;display:flex;width:24px;height:24px;align-items:center;justify-content:center;border-radius:999px;background:#38cb89;color:#0e1112"><i data-lucide="user-plus" style="width:13px;height:13px"></i></span>
+              <div style="font-size:14px;font-weight:700;color:#fff">Kayıt ve kimlik bilgisi</div>
+              <div style="margin-top:3px;font-size:13px;line-height:1.6;color:#B7BCBE">Ad, soyad ve iletişim bilgisi doğrulanır.</div>
+            </div>
+            <div data-verify-step style="position:relative;margin-bottom:22px">
+              <span data-verify-dot style="position:absolute;left:-34px;top:2px;display:flex;width:24px;height:24px;align-items:center;justify-content:center;border-radius:999px;background:#38cb89;color:#0e1112"><i data-lucide="file-check" style="width:13px;height:13px"></i></span>
+              <div style="font-size:14px;font-weight:700;color:#fff">Diploma kontrolü</div>
+              <div style="margin-top:3px;font-size:13px;line-height:1.6;color:#B7BCBE">Diploma ve uzmanlık belgesi kişi bazlı incelenir.</div>
+            </div>
+            <div data-verify-step style="position:relative;margin-bottom:22px">
+              <span data-verify-dot style="position:absolute;left:-34px;top:2px;display:flex;width:24px;height:24px;align-items:center;justify-content:center;border-radius:999px;background:#38cb89;color:#0e1112"><i data-lucide="building-2" style="width:13px;height:13px"></i></span>
+              <div style="font-size:14px;font-weight:700;color:#fff">Tabip odası kaydı</div>
+              <div style="margin-top:3px;font-size:13px;line-height:1.6;color:#B7BCBE">Aktif oda üyeliği teyit edilmeden ilan verme açılmaz.</div>
+            </div>
+            <div data-verify-step style="position:relative">
+              <span data-verify-dot style="position:absolute;left:-34px;top:2px;display:flex;width:24px;height:24px;align-items:center;justify-content:center;border-radius:999px;background:#38cb89;color:#0e1112"><i data-lucide="badge-check" style="width:13px;height:13px"></i></span>
+              <div style="font-size:14px;font-weight:700;color:#fff">Onay ve kapalı erişim</div>
+              <div style="margin-top:3px;font-size:13px;line-height:1.6;color:#B7BCBE">Onaydan sonra ilanlar, talepler ve topluluklar açılır; içerik dışarıya kapalı kalır.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="bagis" style="max-width:1200px;margin:0 auto;padding:44px 24px 8px">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:24px;align-items:center;background:#fff;border:1px solid #dadee0;border-radius:10px;overflow:hidden">
+        <div style="padding:28px">
+          <div style="display:inline-flex;align-items:center;gap:8px;border-radius:999px;background:#eaf6ef;padding:6px 12px;font-size:12px;font-weight:700;color:#1f9c65">
+            <i data-lucide="gift" style="width:14px;height:14px"></i>Bağış &amp; bedelsiz
+          </div>
+          <h2 style="margin:16px 0 12px;font-size:22px;font-weight:700;text-wrap:pretty">Satmak zorunda değilsiniz — bağışlayabilir, bedelsiz verebilirsiniz.</h2>
+          <p style="margin:0 0 16px;font-size:13px;line-height:1.7;color:#6c7275">İlanı yayınlarken ödeme yöntemi olarak <strong style="color:#141718">bağış ile ödeme</strong>, <strong style="color:#141718">bedelsiz ürün</strong> veya <strong style="color:#141718">referans linkli indirim</strong> seçebilirsiniz. Bağışta alıcı, bedelini seçtiğiniz kuruma bağışlar ve makbuzu ilana ekler.</p>
+          <div style="display:flex;flex-wrap:wrap;gap:8px">
+            <span style="border-radius:8px;background:#f3f4f6;padding:5px 10px;font-size:12px;font-weight:600;color:#141718">Bağış ile ödeme</span>
+            <span style="border-radius:8px;background:#f3f4f6;padding:5px 10px;font-size:12px;font-weight:600;color:#141718">Bedelsiz ürün</span>
+            <span style="border-radius:8px;background:#f3f4f6;padding:5px 10px;font-size:12px;font-weight:600;color:#141718">Referans linkli indirim</span>
+            <span style="border-radius:8px;background:#f3f4f6;padding:5px 10px;font-size:12px;font-weight:600;color:#141718">Elden teslim</span>
+          </div>
+        </div>
+        <div style="min-height:280px;position:relative">
+          <image-slot id="hb-bagis" shape="rect" placeholder="Bağış / bedelsiz ürün temalı fotoğraf"></image-slot>
+        </div>
+      </div>
+    </section>
+
+    <section id="topluluk" style="max-width:1200px;margin:0 auto;padding:44px 24px 8px">
+      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:baseline;justify-content:space-between">
+        <h2 style="margin:0;font-size:22px;font-weight:700">Branş Toplulukları</h2>
+        <a href="#" style="font-size:13px;font-weight:600;color:#1f9c65">Tüm topluluklar</a>
+      </div>
+      <p style="margin:6px 0 18px;font-size:13px;color:#6c7275">Cihaz tavsiyesi, servis deneyimi, muayenehane yönetimi — branşınızın kapalı grubunda.</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px">
+        <a href="#" style="background:#fff;border:1px solid #dadee0;border-radius:10px;padding:18px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <i data-lucide="heart-pulse" style="width:20px;height:20px;color:#1f9c65"></i>
+            <span style="font-size:11px;color:#6c7275">842 üye</span>
+          </div>
+          <div style="font-size:15px;font-weight:700">Kardiyoloji</div>
+          <div style="margin-top:4px;font-size:12px;color:#6c7275">Son konu: Holter cihazı karşılaştırması</div>
+        </a>
+        <a href="#" style="background:#fff;border:1px solid #dadee0;border-radius:10px;padding:18px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <i data-lucide="smile" style="width:20px;height:20px;color:#1f9c65"></i>
+            <span style="font-size:11px;color:#6c7275">1.310 üye</span>
+          </div>
+          <div style="font-size:15px;font-weight:700">Diş Hekimliği</div>
+          <div style="margin-top:4px;font-size:12px;color:#6c7275">Son konu: Ünit servisinde yedek parça</div>
+        </a>
+        <a href="#" style="background:#fff;border:1px solid #dadee0;border-radius:10px;padding:18px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <i data-lucide="briefcase" style="width:20px;height:20px;color:#1f9c65"></i>
+            <span style="font-size:11px;color:#6c7275">1.040 üye</span>
+          </div>
+          <div style="font-size:15px;font-weight:700">Muayenehane Yönetimi</div>
+          <div style="margin-top:4px;font-size:12px;color:#6c7275">Son konu: Açılışta ekipman bütçesi</div>
+        </a>
+        <a href="#" style="background:#fff;border:1px solid #dadee0;border-radius:10px;padding:18px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <i data-lucide="graduation-cap" style="width:20px;height:20px;color:#1f9c65"></i>
+            <span style="font-size:11px;color:#6c7275">655 üye</span>
+          </div>
+          <div style="font-size:15px;font-weight:700">Asistan &amp; TUS</div>
+          <div style="margin-top:4px;font-size:12px;color:#6c7275">Son konu: İkinci el kaynak takası</div>
+        </a>
+      </div>
+    </section>
+
+    <section id="yorumlar" style="max-width:1200px;margin:0 auto;padding:44px 24px 8px">
+      <h2 style="margin:0 0 6px;font-size:22px;font-weight:700">Hekimler ne diyor?</h2>
+      <p style="margin:0 0 18px;font-size:13px;color:#6c7275">Platformu kullanan meslektaşlarınızın ilan ve satıcı değerlendirmeleri.</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px">
+        <div style="background:#fff;border:1px solid #dadee0;border-radius:10px;padding:18px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+            <span style="display:flex;width:36px;height:36px;align-items:center;justify-content:center;border-radius:999px;background:#eaf6ef;color:#1f9c65;font-size:13px;font-weight:700">BA</span>
+            <div>
+              <div style="font-size:13px;font-weight:600">Dr. B. A.</div>
+              <div style="font-size:11px;color:#6c7275">Asistan &amp; TUS · 3 gün önce</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:2px;margin-bottom:8px;color:#1f9c65">
+            <i data-lucide="star" style="width:14px;height:14px"></i><i data-lucide="star" style="width:14px;height:14px"></i><i data-lucide="star" style="width:14px;height:14px"></i><i data-lucide="star" style="width:14px;height:14px"></i><i data-lucide="star" style="width:14px;height:14px"></i>
+          </div>
+          <p style="margin:0;font-size:13px;line-height:1.65">Kaynak setimi bir hafta içinde takas ettim. Kargo ve ödeme konusunda tereddüt etmedim, karşı taraf da doğrulanmış hekimdi.</p>
+        </div>
+        <div style="background:#fff;border:1px solid #dadee0;border-radius:10px;padding:18px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+            <span style="display:flex;width:36px;height:36px;align-items:center;justify-content:center;border-radius:999px;background:#eaf6ef;color:#1f9c65;font-size:13px;font-weight:700">SA</span>
+            <div>
+              <div style="font-size:13px;font-weight:600">S. A.</div>
+              <div style="font-size:11px;color:#6c7275">Dermatoloji · 2 hafta önce</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:2px;margin-bottom:8px;color:#1f9c65">
+            <i data-lucide="star" style="width:14px;height:14px"></i><i data-lucide="star" style="width:14px;height:14px"></i><i data-lucide="star" style="width:14px;height:14px"></i><i data-lucide="star" style="width:14px;height:14px"></i><i data-lucide="star" style="width:14px;height:14px"></i>
+          </div>
+          <p style="margin:0;font-size:13px;line-height:1.65">Kliniği kapatırken bütün eşyayı üç haftada elden çıkardım. Karşı taraf da hekim olduğu için cihazın ne olduğunu anlatmakla uğraşmadım.</p>
+        </div>
+        <div style="background:#fff;border:1px solid #dadee0;border-radius:10px;padding:18px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+            <span style="display:flex;width:36px;height:36px;align-items:center;justify-content:center;border-radius:999px;background:#eaf6ef;color:#1f9c65;font-size:13px;font-weight:700">MK</span>
+            <div>
+              <div style="font-size:13px;font-weight:600">M. K.</div>
+              <div style="font-size:11px;color:#6c7275">Aile Hekimliği · 1 ay önce</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:2px;margin-bottom:8px;color:#1f9c65">
+            <i data-lucide="star" style="width:14px;height:14px"></i><i data-lucide="star" style="width:14px;height:14px"></i><i data-lucide="star" style="width:14px;height:14px"></i><i data-lucide="star" style="width:14px;height:14px"></i><i data-lucide="star" style="width:14px;height:14px"></i>
+          </div>
+          <p style="margin:0;font-size:13px;line-height:1.65">Talep açtım, iki gün içinde üç meslektaşım dönüş yaptı. Genel ilan sitelerinde aynı ürün için hiç cevap alamamıştım.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="sss" style="max-width:1200px;margin:0 auto;padding:44px 24px 8px">
+      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:baseline;justify-content:space-between">
+        <h2 style="margin:0;font-size:22px;font-weight:700">Sıkça Sorulan Sorular</h2>
+        <a href="#" style="font-size:13px;font-weight:600;color:#1f9c65">Tüm sorular</a>
+      </div>
+      <p style="margin:6px 0 16px;font-size:13px;color:#6c7275">En çok sorulan 5 soru. Kalanı için SSS sayfasına göz atın.</p>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <details style="background:#fff;border:1px solid #dadee0;border-radius:10px;padding:16px 18px">
+          <summary style="display:flex;justify-content:space-between;gap:12px;font-size:14px;font-weight:600">Kimler üye olabilir?<i data-lucide="plus" style="width:16px;height:16px;color:#6c7275;flex-shrink:0"></i></summary>
+          <p style="margin:10px 0 0;font-size:13px;line-height:1.7;color:#6c7275">Türkiye'de diploması ve tabip odası kaydı doğrulanabilen hekimler ve diş hekimleri. Şirketler, tedarikçiler ve öğrenciler üye olamaz.</p>
+        </details>
+        <details style="background:#fff;border:1px solid #dadee0;border-radius:10px;padding:16px 18px">
+          <summary style="display:flex;justify-content:space-between;gap:12px;font-size:14px;font-weight:600">Üyelik ücretli mi?<i data-lucide="plus" style="width:16px;height:16px;color:#6c7275;flex-shrink:0"></i></summary>
+          <p style="margin:10px 0 0;font-size:13px;line-height:1.7;color:#6c7275">Kayıt, ilan verme, talep açma ve topluluk kullanımı ücretsiz. Yalnızca ilanını öne çıkarmak isteyen hekimler için opsiyonel paketler var.</p>
+        </details>
+        <details style="background:#fff;border:1px solid #dadee0;border-radius:10px;padding:16px 18px">
+          <summary style="display:flex;justify-content:space-between;gap:12px;font-size:14px;font-weight:600">Sadece tıbbi ürün mü satılıyor?<i data-lucide="plus" style="width:16px;height:16px;color:#6c7275;flex-shrink:0"></i></summary>
+          <p style="margin:10px 0 0;font-size:13px;line-height:1.7;color:#6c7275">Hayır. Tıbbi cihaz ve muayenehane ekipmanının yanında elektronik, ev eşyası, kitap, giyim, bebek ürünleri, emlak ve araç ilanları da var — ikinci el pazaryerinin tamamı hekimlere açık.</p>
+        </details>
+        <details style="background:#fff;border:1px solid #dadee0;border-radius:10px;padding:16px 18px">
+          <summary style="display:flex;justify-content:space-between;gap:12px;font-size:14px;font-weight:600">Ödeme ve teslimat nasıl yapılıyor?<i data-lucide="plus" style="width:16px;height:16px;color:#6c7275;flex-shrink:0"></i></summary>
+          <p style="margin:10px 0 0;font-size:13px;line-height:1.7;color:#6c7275">Teklif kabul edildikten sonra taraflar mesajlar üzerinden anlaşır. Kredi kartı, elden teslim, bedelsiz ve bağış ile ödeme seçenekleri ilanda belirtilir.</p>
+        </details>
+        <details style="background:#fff;border:1px solid #dadee0;border-radius:10px;padding:16px 18px">
+          <summary style="display:flex;justify-content:space-between;gap:12px;font-size:14px;font-weight:600">Belgem ne kadar sürede onaylanır?<i data-lucide="plus" style="width:16px;height:16px;color:#6c7275;flex-shrink:0"></i></summary>
+          <p style="margin:10px 0 0;font-size:13px;line-height:1.7;color:#6c7275">Hafta içi ortalama 14 saat. Eksik veya okunmayan belgede e-posta ile dönüş yapılır; süreci profilinizden takip edebilirsiniz.</p>
+        </details>
+      </div>
+    </section>
+
+    <section style="max-width:1200px;margin:0 auto;padding:44px 24px 48px">
+      <div style="position:relative;border-radius:10px;overflow:hidden;min-height:300px;display:flex;align-items:center">
+        <div style="position:absolute;inset:0"><image-slot id="hb-cta-bg" shape="rect" placeholder="Kayıt banner görseli — geniş yatay fotoğraf"></image-slot></div>
+        <div style="position:absolute;inset:0;pointer-events:none;background:linear-gradient(90deg,rgba(14,17,18,.92) 0%,rgba(14,17,18,.7) 55%,rgba(14,17,18,.3) 100%)"></div>
+        <div style="position:relative;padding:clamp(24px,4vw,40px);max-width:640px">
+          <h2 style="margin:0 0 10px;font-size:clamp(20px,2.8vw,28px);font-weight:800;color:#fff;text-wrap:pretty">Meslektaşlarınızın pazaryerine katılın.</h2>
+          <p style="margin:0 0 20px;font-size:13px;line-height:1.7;color:#D7DBDC">Kayıt 2 dakika, belge onayı ortalama 14 saat. Onaydan sonra ilan verme, talep açma, bağış akışı ve topluluk erişiminin tamamı açılıyor.</p>
+          <div style="display:flex;flex-wrap:wrap;gap:12px">
+            <a href="#" style="display:flex;align-items:center;gap:8px;background:#fff;color:#141718;border-radius:10px;padding:13px 20px;font-size:14px;font-weight:600">Ücretsiz Kayıt Ol<i data-lucide="arrow-right" style="width:16px;height:16px"></i></a>
+            <a href="#" style="background:transparent;color:#fff;border:1px solid rgba(255,255,255,.35);border-radius:10px;padding:13px 20px;font-size:14px;font-weight:600">Giriş Yap</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+  </sc-if>
+
+  <sc-if value="{{ signedIn }}" hint-placeholder-val="{{ false }}">
+  <main>
+    <section style="background:#fff;border-bottom:1px solid #dadee0">
+      <div style="max-width:1200px;margin:0 auto;padding:26px 24px">
+        <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:space-between">
+          <div>
+            <div style="display:inline-flex;align-items:center;gap:6px;border-radius:999px;background:#eaf6ef;padding:4px 10px;font-size:11px;font-weight:700;color:#1f9c65">
+              <i data-lucide="badge-check" style="width:13px;height:13px"></i>Doğrulanmış hekim
+            </div>
+            <h1 style="margin:10px 0 4px;font-size:clamp(22px,3vw,28px);font-weight:800">Hoş geldiniz, Dr. E. Y.</h1>
+            <p style="margin:0;font-size:13px;color:#6c7275">Kardiyoloji · Ankara · İlan verme, teklif alma ve topluluk erişiminiz açık.</p>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:10px">
+            <a href="#" style="display:flex;align-items:center;gap:8px;background:#141718;color:#fff;border-radius:10px;padding:12px 18px;font-size:14px;font-weight:600"><i data-lucide="plus" style="width:16px;height:16px"></i>İlan Ver</a>
+            <a href="#" style="display:flex;align-items:center;gap:8px;background:#fff;border:1px solid #dadee0;border-radius:10px;padding:12px 18px;font-size:14px;font-weight:600"><i data-lucide="megaphone" style="width:16px;height:16px"></i>Talep Oluştur</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section style="max-width:1200px;margin:0 auto;padding:24px 24px 0">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px">
+        <a href="#" style="display:flex;align-items:center;gap:12px;background:#fff;border:1px solid #dadee0;border-radius:10px;padding:16px">
+          <span style="display:flex;width:36px;height:36px;align-items:center;justify-content:center;border-radius:10px;background:#eaf6ef;color:#1f9c65"><i data-lucide="handshake" style="width:18px;height:18px"></i></span>
+          <div><div style="font-size:18px;font-weight:700">3</div><div style="font-size:12px;color:#6c7275">bekleyen teklif</div></div>
+        </a>
+        <a href="#" style="display:flex;align-items:center;gap:12px;background:#fff;border:1px solid #dadee0;border-radius:10px;padding:16px">
+          <span style="display:flex;width:36px;height:36px;align-items:center;justify-content:center;border-radius:10px;background:#eaf6ef;color:#1f9c65"><i data-lucide="message-square" style="width:18px;height:18px"></i></span>
+          <div><div style="font-size:18px;font-weight:700">2</div><div style="font-size:12px;color:#6c7275">okunmamış mesaj</div></div>
+        </a>
+        <a href="#" style="display:flex;align-items:center;gap:12px;background:#fff;border:1px solid #dadee0;border-radius:10px;padding:16px">
+          <span style="display:flex;width:36px;height:36px;align-items:center;justify-content:center;border-radius:10px;background:#eaf6ef;color:#1f9c65"><i data-lucide="tag" style="width:18px;height:18px"></i></span>
+          <div><div style="font-size:18px;font-weight:700">5</div><div style="font-size:12px;color:#6c7275">aktif ilanım</div></div>
+        </a>
+        <a href="#" style="display:flex;align-items:center;gap:12px;background:#fff;border:1px solid #dadee0;border-radius:10px;padding:16px">
+          <span style="display:flex;width:36px;height:36px;align-items:center;justify-content:center;border-radius:10px;background:#eaf6ef;color:#1f9c65"><i data-lucide="heart" style="width:18px;height:18px"></i></span>
+          <div><div style="font-size:18px;font-weight:700">12</div><div style="font-size:12px;color:#6c7275">favorim</div></div>
+        </a>
+        <a href="#" style="display:flex;align-items:center;gap:12px;background:#fff;border:1px solid #dadee0;border-radius:10px;padding:16px">
+          <span style="display:flex;width:36px;height:36px;align-items:center;justify-content:center;border-radius:10px;background:#eaf6ef;color:#1f9c65"><i data-lucide="eye" style="width:18px;height:18px"></i></span>
+          <div><div style="font-size:18px;font-weight:700">318</div><div style="font-size:12px;color:#6c7275">ilan görüntülenmesi</div></div>
+        </a>
+      </div>
+    </section>
+
+    <section style="max-width:1200px;margin:0 auto;padding:28px 24px 0">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px">
+        <div style="display:flex;flex-direction:column">
+          <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:baseline;justify-content:space-between">
+            <h2 style="margin:0;font-size:20px;font-weight:700">İlanlarınıza gelen teklifler</h2>
+            <a href="#" style="font-size:13px;font-weight:600;color:#1f9c65">Tüm teklifler (7)</a>
+          </div>
+          <p style="margin:6px 0 12px;font-size:13px;color:#6c7275">Yanıt bekleyen son 3 teklif — kabul ettiğinizde mesaj kanalı açılıyor.</p>
+          <div style="flex:1;display:flex;flex-direction:column;background:#fff;border:1px solid #dadee0;border-radius:10px;overflow:hidden">
+            <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #eef1f2">
+              <div>
+                <div style="font-size:14px;font-weight:600">MacBook Air M2 · 16 GB</div>
+                <div style="margin-top:2px;font-size:12px;color:#6c7275">Dr. A. D. · 27.000 ₺ teklif · 2 saat önce</div>
+              </div>
+              <div style="display:flex;gap:8px">
+                <button style="background:#141718;color:#fff;border:none;border-radius:8px;padding:8px 12px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer">Kabul Et</button>
+                <button style="background:#fff;color:#141718;border:1px solid #dadee0;border-radius:8px;padding:8px 12px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer">Reddet</button>
+              </div>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #eef1f2">
+              <div>
+                <div style="font-size:14px;font-weight:600">Muayene Masası (hidrolik)</div>
+                <div style="margin-top:2px;font-size:12px;color:#6c7275">Dr. N. Ş. · 17.500 ₺ teklif · dün</div>
+              </div>
+              <div style="display:flex;gap:8px">
+                <button style="background:#141718;color:#fff;border:none;border-radius:8px;padding:8px 12px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer">Kabul Et</button>
+                <button style="background:#fff;color:#141718;border:1px solid #dadee0;border-radius:8px;padding:8px 12px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer">Reddet</button>
+              </div>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #eef1f2">
+              <div>
+                <div style="font-size:14px;font-weight:600">TUS Kaynak Seti (18 kitap)</div>
+                <div style="margin-top:2px;font-size:12px;color:#6c7275">Dr. B. A. · 2.000 ₺ teklif · 2 gün önce</div>
+              </div>
+              <div style="display:flex;gap:8px">
+                <button style="background:#141718;color:#fff;border:none;border-radius:8px;padding:8px 12px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer">Kabul Et</button>
+                <button style="background:#fff;color:#141718;border:1px solid #dadee0;border-radius:8px;padding:8px 12px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer">Reddet</button>
+              </div>
+            </div>
+            <a href="#" style="margin-top:auto;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 16px;background:#FAFBFB;font-size:13px;font-weight:600;color:#1f9c65">
+              <span>4 teklif daha bekliyor</span>
+              <span style="display:inline-flex;align-items:center;gap:6px">Tüm teklifleri gör<i data-lucide="arrow-right" style="width:14px;height:14px"></i></span>
+            </a>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column">
+          <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:baseline;justify-content:space-between">
+            <h2 style="margin:0;font-size:20px;font-weight:700">Taleplerim</h2>
+            <a href="#" style="font-size:13px;font-weight:600;color:#1f9c65">Tüm taleplerim (6)</a>
+          </div>
+          <p style="margin:6px 0 12px;font-size:13px;color:#6c7275">Açtığınız son 3 talep — durum, süre ve gelen teklif sayısıyla.</p>
+          <div style="flex:1;display:flex;flex-direction:column;gap:12px">
+            <div style="background:#fff;border:1px solid #dadee0;border-radius:10px;padding:16px">
+              <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">
+                <span style="display:inline-flex;align-items:center;gap:4px;border-radius:8px;background:#eaf6ef;padding:3px 8px;font-size:11px;font-weight:700;color:#1f9c65"><i data-lucide="circle-dot" style="width:11px;height:11px"></i>Açık</span>
+                <span style="display:inline-flex;align-items:center;gap:4px;border-radius:8px;background:#fdeceb;padding:3px 8px;font-size:11px;font-weight:700;color:#c02718"><i data-lucide="zap" style="width:11px;height:11px"></i>Acil</span>
+              </div>
+              <div style="font-size:14px;font-weight:700">Holter cihazı (24 saat)</div>
+              <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:#6c7275">
+                <span>Bütçe: 45.000 ₺</span><span style="display:inline-flex;align-items:center;gap:5px"><i data-lucide="clock" style="width:12px;height:12px"></i>4 saat önce</span><span>3 teklif</span>
+              </div>
+            </div>
+            <div style="background:#FAFBFB;border:1px solid #dadee0;border-radius:10px;padding:16px">
+              <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">
+                <span style="display:inline-flex;align-items:center;gap:4px;border-radius:8px;background:#f3f4f6;padding:3px 8px;font-size:11px;font-weight:700;color:#6c7275"><i data-lucide="circle-check" style="width:11px;height:11px"></i>Kapandı</span>
+              </div>
+              <div style="font-size:14px;font-weight:700">Ekokardiyografi probu</div>
+              <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:#6c7275">
+                <span>Dr. K. Ö. ile anlaşıldı</span><span style="display:inline-flex;align-items:center;gap:5px"><i data-lucide="clock" style="width:12px;height:12px"></i>1 hafta önce</span>
+              </div>
+            </div>
+            <div style="background:#fff;border:1px solid #dadee0;border-radius:10px;padding:16px">
+              <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">
+                <span style="display:inline-flex;align-items:center;gap:4px;border-radius:8px;background:#eaf6ef;padding:3px 8px;font-size:11px;font-weight:700;color:#1f9c65"><i data-lucide="circle-dot" style="width:11px;height:11px"></i>Açık</span>
+                <span style="border-radius:8px;background:#fff6e6;padding:3px 8px;font-size:11px;font-weight:700;color:#8a5a00">Teklif bekliyor</span>
+              </div>
+              <div style="font-size:14px;font-weight:700">Bekleme salonu için 3'lü koltuk</div>
+              <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:#6c7275">
+                <span>Bütçe: 12.000 ₺</span><span style="display:inline-flex;align-items:center;gap:5px"><i data-lucide="clock" style="width:12px;height:12px"></i>2 gün önce</span><span>Teklif yok</span>
+              </div>
+            </div>
+            <div style="margin-top:auto;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;background:#FAFBFB;border:1px solid #dadee0;border-radius:10px;padding:13px 16px">
+              <a href="#" style="font-size:13px;font-weight:600;color:#1f9c65">3 talep daha var</a>
+              <a href="#" style="display:inline-flex;align-items:center;gap:6px;background:#141718;color:#fff;border-radius:8px;padding:9px 13px;font-size:12px;font-weight:600"><i data-lucide="plus" style="width:14px;height:14px"></i>Yeni talep oluştur</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section style="max-width:1200px;margin:0 auto;padding:28px 24px 0">
+      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:baseline;justify-content:space-between">
+        <h2 style="margin:0;font-size:20px;font-weight:700">Size uygun ilanlar</h2>
+        <a href="#" style="font-size:13px;font-weight:600;color:#1f9c65">Tüm ilanlar</a>
+      </div>
+      <p style="margin:6px 0 14px;font-size:13px;color:#6c7275">Takip ettiğiniz kategoriler ve Ankara çevresindeki yeni ilanlar.</p>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px">
+        <button style="background:#141718;color:#fff;border:none;border-radius:999px;padding:8px 14px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer">Takip ettiklerim</button>
+        <button style="background:#fff;color:#141718;border:1px solid #dadee0;border-radius:999px;padding:8px 14px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer">Ankara</button>
+        <button style="background:#fff;color:#141718;border:1px solid #dadee0;border-radius:999px;padding:8px 14px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer">Yeni eklenen</button>
+        <button style="background:#fff;color:#141718;border:1px solid #dadee0;border-radius:999px;padding:8px 14px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer">Bedelsiz &amp; bağış</button>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px">
+        <a href="#" style="overflow:hidden;background:#fff;border:1px solid #dadee0;border-radius:10px">
+          <div style="height:150px;position:relative"><image-slot id="hb-m1" shape="rect" placeholder="İlan görseli"></image-slot></div>
+          <div style="padding:14px">
+            <div style="margin-bottom:4px;font-size:14px;font-weight:700">Holter Kayıt Cihazı · 3 kanal</div>
+            <div style="font-size:15px;font-weight:700;color:#1f9c65">42.000 ₺</div>
+            <div style="margin-top:6px;font-size:12px;color:#6c7275">Ankara · 4 saat önce</div>
+          </div>
+        </a>
+        <a href="#" style="overflow:hidden;background:#fff;border:1px solid #dadee0;border-radius:10px">
+          <div style="height:150px;position:relative"><image-slot id="hb-m2" shape="rect" placeholder="İlan görseli"></image-slot></div>
+          <div style="padding:14px">
+            <div style="margin-bottom:4px;font-size:14px;font-weight:700">iPad Pro 11" · kalem dahil</div>
+            <div style="font-size:15px;font-weight:700;color:#1f9c65">19.750 ₺</div>
+            <div style="margin-top:6px;font-size:12px;color:#6c7275">Kırıkkale · dün</div>
+          </div>
+        </a>
+        <a href="#" style="overflow:hidden;background:#fff;border:1px solid #dadee0;border-radius:10px">
+          <div style="height:150px;position:relative"><image-slot id="hb-m3" shape="rect" placeholder="İlan görseli"></image-slot></div>
+          <div style="padding:14px">
+            <div style="display:inline-block;margin-bottom:6px;border-radius:8px;background:#eaf6ef;padding:2px 8px;font-size:11px;font-weight:700;color:#1f9c65">BAĞIŞ İLE</div>
+            <div style="margin-bottom:4px;font-size:14px;font-weight:700">Çalışma Masası · meşe</div>
+            <div style="font-size:15px;font-weight:700;color:#1f9c65">4.000 ₺ bağış</div>
+            <div style="margin-top:6px;font-size:12px;color:#6c7275">Ankara · 2 gün önce</div>
+          </div>
+        </a>
+        <a href="#" style="overflow:hidden;background:#fff;border:1px solid #dadee0;border-radius:10px">
+          <div style="height:150px;position:relative"><image-slot id="hb-m4" shape="rect" placeholder="İlan görseli"></image-slot></div>
+          <div style="padding:14px">
+            <div style="margin-bottom:4px;font-size:14px;font-weight:700">Muayenehane Devri · Çankaya</div>
+            <div style="font-size:15px;font-weight:700;color:#1f9c65">Görüşülür</div>
+            <div style="margin-top:6px;font-size:12px;color:#6c7275">Ankara · 3 gün önce</div>
+          </div>
+        </a>
+      </div>
+    </section>
+
+    <section style="max-width:1200px;margin:0 auto;padding:28px 24px 48px">
+      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:baseline;justify-content:space-between">
+        <h2 style="margin:0;font-size:20px;font-weight:700">Topluluklarım</h2>
+        <a href="#" style="font-size:13px;font-weight:600;color:#1f9c65">Tüm topluluklar</a>
+      </div>
+      <p style="margin:6px 0 12px;font-size:13px;color:#6c7275">Üye olduğunuz gruplardaki son konular.</p>
+      <div style="background:#fff;border:1px solid #dadee0;border-radius:10px;overflow:hidden">
+        <a href="#" style="display:block;padding:14px 16px;border-bottom:1px solid #eef1f2">
+          <div style="font-size:14px;font-weight:600">Holter cihazı karşılaştırması: hangi marka servis desteği veriyor?</div>
+          <div style="margin-top:3px;font-size:12px;color:#6c7275">Kardiyoloji · 14 yorum · 3 saat önce</div>
+        </a>
+        <a href="#" style="display:block;padding:14px 16px;border-bottom:1px solid #eef1f2">
+          <div style="font-size:14px;font-weight:600">Ankara'da güvendiğiniz cihaz servisleri</div>
+          <div style="margin-top:3px;font-size:12px;color:#6c7275">Kardiyoloji · 9 yorum · dün</div>
+        </a>
+        <a href="#" style="display:block;padding:14px 16px">
+          <div style="font-size:14px;font-weight:600">Muayenehane açılışında ekipman bütçesi nasıl planlanır?</div>
+          <div style="margin-top:3px;font-size:12px;color:#6c7275">Muayenehane Yönetimi · 22 yorum · 2 gün önce</div>
+        </a>
+      </div>
+    </section>
+  </main>
+  </sc-if>
+
+  <footer style="margin-top:auto;background:#141718;padding:44px 24px;color:#B7BCBE">
+    <div style="max-width:1200px;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:28px;border-bottom:1px solid #2A2E30;padding-bottom:28px">
+      <div>
+        <div style="margin-bottom:10px;font-size:17px;font-weight:800;color:#fff">HekimBurada</div>
+        <p style="margin:0;max-width:240px;font-size:12px;line-height:1.7">Doktorlara özel 2. el pazaryeri ve topluluk platformu.</p>
+      </div>
+      <div>
+        <div style="margin-bottom:10px;font-size:13px;font-weight:600;color:#fff">Kategoriler</div>
+        <div style="display:flex;flex-direction:column;gap:4px;font-size:12px">
+          <a href="#kategoriler" style="color:#B7BCBE">Tıbbi Cihaz &amp; Ekipman</a>
+          <a href="#kategoriler" style="color:#B7BCBE">Elektronik</a>
+          <a href="#kategoriler" style="color:#B7BCBE">Ev &amp; Mobilya</a>
+          <a href="#kategoriler" style="color:#B7BCBE">Kitap &amp; Eğitim</a>
+        </div>
+      </div>
+      <div>
+        <div style="margin-bottom:10px;font-size:13px;font-weight:600;color:#fff">Platform</div>
+        <div style="display:flex;flex-direction:column;gap:4px;font-size:12px">
+          <a href="#" style="color:#B7BCBE">Hakkımızda</a>
+          <a href="#talepler" style="color:#B7BCBE">Talepler</a>
+          <a href="#topluluk" style="color:#B7BCBE">Topluluk</a>
+          <a href="#" style="color:#B7BCBE">İletişim</a>
+        </div>
+      </div>
+      <div>
+        <div style="margin-bottom:10px;font-size:13px;font-weight:600;color:#fff">Kurallar</div>
+        <div style="display:flex;flex-direction:column;gap:4px;font-size:12px">
+          <a href="#" style="color:#B7BCBE">Kullanım Koşulları</a>
+          <a href="#" style="color:#B7BCBE">Gizlilik Politikası</a>
+          <a href="#" style="color:#B7BCBE">Doğrulama Süreci</a>
+        </div>
+      </div>
+    </div>
+    <div style="max-width:1200px;margin:0 auto;padding-top:16px;font-size:12px">© 2026 HekimBurada. Tüm hakları saklıdır.</div>
+  </footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;signedIn&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Durum&quot;},&quot;animations&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Durum&quot;}}">
+class Component extends DCLogic {
+  state = { signedIn: null };
+  componentDidMount() { this.icons(); this.anim(); }
+  componentDidUpdate() { this.icons(); this.anim(); }
+  icons() {
+    const go = () => { try { window.lucide && window.lucide.createIcons(); } catch (e) {} };
+    go(); setTimeout(go, 300); setTimeout(go, 1200);
+  }
+  anim() {
+    clearTimeout(this._t);
+    this._t = setTimeout(() => {
+      const g = window.gsap, ST = window.ScrollTrigger;
+      if (!g) return;
+      if (ST && !this._reg) { g.registerPlugin(ST); this._reg = true; }
+      const root = this.el || document;
+      const q = (s) => Array.from(root.querySelectorAll(s));
+      if (this._ctx) this._ctx.revert();
+      this._ctx = g.context ? g.context(() => this.build(g, ST, q)) : null;
+      if (!this._ctx) this.build(g, ST, q);
+    }, 120);
+  }
+  build(g, ST, q) {
+    // Giriş animasyonları CSS @keyframes ile (hb-rise) — GSAP yalnızca doğrulama timeline'ını sürüyor.
+    const track = q('[data-verify-track]')[0];
+    if (track && ST) {
+      const line = track.querySelector('[data-verify-line]');
+      const dots = Array.from(track.querySelectorAll('[data-verify-dot]'));
+      const texts = Array.from(track.querySelectorAll('[data-verify-step]'));
+      const tl = g.timeline({
+        scrollTrigger: { trigger: track, start: "top 78%", end: "bottom 55%", scrub: .6, invalidateOnRefresh: true }
+      });
+      tl.from(line, { scaleY: 0, duration: dots.length, ease: "none", immediateRender: false }, 0);
+      dots.forEach((d, i) => {
+        tl.from(d, { scale: .35, backgroundColor: "#2A2E30", duration: .35, ease: "back.out(2)", immediateRender: false }, i * 0.92);
+        tl.from(texts[i], { opacity: .35, x: 6, duration: .35, ease: "power2.out", immediateRender: false }, i * 0.92);
+      });
+    }
+    if (ST) {
+      ST.refresh();
+      [400, 1200, 2500].forEach((ms) => setTimeout(() => { try { ST.refresh(); } catch (e) {} }, ms));
+      if (!this._loadHook) {
+        this._loadHook = () => { try { ST.refresh(); } catch (e) {} };
+        window.addEventListener("load", this._loadHook);
+      }
+    }
+  }
+  componentWillUnmount() {
+    if (this._loadHook) window.removeEventListener("load", this._loadHook);
+    clearTimeout(this._t);
+    if (this._ctx) this._ctx.revert();
+  }
+  renderVals() {
+    const signedIn = this.state.signedIn === null ? !!this.props.signedIn : this.state.signedIn;
+    return {
+      signedIn,
+      guest: !signedIn,
+      setGuest: () => this.setState({ signedIn: false }),
+      setMember: () => this.setState({ signedIn: true }),
+      guestTabStyle: { padding: "6px 12px", fontSize: "12px", fontWeight: 600, borderRadius: "8px", border: "none", cursor: "pointer", background: signedIn ? "transparent" : "#141718", color: signedIn ? "#6c7275" : "#fff" },
+      memberTabStyle: { padding: "6px 12px", fontSize: "12px", fontWeight: 600, borderRadius: "8px", border: "none", cursor: "pointer", background: signedIn ? "#141718" : "transparent", color: signedIn ? "#fff" : "#6c7275" }
+    };
+  }
+}
+</script>
+</body>
+</html>
