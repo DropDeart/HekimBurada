@@ -118,12 +118,24 @@ export function Navbar() {
       .catch(() => {});
   }, [hasToken]);
 
+  // Kategori ağacı ve topluluk listesi anonime açık (Marketplace/Community okuma uçları) — mega
+  // menüler girişsiz ziyaretçiye de dolu gelsin diye token'dan BAĞIMSIZ çekiliyor. Bu menüler her
+  // sayfanın en üstünde olduğu için eskiden arama motoru her sayfada üç kez "Görüntülemek için
+  // giriş yapın" okuyordu.
   useEffect(() => {
-    if (!hasToken) return;
     marketplaceApi
       .listCategories({ pageSize: 100 })
       .then((r) => setCategories(r.items))
       .catch(() => {});
+    communityApi
+      .listCategories({ pageSize: 100 })
+      .then((r) => setCommunityCategories(r.items))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!hasToken) return;
+    // Talepler hâlâ giriş gerektiriyor: RequestsController'ın okuma uçları anonime açılmadı.
     marketplaceApi
       .listRequests({ pageSize: 20 })
       .then((r) =>
@@ -133,10 +145,6 @@ export function Navbar() {
             .slice(0, RECENT_LIST_LIMIT)
         )
       )
-      .catch(() => {});
-    communityApi
-      .listCategories({ pageSize: 100 })
-      .then((r) => setCommunityCategories(r.items))
       .catch(() => {});
     communityApi
       .listMemberships({ pageSize: 200 })
@@ -270,7 +278,11 @@ export function Navbar() {
             <MegaMenu
               label="Kategoriler"
               panel={
-                hasToken ? (
+                // Kategoriler anonime açık. Sunucuda render edilirken liste henüz boş olduğu için
+                // (veri useEffect'te geliyor) yedek içerik ARAMA MOTORUNUN gördüğü şeydir — burada
+                // eskiden "Görüntülemek için giriş yapın" yazıyordu ve her sayfanın en üstünde
+                // Google'a bu düşüyordu. Yerine gerçek bir bağlantı kondu.
+                topCategories.length > 0 ? (
                   <div className="flex min-w-[420px] flex-nowrap gap-7">
                     {topCategories.length === 0 ? (
                       <p className="text-xs text-muted-foreground">Henüz kategori eklenmedi.</p>
@@ -305,9 +317,12 @@ export function Navbar() {
                     )}
                   </div>
                 ) : (
-                  <p className="min-w-[200px] text-xs text-muted-foreground">
-                    Görüntülemek için giriş yapın.
-                  </p>
+                  <Link
+                    href="/ilanlar"
+                    className="block min-w-[200px] text-xs font-semibold text-brand"
+                  >
+                    Tüm kategorileri gör
+                  </Link>
                 )
               }
             />
@@ -356,9 +371,15 @@ export function Navbar() {
                     </div>
                   </div>
                 ) : (
-                  <p className="min-w-[200px] text-xs text-muted-foreground">
-                    Görüntülemek için giriş yapın.
-                  </p>
+                  // Talepler hâlâ giriş gerektiriyor (RequestsController anonime açılmadı), ama bu
+                  // yedek metin sunucu tarafında da render edildiği için giriş duvarı cümlesi
+                  // yerine gerçek bir bağlantı gösteriliyor.
+                  <Link
+                    href="/talepler"
+                    className="block min-w-[200px] text-xs font-semibold text-brand"
+                  >
+                    Talepleri gör
+                  </Link>
                 )
               }
             />
@@ -434,9 +455,14 @@ export function Navbar() {
                     </Link>
                   </div>
                 ) : (
-                  <p className="min-w-[200px] text-xs text-muted-foreground">
-                    Görüntülemek için giriş yapın.
-                  </p>
+                  // "Topluluklarım" doğası gereği girişe bağlı; girişsiz ziyaretçiye topluluk
+                  // listesine giden bağlantı gösteriliyor (topluluk adları anonime açık).
+                  <Link
+                    href="/topluluk"
+                    className="block min-w-[200px] text-xs font-semibold text-brand"
+                  >
+                    Branş topluluklarını gör
+                  </Link>
                 )
               }
             />
