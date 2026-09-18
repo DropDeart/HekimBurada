@@ -62,12 +62,12 @@ export const PAYMENT_METHODS = [
  * Eşleşme bulunamazsa kart sessizce atlanır — yanlış linkli kart göstermektense hiç göstermemek iyi.
  */
 export const FEATURED_SUBCATEGORIES = [
-  { name: "Tıbbi Cihaz", blurb: "Ultrason, EKG, monitör" },
-  { name: "Muayenehane", blurb: "Devren muayenehane, klinik" },
-  { name: "Muayenehane Mobilyası", blurb: "Masa, tabure, sedye" },
-  { name: "Bilgisayar ve Elektronik", blurb: "Dizüstü, tablet, kamera" },
-  { name: "Kitap ve Yayın", blurb: "TUS kaynakları, atlas" },
+  { name: "İş Yeri", blurb: "Muayenehane, klinik, ofis" },
+  { name: "Elektronik Eşya", blurb: "Dizüstü, tablet, telefon" },
+  { name: "Konut", blurb: "Daire, villa, residence" },
   { name: "Otomobil", blurb: "İkinci el araç ilanları" },
+  { name: "Ev Dekorasyon ve Elektroniği", blurb: "Mobilya, beyaz eşya" },
+  { name: "Anne & Bebek", blurb: "Puset, oyuncak, bebek eşyası" },
 ] as const;
 
 export interface FaqItem {
