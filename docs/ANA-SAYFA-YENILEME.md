@@ -1,7 +1,7 @@
 # Ana Sayfa Yenileme + SEO Çalışması — Devir Teslim Notu
 
 **Tarih:** 2026-09-18
-**Durum:** Aşama 1 ve 2 tamamlandı ve canlıya alındı. Aşağıda "Bekleyen işler" başlığı altında 3 madde açık.
+**Durum:** Aşama 1 ve 2 tamamlandı, canlıya alındı ve doğrulandı (hekimburada.com). Aşağıda "Bekleyen işler" başlığı altında 3 madde açık.
 
 Bu belge, çalışmanın neden yapıldığını, hangi kararların neden alındığını ve nereden devam edileceğini
 anlatır. Kod yapısı git geçmişinden okunabilir; burada yazanlar koddan **okunamayacak** olanlardır.
@@ -152,6 +152,48 @@ geliştirme modundaki çift render'ı sayacı şişirmesin diye).
 - **Meta description**: 53 → 155 karakter, somut
 - **`/ilanlar`**: giriş duvarı kaldırıldı + ödeme yöntemi süzgeci eklendi
 - **Sitemap**: 8 → 11 statik URL (`/ilanlar`, `/talepler`, `/sss` eklendi) + **yayındaki tüm ilanlar**
+
+---
+
+## 3.8 Deploy sırasında ortaya çıkan iki gerçek (ÖNEMLİ)
+
+### Prod'da tıbbi kategori YOK
+
+Canlı kategori ağacı, tasarımın ve sitedeki bütün tanıtım metninin anlattığı şeyle uyuşmuyor:
+
+```
+Emlak        -> Arsa, Konut, İş Yeri
+Vasıta       -> Arazi SUV & Pickup, Minivan & Panelvan, Motorsiklet, Otomobil
+İkinci El    -> Anne & Bebek, Elektronik Eşya, Ev Dekorasyon ve Elektroniği,
+                Giyim & Aksesuar (İKİ KEZ KAYITLI), Hobi & Oyuncak,
+                Kişisel Bakım & Kozmetik, Spor & Müzik
+İş İlanları  -> Yardımcı & Asistanlar
+```
+
+**"Tıbbi Cihaz", "Muayenehane Mobilyası", "Laboratuvar Ekipmanı", "Kitap ve Yayın" gibi kategoriler
+canlıda hiç yok.** Ağaç tamamen genel bir ikinci el sitesi taksonomisi. Oysa hero metni, SSS ve
+bağış bölümü sürekli "tıbbi cihaz, muayenehane ekipmanı"ndan bahsediyor. Platformun temel değer
+önerisi ile kategori ağacı çelişiyor — **admin panelinden tıbbi kategorilerin eklenmesi gerekiyor.**
+
+Not: `İkinci El` altında **"Giyim & Aksesuar" iki kez kayıtlı**, temizlenmeli.
+
+Ana sayfadaki "Çok bakılan alt kategoriler" listesi (`FEATURED_SUBCATEGORIES`) şu an canlıda var
+olan adlarla eşleşiyor. Tıbbi kategoriler eklenince bu liste güncellenmeli — eşleşmeyen kayıt
+sessizce atlanır, yanlış linkli kart göstermez.
+
+### Prod'da yayında ilan yok
+
+| | Adet |
+|---|---|
+| Yayındaki (`active`) ilan | **0** |
+| `sold` ilan | 1 |
+| Talep | 1 |
+| Kategori | 20 |
+
+Bu yüzden ana sayfanın "Öne Çıkan İlanlar" bölümü şu an gizli (kod `{featured && ...}` ile
+koruyor) ve sitemap'te henüz ilan URL'i yok. İlan sayfalarının SEO değeri, gerçek ilan girilene
+kadar teorik. Anonim okuma yalnızca `active` ilanları gösteriyor — `sold` ilanlar da gösterilsin mi,
+ileride verilecek bir karar.
 
 ---
 
