@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Bell, Heart, MessageSquare, Menu, Search, User as UserIcon, X } from "lucide-react";
 import { toast } from "sonner";
 import { connectPresence } from "@/lib/presenceHub";
@@ -34,7 +34,6 @@ import {
 } from "@/lib/api";
 import { CONTACT_COLUMNS } from "@/lib/staticContent";
 import { MegaMenu } from "./MegaMenu";
-import { cn } from "@/lib/utils";
 
 /** 5'ten fazla alt kategorisi olan bir grup, mega-menüde tek uzun sütun yerine 2 sütuna yayılır. */
 const WIDE_SUBCATEGORY_THRESHOLD = 5;
@@ -61,9 +60,7 @@ export function Navbar() {
   const roles = useAuthRoles();
   const isAdmin = ADMIN_ROLES.some((r) => roles.includes(r));
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const [categories, setCategories] = useState<MarketplaceCategory[]>([]);
   const [requests, setRequests] = useState<MarketplaceRequest[]>([]);
@@ -226,7 +223,6 @@ export function Navbar() {
   const submitSearch = () => {
     const q = searchQuery.trim();
     router.push(q ? `/ilanlar?q=${encodeURIComponent(q)}` : "/ilanlar");
-    setSearchOpen(false);
     setSearchQuery("");
   };
 
@@ -470,36 +466,24 @@ export function Navbar() {
         </div>
 
         <div className="flex items-center gap-4">
-          <div className="hidden items-center sm:flex">
-            <div
-              className={cn(
-                "overflow-hidden transition-all duration-200",
-                searchOpen ? "mr-2 w-44" : "w-0"
-              )}
-            >
-              <input
-                ref={searchInputRef}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && submitSearch()}
-                placeholder="İlan ara..."
-                className="w-full rounded-lg border border-input px-2.5 py-1.5 text-sm outline-none focus-visible:border-ring"
-              />
-            </div>
-            <button
-              onClick={() => {
-                setSearchOpen((v) => {
-                  const next = !v;
-                  if (next) setTimeout(() => searchInputRef.current?.focus(), 0);
-                  return next;
-                });
-              }}
-              className="text-foreground hover:text-brand"
-              aria-label="İlanlarda ara"
-            >
-              <Search size={20} />
-            </button>
-          </div>
+          <label className="hidden w-48 items-center gap-2 rounded-[10px] border border-border bg-muted px-3 py-2 text-muted-foreground focus-within:border-brand/50 md:flex lg:w-64">
+            <Search size={16} className="shrink-0" aria-hidden />
+            <input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && submitSearch()}
+              placeholder="İlan, kategori veya branş ara"
+              className="w-full min-w-0 bg-transparent text-[13px] text-foreground outline-none placeholder:text-muted-foreground"
+            />
+          </label>
+
+          <button
+            onClick={submitSearch}
+            className="text-foreground hover:text-brand md:hidden"
+            aria-label="İlanlarda ara"
+          >
+            <Search size={20} />
+          </button>
 
           <button
             onClick={() => goToAuthGatedRoute("/favoriler")}

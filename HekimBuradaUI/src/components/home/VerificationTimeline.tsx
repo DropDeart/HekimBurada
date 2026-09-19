@@ -50,7 +50,7 @@ export function VerificationTimeline() {
   }, []);
 
   return (
-    <ol ref={trackRef} className="relative mt-8 space-y-7 pl-10">
+    <ol ref={trackRef} className="relative mt-8 space-y-16 pl-10">
       {/* Noktaların tam ortasından geçen dikey çizgi (sol:19px = pl-10'un yarısı - 1px). */}
       <span
         data-verify-line

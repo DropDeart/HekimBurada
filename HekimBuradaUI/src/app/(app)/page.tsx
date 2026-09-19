@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { ArrowRight, Gift, HandCoins, Link2, Users } from "lucide-react";
+import { ArrowRight, Gift, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ListingImage } from "@/components/ListingImage";
 import { CategoryIcon } from "@/lib/categoryIcons";
 import { FaqList } from "@/components/home/FaqList";
+import { HomeGate } from "@/components/home/HomeGate";
 import { HomeHero } from "@/components/home/HomeHero";
 import { HowItWorks } from "@/components/home/HowItWorks";
 import { Reveal } from "@/components/home/Reveal";
@@ -64,6 +65,7 @@ export default async function Home() {
   const otherListings = listings.filter((l) => l.id !== featured?.id).slice(0, 6);
 
   return (
+    <HomeGate>
     <div>
       <HomeHero slides={slides} />
 
@@ -256,32 +258,33 @@ export default async function Home() {
       </section>
 
       {/* ---------------------------------------------------------------- Bağış & bedelsiz */}
-      <section className="container mx-auto px-6 pt-14 sm:px-10">
-        <div className="mb-3 text-xs font-bold tracking-wider text-brand uppercase">
-          Bağış &amp; bedelsiz
-        </div>
-        <h2 className="max-w-[720px] text-2xl leading-tight font-bold text-foreground">
-          Satmak zorunda değilsiniz — bağışlayabilir, bedelsiz verebilirsiniz.
-        </h2>
-        <p className="mt-3 max-w-[680px] text-sm leading-relaxed text-muted-foreground">
-          İlanı yayınlarken ödeme yöntemi olarak <strong>bağış ile ödeme</strong>,{" "}
-          <strong>bedelsiz ürün</strong> veya <strong>referans linkli indirim</strong>{" "}
-          seçebilirsiniz. Bağışta alıcı, ürünün bedelini sizin belirlediğiniz kuruma bağışlar ve
-          dekontu ilana ekler.
-        </p>
-
-        <Reveal className="mt-5 grid grid-cols-1 gap-3.5 sm:grid-cols-3" stagger>
-          {[
-            { icon: HandCoins, title: "Bağış ile ödeme", body: "Alıcı bedeli seçtiğiniz kuruma bağışlar, dekontu ilana ekler." },
-            { icon: Gift, title: "Bedelsiz ürün", body: "Ürünü karşılıksız verirsiniz; ilan üzerinde ücretsiz olarak görünür." },
-            { icon: Link2, title: "Referans linkli indirim", body: "Alıcıyı verdiğiniz referans bağlantısı üzerinden yönlendirirsiniz." },
-          ].map(({ icon: Icon, title, body }) => (
-            <div key={title} className="rounded-[10px] border border-border bg-white p-5">
-              <Icon className="mb-2.5 size-5 text-brand" aria-hidden />
-              <div className="mb-1 text-[15px] font-bold text-foreground">{title}</div>
-              <p className="text-sm text-muted-foreground">{body}</p>
+      <section id="bagis" className="container mx-auto px-6 pt-14 sm:px-10">
+        <Reveal className="grid grid-cols-1 items-center overflow-hidden rounded-[10px] border border-border bg-white lg:grid-cols-2">
+          <div className="p-7 sm:p-9">
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-brand-soft px-3 py-1.5 text-xs font-bold text-brand">
+              <Gift className="size-3.5" aria-hidden />
+              Bağış &amp; bedelsiz
             </div>
-          ))}
+            <h2 className="max-w-[420px] text-2xl leading-tight font-bold text-foreground text-balance">
+              Satmak zorunda değilsiniz — bağışlayabilir, bedelsiz verebilirsiniz.
+            </h2>
+            <p className="mt-3 max-w-[460px] text-sm leading-relaxed text-muted-foreground">
+              İlanı yayınlarken ödeme yöntemi olarak <strong className="text-foreground">bağış ile ödeme</strong>,{" "}
+              <strong className="text-foreground">bedelsiz ürün</strong> veya{" "}
+              <strong className="text-foreground">referans linkli indirim</strong> seçebilirsiniz. Bağışta alıcı,
+              ürünün bedelini sizin belirlediğiniz kuruma bağışlar ve dekontu ilana ekler.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {["Bağış ile ödeme", "Bedelsiz ürün", "Referans linkli indirim", "Elden teslim"].map((tag) => (
+                <span key={tag} className="rounded-lg bg-muted px-2.5 py-1.5 text-xs font-semibold text-foreground">
+                  {tag}
+                </span>
+              ))}
+            </div>
+          </div>
+          <div className="flex min-h-[220px] items-center justify-center bg-gradient-to-br from-brand-soft to-white lg:min-h-[280px]">
+            <Gift className="size-16 text-brand/70" aria-hidden strokeWidth={1.25} />
+          </div>
         </Reveal>
       </section>
 
@@ -351,5 +354,6 @@ export default async function Home() {
         </div>
       </section>
     </div>
+    </HomeGate>
   );
 }

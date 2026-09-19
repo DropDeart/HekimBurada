@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { BadgeCheck, Gift, Lock } from "lucide-react";
+import { ArrowRight, BadgeCheck, Gift, Lock, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GATEWAY_URL, type CarouselSlide } from "@/lib/api";
 
@@ -22,6 +22,10 @@ const CHIPS = [
   { icon: Gift, label: "Bağış ve bedelsiz ürün" },
 ];
 
+/** Admin slaytı yoksa (varsayılan tanıtım hero'su) kullanılan fotoğraf — projedeki tek gerçek
+ * "hekim/muayenehane" temalı görsel, giriş/kayıt ekranlarında da aynı amaçla kullanılıyor. */
+const DEFAULT_HERO_IMAGE = "/images/auth-hero.jpg";
+
 export function HomeHero({ slides }: { slides: CarouselSlide[] }) {
   const [index, setIndex] = useState(0);
 
@@ -32,44 +36,52 @@ export function HomeHero({ slides }: { slides: CarouselSlide[] }) {
   }, [slides.length]);
 
   const slide = slides[index];
+  const backgroundImage =
+    slide?.backgroundType === "image" && slide.backgroundImageUrl
+      ? `${GATEWAY_URL}${slide.backgroundImageUrl}`
+      : !slide
+        ? DEFAULT_HERO_IMAGE
+        : null;
 
   return (
     <section
-      className="relative overflow-hidden bg-[#141718] bg-cover bg-center text-white"
+      className="relative flex min-h-[420px] items-center overflow-hidden bg-[#141718] bg-cover bg-center text-white sm:min-h-[480px] lg:min-h-[540px]"
       style={
-        slide?.backgroundType === "image" && slide.backgroundImageUrl
-          ? { backgroundImage: `url(${GATEWAY_URL}${slide.backgroundImageUrl})` }
+        backgroundImage
+          ? { backgroundImage: `url(${backgroundImage})` }
           : slide?.backgroundColor
             ? { backgroundColor: slide.backgroundColor }
             : undefined
       }
     >
-      {slide?.backgroundType === "image" && slide.backgroundImageUrl && (
+      {backgroundImage && (
         <div
           className="pointer-events-none absolute inset-0"
           style={{
-            background: "linear-gradient(180deg, rgba(10,12,13,0.55) 0%, rgba(10,12,13,0.75) 100%)",
+            background:
+              "linear-gradient(90deg, rgba(14,17,18,.92) 0%, rgba(14,17,18,.78) 45%, rgba(14,17,18,.25) 100%)",
           }}
         />
       )}
 
-      <div className="relative container mx-auto px-6 py-20 sm:py-24">
-        <div className="mx-auto max-w-[640px] text-center">
-          <div className="mb-3 text-xs font-bold tracking-wider text-brand uppercase">
+      <div className="relative container mx-auto px-6 py-12 sm:px-10">
+        <div className="max-w-[620px]">
+          <div className="mb-4.5 inline-flex items-center gap-2 rounded-full border border-brand/45 bg-brand/[0.18] px-3 py-1.5 text-xs font-bold tracking-wider text-brand uppercase">
+            <ShieldCheck className="size-3.5" aria-hidden />
             {slide?.eyebrow || "Sadece doğrulanmış hekimler"}
           </div>
 
-          <h1 className="mb-4 text-[28px] leading-tight font-bold sm:text-[34px]">
+          <h1 className="mb-3.5 text-[clamp(28px,4.4vw,46px)] leading-[1.1] font-bold text-balance">
             {slide?.title ?? "Hekimlerin ikinci el pazaryeri ve meslektaş topluluğu."}
           </h1>
 
           {slide?.description ? (
             <div
-              className="mx-auto mb-6 max-w-[520px] text-sm text-[#B7BCBE] [&_a]:underline [&_strong]:font-bold"
+              className="mb-6 max-w-[540px] text-[15px] leading-relaxed text-[#D7DBDC] [&_a]:underline [&_strong]:font-bold"
               dangerouslySetInnerHTML={{ __html: slide.description }}
             />
           ) : (
-            <p className="mx-auto mb-6 max-w-[520px] text-sm leading-relaxed text-[#B7BCBE]">
+            <p className="mb-6 max-w-[540px] text-[15px] leading-relaxed text-[#D7DBDC]">
               Elinizde durmayan cihazdan kitaba, telefondan mobilyaya kadar her şeyi
               meslektaşlarınızla alıp satın; aradığınızı bulamıyorsanız talep açın, branş
               topluluklarında konuşun. Üyelik diploma ve tabip odası kaydı doğrulandıktan sonra
@@ -77,21 +89,27 @@ export function HomeHero({ slides }: { slides: CarouselSlide[] }) {
             </p>
           )}
 
-          <div className="flex flex-wrap justify-center gap-3">
+          <div className="mb-6.5 flex flex-wrap gap-3">
             <Link href={slide?.linkUrl || "/kayit-ol"}>
-              <Button className="bg-brand text-white hover:bg-brand/85">
+              <Button className="bg-white text-[#141718] hover:bg-[#EDEEEE]">
                 {slide?.buttonLabel || "Ücretsiz Kayıt Ol"}
+                <ArrowRight className="size-4" aria-hidden />
               </Button>
             </Link>
             <Link href="/ilanlar">
-              <Button className="bg-white text-[#141718] hover:bg-[#EDEEEE]">İlanlara Göz At</Button>
+              <Button variant="outline" className="border-white/35 bg-transparent text-white hover:bg-white/10">
+                İlanlara Göz At
+              </Button>
             </Link>
           </div>
 
           {!slide && (
-            <ul className="mt-7 flex flex-wrap justify-center gap-x-6 gap-y-2.5">
+            <ul className="flex flex-wrap gap-2">
               {CHIPS.map(({ icon: Icon, label }) => (
-                <li key={label} className="flex items-center gap-1.5 text-xs text-[#9AA1A5]">
+                <li
+                  key={label}
+                  className="flex items-center gap-1.5 rounded-full bg-white/12 px-3 py-1.5 text-xs text-white"
+                >
                   <Icon className="size-3.5 text-brand" aria-hidden />
                   {label}
                 </li>
@@ -102,7 +120,7 @@ export function HomeHero({ slides }: { slides: CarouselSlide[] }) {
       </div>
 
       {slides.length > 1 && (
-        <div className="relative flex justify-center gap-2 pb-5">
+        <div className="absolute inset-x-0 bottom-5 flex justify-center gap-2">
           {slides.map((s, i) => (
             <button
               key={s.id}
