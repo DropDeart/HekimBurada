@@ -50,8 +50,10 @@ export function VerificationTimeline() {
   }, []);
 
   return (
-    <ol ref={trackRef} className="relative mt-8 space-y-16 pl-10">
-      {/* Noktaların tam ortasından geçen dikey çizgi (sol:19px = pl-10'un yarısı - 1px). */}
+    <ol ref={trackRef} className="relative mt-8 space-y-16 pl-16">
+      {/* Noktanın (size-10 = 40px) sağ kenarıyla metin arasında 24px boşluk kalsın diye pl-16 (64px)
+          kullanılıyor; çizginin merkezi yine noktanın ortasında kalıyor (sol:19px = 40px'in yarısı - 1px),
+          çünkü nokta her zaman ol'un sol kenarına -left-16 ile sabitleniyor (pl değerinden bağımsız). */}
       <span
         data-verify-line
         aria-hidden
@@ -62,7 +64,7 @@ export function VerificationTimeline() {
           <span
             data-verify-dot
             aria-hidden
-            className="absolute top-0.5 -left-10 flex size-10 items-center justify-center rounded-full bg-brand text-sm font-bold text-white"
+            className="absolute top-0.5 -left-16 flex size-10 items-center justify-center rounded-full bg-brand text-sm font-bold text-white"
           >
             {i + 1}
           </span>

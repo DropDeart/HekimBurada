@@ -282,8 +282,13 @@ export default async function Home() {
               ))}
             </div>
           </div>
-          <div className="flex min-h-[220px] items-center justify-center bg-gradient-to-br from-brand-soft to-white lg:min-h-[280px]">
-            <Gift className="size-16 text-brand/70" aria-hidden strokeWidth={1.25} />
+          <div className="min-h-[220px] lg:min-h-[280px]">
+            {/* eslint-disable-next-line @next/next/no-img-element -- statik marketing görseli, public/images altında */}
+            <img
+              src="/images/bagis-bedelsiz.jpg"
+              alt="Bir hekim, meslektaşına bağışladığı tıbbi malzeme kutusunu teslim ediyor"
+              className="h-full min-h-[220px] w-full object-cover lg:min-h-[280px]"
+            />
           </div>
         </Reveal>
       </section>
