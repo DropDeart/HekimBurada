@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { MARKETPLACE_URL, parseListingImages } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -8,10 +9,20 @@ interface ListingImageProps {
   alt: string;
   className?: string;
   placeholderText?: string;
+  /** Görsel viewport'un ne kadarını kaplayacağı — next/image'ın doğru boyutta indirmesi için. */
+  sizes?: string;
 }
 
-/** İlan kartı/önizleme görseli — `Listing.images`'ın ilk URL'ini render eder, yoksa çizgili placeholder'a düşer. */
-export function ListingImage({ images, alt, className, placeholderText = "İLAN GÖRSELİ" }: ListingImageProps) {
+/** İlan kartı/önizleme görseli — `Listing.images`'ın ilk URL'ini render eder, yoksa çizgili placeholder'a düşer.
+ * next/image ile lazy-load + otomatik boyut/format optimizasyonu: sunucudaki orijinal (genelde birkaç MB'lık)
+ * dosya yerine, kartın gerçek render boyutuna göre küçültülmüş WebP/AVIF servis edilir. */
+export function ListingImage({
+  images,
+  alt,
+  className,
+  placeholderText = "İLAN GÖRSELİ",
+  sizes = "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 400px",
+}: ListingImageProps) {
   const urls = parseListingImages(images);
   if (urls.length === 0) {
     return (
@@ -27,7 +38,8 @@ export function ListingImage({ images, alt, className, placeholderText = "İLAN 
   }
 
   return (
-    // eslint-disable-next-line @next/next/no-img-element -- kullanıcı tarafından yüklenen keyfi harici görsel
-    <img src={`${MARKETPLACE_URL}${urls[0]}`} alt={alt} className={cn("object-cover", className)} />
+    <div className={cn("relative overflow-hidden", className)}>
+      <Image src={`${MARKETPLACE_URL}${urls[0]}`} alt={alt} fill sizes={sizes} className="object-cover" />
+    </div>
   );
 }

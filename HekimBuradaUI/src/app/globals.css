@@ -130,6 +130,10 @@
   }
   body {
     @apply bg-background text-foreground;
+    /* Seçilebilir metin (başlık/paragraf) üzerine gelince tarayıcı varsayılanı olan yazı imleci
+       (I-beam) görünüyordu — buton/link gibi daha spesifik kurallar zaten kendi cursor'unu
+       koruyor (özgüllükte bu kuralı eziyorlar), bu yalnızca düz metnin imlecini değiştirir. */
+    cursor: default;
   }
   html {
     @apply font-sans;

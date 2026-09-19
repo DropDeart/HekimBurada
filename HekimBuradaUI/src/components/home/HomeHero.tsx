@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ArrowRight, BadgeCheck, Gift, Lock, ShieldCheck } from "lucide-react";
@@ -45,15 +46,16 @@ export function HomeHero({ slides }: { slides: CarouselSlide[] }) {
 
   return (
     <section
-      className="relative flex min-h-[420px] items-center overflow-hidden bg-[#141718] bg-cover bg-center text-white sm:min-h-[480px] lg:min-h-[540px]"
-      style={
-        backgroundImage
-          ? { backgroundImage: `url(${backgroundImage})` }
-          : slide?.backgroundColor
-            ? { backgroundColor: slide.backgroundColor }
-            : undefined
-      }
+      className="relative flex min-h-[420px] items-center overflow-hidden bg-[#141718] text-white sm:min-h-[480px] lg:min-h-[540px]"
+      style={!backgroundImage && slide?.backgroundColor ? { backgroundColor: slide.backgroundColor } : undefined}
     >
+      {backgroundImage && (
+        // Sayfanın en üstünde, ilk ekranda görünen tek büyük görsel (LCP) — lazy-load YERİNE
+        // `priority` ile erken indirilir, next/image yine de gerçek render boyutuna göre
+        // küçültülmüş/WebP-AVIF halini servis eder (orijinal dosya birkaç MB olsa da).
+        <Image src={backgroundImage} alt="" fill priority sizes="100vw" className="object-cover" />
+      )}
+
       {backgroundImage && (
         <div
           className="pointer-events-none absolute inset-0"

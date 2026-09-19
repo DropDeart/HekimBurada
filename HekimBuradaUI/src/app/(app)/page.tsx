@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, Gift, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -282,12 +283,13 @@ export default async function Home() {
               ))}
             </div>
           </div>
-          <div className="min-h-[220px] lg:min-h-[280px]">
-            {/* eslint-disable-next-line @next/next/no-img-element -- statik marketing görseli, public/images altında */}
-            <img
+          <div className="relative min-h-[220px] lg:min-h-[280px]">
+            <Image
               src="/images/bagis-bedelsiz.jpg"
               alt="Bir hekim, meslektaşına bağışladığı tıbbi malzeme kutusunu teslim ediyor"
-              className="h-full min-h-[220px] w-full object-cover lg:min-h-[280px]"
+              fill
+              sizes="(max-width: 1024px) 100vw, 50vw"
+              className="object-cover"
             />
           </div>
         </Reveal>
