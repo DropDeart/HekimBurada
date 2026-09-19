@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Info, X } from "lucide-react";
@@ -452,11 +453,12 @@ export function IlanFormWizard({ initial }: { initial?: Listing }) {
                     <div className="mb-3 flex flex-wrap justify-center gap-2">
                       {imageUrls.map((url, i) => (
                         <div key={url} className="relative h-14 w-20 overflow-hidden rounded-md bg-white">
-                          {/* eslint-disable-next-line @next/next/no-img-element -- kullanıcı tarafından yüklenen keyfi harici görsel */}
-                          <img
+                          <Image
                             src={`${MARKETPLACE_URL}${url}`}
                             alt={`Yüklenen ilan fotoğrafı ${i + 1}`}
-                            className="h-full w-full object-cover"
+                            fill
+                            sizes="80px"
+                            className="object-cover"
                           />
                           <button
                             type="button"

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
@@ -133,13 +134,15 @@ export default function AdminUrunDetayPage() {
           {images.length > 0 ? (
             <div className="grid grid-cols-2 gap-2">
               {images.map((url, i) => (
-                // eslint-disable-next-line @next/next/no-img-element -- kullanıcı tarafından yüklenen keyfi harici görsel
-                <img
-                  key={url}
-                  src={`${MARKETPLACE_URL}${url}`}
-                  alt={`${listing.title} - görsel ${i + 1}`}
-                  className="h-[105px] w-full rounded-md object-cover"
-                />
+                <div key={url} className="relative h-[105px] w-full overflow-hidden rounded-md">
+                  <Image
+                    src={`${MARKETPLACE_URL}${url}`}
+                    alt={`${listing.title} - görsel ${i + 1}`}
+                    fill
+                    sizes="260px"
+                    className="object-cover"
+                  />
+                </div>
               ))}
             </div>
           ) : (

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -62,12 +63,15 @@ export function AnnouncementPopup() {
           <DialogDescription>{formatDate(announcement.publishedAt)}</DialogDescription>
         </DialogHeader>
         {announcement.imageUrl && (
-          // eslint-disable-next-line @next/next/no-img-element -- admin panelden yüklenen keyfi harici görsel
-          <img
-            src={`${GATEWAY_URL}${announcement.imageUrl}`}
-            alt={announcement.title}
-            className="h-[160px] w-full rounded-lg object-cover"
-          />
+          <div className="relative h-[160px] w-full overflow-hidden rounded-lg">
+            <Image
+              src={`${GATEWAY_URL}${announcement.imageUrl}`}
+              alt={announcement.title}
+              fill
+              sizes="500px"
+              className="object-cover"
+            />
+          </div>
         )}
         <p className="text-sm whitespace-pre-wrap text-foreground">{announcement.body}</p>
         <DialogFooter>

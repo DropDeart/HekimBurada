@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -380,14 +381,16 @@ export default function ListingDetailClient() {
             <button
               type="button"
               onClick={() => setLightboxOpen(true)}
-              className="block w-full cursor-zoom-in"
+              className="relative block h-[360px] w-full cursor-zoom-in overflow-hidden rounded-[10px]"
               aria-label="Görseli büyüt"
             >
-              {/* eslint-disable-next-line @next/next/no-img-element -- kullanıcı tarafından yüklenen keyfi harici görsel */}
-              <img
+              <Image
                 src={`${MARKETPLACE_URL}${images[activeImageIndex] ?? images[0]}`}
                 alt={listing.title}
-                className="h-[360px] w-full rounded-[10px] object-cover"
+                fill
+                priority
+                sizes="(max-width: 1024px) 100vw, 550px"
+                className="object-cover"
               />
             </button>
           ) : (
@@ -403,15 +406,16 @@ export default function ListingDetailClient() {
                   type="button"
                   onClick={() => setActiveImageIndex(i)}
                   className={cn(
-                    "h-[70px] overflow-hidden rounded-lg border-2",
+                    "relative h-[70px] overflow-hidden rounded-lg border-2",
                     i === activeImageIndex ? "border-brand" : "border-transparent"
                   )}
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element -- kullanıcı tarafından yüklenen keyfi harici görsel */}
-                  <img
+                  <Image
                     src={`${MARKETPLACE_URL}${url}`}
                     alt={`${listing.title} - küçük görsel ${i + 1}`}
-                    className="h-full w-full object-cover"
+                    fill
+                    sizes="120px"
+                    className="object-cover"
                   />
                 </button>
               ))}

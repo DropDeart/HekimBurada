@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { X } from "lucide-react";
 import { toast } from "sonner";
@@ -249,10 +250,11 @@ export default function AdminDuyurularPage() {
                 <div className="flex items-center gap-3">
                   {createForm.imageUrl ? (
                     <div className="relative">
-                      {/* eslint-disable-next-line @next/next/no-img-element -- admin panelde yüklenen keyfi harici görsel */}
-                      <img
+                      <Image
                         src={`${GATEWAY_URL}${createForm.imageUrl}`}
                         alt={createForm.title || "Duyuru görseli"}
+                        width={80}
+                        height={48}
                         className="h-12 w-20 rounded border border-border object-cover"
                       />
                       <button
@@ -360,10 +362,11 @@ export default function AdminDuyurularPage() {
                 <TableRow key={a.id}>
                   <TableCell>
                     {a.imageUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element -- admin panelde yüklenen keyfi harici görsel
-                      <img
+                      <Image
                         src={`${GATEWAY_URL}${a.imageUrl}`}
                         alt={a.title || "Duyuru görseli"}
+                        width={64}
+                        height={40}
                         className="h-10 w-16 rounded border border-border object-cover"
                       />
                     ) : (
@@ -441,10 +444,11 @@ export default function AdminDuyurularPage() {
               <div className="flex items-center gap-3">
                 {editForm.imageUrl ? (
                   <div className="relative">
-                    {/* eslint-disable-next-line @next/next/no-img-element -- admin panelde yüklenen keyfi harici görsel */}
-                    <img
+                    <Image
                       src={`${GATEWAY_URL}${editForm.imageUrl}`}
                       alt={editForm.title || "Duyuru görseli"}
+                      width={80}
+                      height={48}
                       className="h-12 w-20 rounded border border-border object-cover"
                     />
                     <button

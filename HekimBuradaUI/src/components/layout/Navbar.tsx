@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -251,8 +252,14 @@ export function Navbar() {
         <div className="flex items-center gap-8">
           <Link href="/" className="flex items-center text-lg font-bold text-foreground">
             {logoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element -- admin panelden yüklenen keyfi harici görsel
-              <img src={`${GATEWAY_URL}${logoUrl}`} alt="HekimBurada" className="h-11 w-auto" />
+              <Image
+                src={`${GATEWAY_URL}${logoUrl}`}
+                alt="HekimBurada"
+                width={160}
+                height={44}
+                priority
+                className="h-11 w-auto"
+              />
             ) : (
               <>
                 Hekim<span className="text-brand">Burada</span>

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { X } from "lucide-react";
 import { toast } from "sonner";
@@ -166,8 +167,13 @@ function GeneralTab() {
         <Label>Logo</Label>
         <div className="flex items-center gap-3">
           {form.logoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element -- admin panelde yüklenen keyfi harici görsel, next/image optimizasyonuna gerek yok
-            <img src={`${GATEWAY_URL}${form.logoUrl}`} alt="Logo" className="h-10 rounded border border-border bg-white p-1" />
+            <Image
+              src={`${GATEWAY_URL}${form.logoUrl}`}
+              alt="Logo"
+              width={80}
+              height={40}
+              className="h-10 w-auto rounded border border-border bg-white p-1"
+            />
           ) : (
             <div className="flex h-10 w-20 items-center justify-center rounded border border-dashed border-border text-[10px] text-muted-foreground">
               Yok
@@ -199,8 +205,13 @@ function GeneralTab() {
         <Label>Favicon</Label>
         <div className="flex items-center gap-3">
           {form.faviconUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element -- admin panelde yüklenen keyfi harici görsel, next/image optimizasyonuna gerek yok
-            <img src={`${GATEWAY_URL}${form.faviconUrl}`} alt="Favicon" className="h-8 w-8 rounded border border-border bg-white p-1" />
+            <Image
+              src={`${GATEWAY_URL}${form.faviconUrl}`}
+              alt="Favicon"
+              width={32}
+              height={32}
+              className="h-8 w-8 rounded border border-border bg-white p-1"
+            />
           ) : (
             <div className="flex h-8 w-8 items-center justify-center rounded border border-dashed border-border text-[9px] text-muted-foreground">
               Yok
@@ -858,10 +869,11 @@ function CarouselTab() {
                   <div className="flex items-center gap-3">
                     {createForm.backgroundImageUrl ? (
                       <div className="relative">
-                        {/* eslint-disable-next-line @next/next/no-img-element -- admin panelde yüklenen keyfi harici görsel */}
-                        <img
+                        <Image
                           src={`${GATEWAY_URL}${createForm.backgroundImageUrl}`}
                           alt={createForm.title || "Carousel slaytı arka plan görseli"}
+                          width={80}
+                          height={48}
                           className="h-12 w-20 rounded border border-border object-cover"
                         />
                         <button
@@ -960,10 +972,11 @@ function CarouselTab() {
                 <TableRow key={slide.id}>
                   <TableCell>
                     {slide.backgroundType === "image" && slide.backgroundImageUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element -- admin panelde yüklenen keyfi harici görsel
-                      <img
+                      <Image
                         src={`${GATEWAY_URL}${slide.backgroundImageUrl}`}
                         alt={slide.title || "Carousel slaytı arka plan görseli"}
+                        width={64}
+                        height={40}
                         className="h-10 w-16 rounded border border-border object-cover"
                       />
                     ) : (
@@ -1084,10 +1097,11 @@ function CarouselTab() {
                 <div className="flex items-center gap-3">
                   {editForm.backgroundImageUrl ? (
                     <div className="relative">
-                      {/* eslint-disable-next-line @next/next/no-img-element -- admin panelde yüklenen keyfi harici görsel */}
-                      <img
+                      <Image
                         src={`${GATEWAY_URL}${editForm.backgroundImageUrl}`}
                         alt={editForm.title || "Carousel slaytı arka plan görseli"}
+                        width={80}
+                        height={48}
                         className="h-12 w-20 rounded border border-border object-cover"
                       />
                       <button

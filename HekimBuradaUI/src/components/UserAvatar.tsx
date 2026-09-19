@@ -37,7 +37,10 @@ export function UserAvatar({
 
   if (avatarUrl) {
     return (
-      // eslint-disable-next-line @next/next/no-img-element -- harici (Google vb.) veya Identity'nin kendi statik dosyası olabilir
+      // next/image kullanılmıyor: avatarUrl rastgele bir harici host olabilir (Google/Facebook vb.
+      // sosyal girişten gelen fotoğraf) — next/image bilinmeyen host'u images.remotePatterns'e
+      // önceden eklenmemişse reddedip sayfayı patlatır, burada host'u önceden bilemeyiz.
+      // eslint-disable-next-line @next/next/no-img-element
       <img
         src={avatarUrl.startsWith("http") ? avatarUrl : `${IDENTITY_URL}${avatarUrl}`}
         alt={label}

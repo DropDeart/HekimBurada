@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 import { MARKETPLACE_URL } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -47,12 +48,15 @@ export function ListingPreviewCard({
   const imageBlock = (
     <div>
       {mainImage ? (
-        // eslint-disable-next-line @next/next/no-img-element -- kullanıcı tarafından yüklenen keyfi harici görsel
-        <img
-          src={`${MARKETPLACE_URL}${mainImage}`}
-          alt={title}
-          className={cn(imageHeight, "w-full rounded-[10px] object-cover")}
-        />
+        <div className={cn(imageHeight, "relative w-full overflow-hidden rounded-[10px]")}>
+          <Image
+            src={`${MARKETPLACE_URL}${mainImage}`}
+            alt={title}
+            fill
+            sizes="(max-width: 640px) 100vw, 500px"
+            className="object-cover"
+          />
+        </div>
       ) : (
         <div
           className={cn(
@@ -71,16 +75,11 @@ export function ListingPreviewCard({
               type="button"
               onClick={() => setActiveIndex(i)}
               className={cn(
-                "h-[60px] overflow-hidden rounded-lg border-2",
+                "relative h-[60px] overflow-hidden rounded-lg border-2",
                 i === activeIndex ? "border-brand" : "border-transparent"
               )}
             >
-              {/* eslint-disable-next-line @next/next/no-img-element -- kullanıcı tarafından yüklenen keyfi harici görsel */}
-              <img
-                src={`${MARKETPLACE_URL}${url}`}
-                alt={`${title} - küçük görsel ${i + 1}`}
-                className="h-full w-full object-cover"
-              />
+              <Image src={`${MARKETPLACE_URL}${url}`} alt={`${title} - küçük görsel ${i + 1}`} fill sizes="80px" className="object-cover" />
             </button>
           ))}
         </div>

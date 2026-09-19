@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useState, type FormEvent } from "react";
@@ -381,10 +382,11 @@ function ProfilContent() {
       <aside className="h-fit rounded-[10px] bg-[#F9FAFB] p-5 text-center">
         <div className="relative mx-auto size-20">
           {me?.avatarUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element -- kullanıcı tarafından yüklenen keyfi harici görsel
-            <img
+            <Image
               src={`${IDENTITY_URL}${me.avatarUrl}`}
               alt={me.fullName ?? me.email}
+              width={80}
+              height={80}
               className="size-20 rounded-full object-cover"
             />
           ) : (
@@ -799,10 +801,11 @@ function ProfilContent() {
           </DialogHeader>
           <div className="flex flex-col items-center gap-4 py-2">
             {me?.avatarUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element -- kullanıcı tarafından yüklenen keyfi harici görsel
-              <img
+              <Image
                 src={`${IDENTITY_URL}${me.avatarUrl}`}
                 alt={me.fullName ?? me.email}
+                width={112}
+                height={112}
                 className="size-28 rounded-full object-cover"
               />
             ) : (

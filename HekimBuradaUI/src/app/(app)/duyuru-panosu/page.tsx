@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import { GATEWAY_URL, gatewayApi, type Announcement } from "@/lib/api";
 
@@ -32,12 +33,9 @@ export default function DuyuruPanosuPage() {
           announcements.map((a) => (
             <div key={a.id} className="border-t border-border py-4 first:border-t-0">
               {a.imageUrl && (
-                // eslint-disable-next-line @next/next/no-img-element -- admin panelden yüklenen keyfi harici görsel
-                <img
-                  src={`${GATEWAY_URL}${a.imageUrl}`}
-                  alt={a.title}
-                  className="mb-3 h-[180px] w-full rounded-lg object-cover"
-                />
+                <div className="relative mb-3 h-[180px] w-full overflow-hidden rounded-lg">
+                  <Image src={`${GATEWAY_URL}${a.imageUrl}`} alt={a.title} fill sizes="700px" className="object-cover" />
+                </div>
               )}
               <div className="text-sm font-semibold text-foreground">{a.title}</div>
               <div className="text-xs text-muted-foreground">{formatDate(a.publishedAt)}</div>

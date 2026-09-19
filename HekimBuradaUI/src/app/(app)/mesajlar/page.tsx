@@ -953,7 +953,7 @@ function MesajlarContent() {
             </aside>
 
             <Sheet open={contextOpen} onOpenChange={setContextOpen}>
-              <SheetContent className="lg:hidden">
+              <SheetContent className="overflow-y-auto lg:hidden">
                 <SheetHeader>
                   <SheetTitle>{otherLabel}</SheetTitle>
                 </SheetHeader>
