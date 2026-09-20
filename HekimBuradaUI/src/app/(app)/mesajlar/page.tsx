@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
-import { Check, CheckCheck, ChevronLeft, ListFilter, Search, Send, Trash2 } from "lucide-react";
+import { Check, CheckCheck, ChevronDown, ChevronLeft, Info, ListFilter, Search, Send, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -144,6 +144,9 @@ function MesajlarContent() {
    * dar ekranda "ya liste ya sohbet" tek-kolonlu geçiş için (bkz. proje kararı). */
   const [mobileShowChat, setMobileShowChat] = useState(false);
   const [deleteMessageTarget, setDeleteMessageTarget] = useState<Message | null>(null);
+  /** Hazır yanıt çipleri mobilde varsayılan kapalı — 4 satıra bölünen dört uzun çip, mesaj kutusunu
+   * aşağı itip ekranın çoğunu kaplıyordu; masaüstünde (sm+) zaten açık görünüyor. */
+  const [quickRepliesOpen, setQuickRepliesOpen] = useState(false);
   const [deletingMessage, setDeletingMessage] = useState(false);
 
   const [verifiedMap, setVerifiedMap] = useState<Map<string, boolean>>(new Map());
@@ -716,23 +719,26 @@ function MesajlarContent() {
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[15px] font-semibold">{otherLabel}</span>
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className="min-w-0 truncate text-[15px] font-semibold">{otherLabel}</span>
                     {isVerified && (
-                      <span className="rounded bg-brand-soft px-1.5 py-px text-[10.5px] font-semibold text-brand">
+                      <span className="hidden shrink-0 rounded bg-brand-soft px-1.5 py-px text-[10.5px] font-semibold text-brand sm:inline-block">
                         Doğrulanmış hekim
                       </span>
                     )}
                   </div>
-                  <div className="mt-0.5 text-xs text-muted-foreground">
+                  <div className="mt-0.5 truncate text-xs text-muted-foreground">
                     {isOnline ? "Çevrimiçi" : "Çevrimdışı"} · {roleLabelFor(active)}
+                    {isVerified && <span className="sm:hidden"> · Doğrulanmış hekim</span>}
                   </div>
                 </div>
                 <button
                   onClick={() => setContextOpen((v) => !v)}
-                  className="shrink-0 rounded-lg border border-border px-3 py-2 text-[13px] font-medium hover:bg-muted"
+                  aria-label={contextOpen ? "Detayı kapat" : "Detayı aç"}
+                  className="shrink-0 rounded-lg border border-border p-2 text-[13px] font-medium hover:bg-muted sm:px-3 sm:py-2"
                 >
-                  {contextOpen ? "Detayı kapat" : "Detayı aç"}
+                  <Info size={18} className="sm:hidden" />
+                  <span className="hidden sm:inline">{contextOpen ? "Detayı kapat" : "Detayı aç"}</span>
                 </button>
               </div>
 
@@ -826,11 +832,27 @@ function MesajlarContent() {
               </div>
 
               <div className="border-t border-border bg-white px-5 pt-3 pb-3.5">
-                <div className="mb-2.5 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setQuickRepliesOpen((v) => !v)}
+                  className="mb-2 flex w-full items-center justify-between text-xs font-semibold text-muted-foreground sm:hidden"
+                >
+                  Hazır yanıtlar
+                  <ChevronDown size={14} className={cn("transition-transform", quickRepliesOpen && "rotate-180")} />
+                </button>
+                <div
+                  className={cn(
+                    "mb-2.5 flex-wrap gap-2 sm:flex",
+                    quickRepliesOpen ? "flex" : "hidden"
+                  )}
+                >
                   {quickReplies.map((label) => (
                     <button
                       key={label}
-                      onClick={() => setDraft(label)}
+                      onClick={() => {
+                        setDraft(label);
+                        setQuickRepliesOpen(false);
+                      }}
                       className="rounded-full border border-border bg-muted px-2.5 py-1 text-xs hover:bg-brand-soft"
                     >
                       {label}
