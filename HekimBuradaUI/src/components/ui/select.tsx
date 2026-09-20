@@ -51,7 +51,11 @@ function SelectContent({
           // "max-h-[--radix-select-content-available-height]" var() sarmalayıcısı olmadan geçersiz bir
           // CSS değeri üretir (tarayıcı sessizce yok sayar) — uzun listelerde (örn. 39 ilçeli bir il)
           // popup'ın viewport dışına taşıp seçenekleri erişilemez kılmasına yol açıyordu.
-          "z-50 max-h-[var(--radix-select-content-available-height)] min-w-[8rem] overflow-hidden rounded-lg border border-border bg-popover text-popover-foreground shadow-md data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
+          // min(320px, ...) ile ayrıca üst sınır konuyor: aksi halde ekranın izin verdiği KADAR
+          // (bazen 700-800px) yükseklikte tek bir liste açılıyor, çok sayıda seçenekli kutularda
+          // (il, kategori, uzmanlık alanı) sayfanın büyük bölümünü kaplayıp diğer alanların
+          // üzerine biniyordu — artık en fazla ~8 satır gösterip gerisi kendi içinde kayıyor.
+          "z-50 max-h-[min(320px,var(--radix-select-content-available-height))] min-w-[8rem] overflow-hidden rounded-lg border border-border bg-popover text-popover-foreground shadow-md data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
           position === "popper" &&
             "data-[side=bottom]:translate-y-1 data-[side=top]:-translate-y-1",
           className
@@ -84,12 +88,18 @@ function SelectItem({
     <SelectPrimitive.Item
       data-slot="select-item"
       className={cn(
-        "relative flex w-full cursor-pointer items-center gap-2 rounded-md py-2 pr-8 pl-2.5 text-sm outline-none select-none data-highlighted:bg-muted data-highlighted:text-foreground",
+        "relative flex w-full cursor-pointer items-center gap-2 rounded-md py-1.5 pr-8 pl-2.5 text-sm outline-none select-none data-highlighted:bg-muted data-highlighted:text-foreground",
         className
       )}
       {...props}
     >
-      <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
+      {/* SelectPrimitive.ItemText kendi className/style prop'unu sessizce yok sayıyor (Radix
+          kaynağında bilerek — içeriği trigger'a da portal'lıyor), bu yüzden truncate'i kendi
+          span'ımıza koyuyoruz: uzun il/ilçe/kategori adları satırı iki satıra bölüp altındaki
+          seçeneğe biniyordu. */}
+      <SelectPrimitive.ItemText>
+        <span className="block truncate">{children}</span>
+      </SelectPrimitive.ItemText>
       <span className="absolute right-2.5 flex size-3.5 items-center justify-center">
         <SelectPrimitive.ItemIndicator>
           <CheckIcon className="size-4" />
