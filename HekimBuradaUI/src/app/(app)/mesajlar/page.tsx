@@ -859,7 +859,7 @@ function MesajlarContent() {
                     </button>
                   ))}
                 </div>
-                <div className="flex items-end gap-2.5">
+                <div className="flex flex-col gap-2.5 sm:flex-row sm:items-end">
                   <div className="min-w-0 flex-1 rounded-xl border border-input bg-[#f7f8f9] px-2.5 py-2">
                     <textarea
                       value={draft}
@@ -875,7 +875,7 @@ function MesajlarContent() {
                       className="h-11 max-h-[120px] w-full resize-none bg-transparent text-[13.5px] leading-relaxed outline-none"
                     />
                   </div>
-                  <Button onClick={sendMessage} className="h-auto shrink-0 gap-1.5 rounded-xl px-4 py-3">
+                  <Button onClick={sendMessage} className="h-auto w-full shrink-0 gap-1.5 rounded-xl px-4 py-3 sm:w-auto">
                     Gönder
                     <Send size={16} />
                   </Button>
