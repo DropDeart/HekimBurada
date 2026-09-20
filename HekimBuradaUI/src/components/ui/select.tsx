@@ -28,7 +28,11 @@ function SelectTrigger({
       )}
       {...props}
     >
-      {children}
+      {/* SelectValue (Radix) da kendi className/style prop'unu sessizce yok sayıyor — uzun bir
+          değer (örn. "Enfeksiyon Hastalıkları ve Klinik Mikrobiyoloji") trigger'ın dışına taşıp
+          dar ekranda/yan yana kutularda (İl/İlçe, Uzmanlık Alanı/Diploma No gibi) bitişikteki
+          alana biniyordu. Kendi sarmalayıcımızda kırpıyoruz. */}
+      <span className="min-w-0 flex-1 truncate text-left">{children}</span>
       <SelectPrimitive.Icon asChild>
         <ChevronDownIcon className="size-4 shrink-0 text-muted-foreground" />
       </SelectPrimitive.Icon>
