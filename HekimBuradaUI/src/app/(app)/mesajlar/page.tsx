@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Check, CheckCheck, ChevronDown, ChevronLeft, Info, ListFilter, Search, Send, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -147,6 +147,7 @@ function MesajlarContent() {
   /** Hazır yanıt çipleri mobilde varsayılan kapalı — 4 satıra bölünen dört uzun çip, mesaj kutusunu
    * aşağı itip ekranın çoğunu kaplıyordu; masaüstünde (sm+) zaten açık görünüyor. */
   const [quickRepliesOpen, setQuickRepliesOpen] = useState(false);
+  const messagesScrollRef = useRef<HTMLDivElement>(null);
   const [deletingMessage, setDeletingMessage] = useState(false);
 
   const [verifiedMap, setVerifiedMap] = useState<Map<string, boolean>>(new Map());
@@ -499,6 +500,13 @@ function MesajlarContent() {
       ].sort((a, b) => a.createdAt.localeCompare(b.createdAt))
     : [];
 
+  useEffect(() => {
+    // Sohbet açılınca ya da yeni mesaj gelince/gönderilince en son mesaj görünsün — önceden
+    // scroll konumu hep en üstte kalıyor, son yazılanı görmek için aşağı kaydırmak gerekiyordu.
+    const el = messagesScrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [activeId, timeline.length]);
+
   const roleLabelFor = (t: Thread) => {
     if (t.kind === "ilan") return t.side === "incoming" ? "Alıcı" : "Satıcı";
     return t.side === "incoming" ? "Teklif Veren" : "Talep Sahibi";
@@ -777,7 +785,7 @@ function MesajlarContent() {
                 )}
               </div>
 
-              <div className="flex flex-1 flex-col gap-3 overflow-y-auto p-5">
+              <div ref={messagesScrollRef} className="flex flex-1 flex-col gap-3 overflow-y-auto p-5">
                 {timeline.length === 0 && <p className="text-center text-xs text-muted-foreground">Henüz mesaj yok.</p>}
                 {timeline.map((item, i) =>
                   item.type === "system" ? (
