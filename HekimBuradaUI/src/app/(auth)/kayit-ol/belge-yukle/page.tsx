@@ -73,7 +73,7 @@ function CompleteProfileForm({ onCompleted }: { onCompleted: () => void }) {
 
       <form onSubmit={submit} className="flex flex-col gap-3.5">
         <div className="grid grid-cols-2 gap-3.5">
-          <div className="grid gap-1.5">
+          <div className="grid min-w-0 gap-1.5">
             <Label htmlFor="specialty">Uzmanlık Alanı</Label>
             <Select value={specialty} onValueChange={setSpecialty} required disabled={specialtiesLoading}>
               <SelectTrigger id="specialty">

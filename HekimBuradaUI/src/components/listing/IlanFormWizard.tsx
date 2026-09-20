@@ -400,7 +400,7 @@ export function IlanFormWizard({ initial }: { initial?: Listing }) {
                 </div>
                 <div className="grid grid-cols-2 gap-3.5">
                   {kind !== "job" && (
-                    <div>
+                    <div className="min-w-0">
                       <label className="text-xs text-muted-foreground">Durum</label>
                       <Select value={condition} onValueChange={setCondition}>
                         <SelectTrigger className="w-full">
@@ -416,7 +416,7 @@ export function IlanFormWizard({ initial }: { initial?: Listing }) {
                       </Select>
                     </div>
                   )}
-                  <div>
+                  <div className="min-w-0">
                     <label className="text-xs text-muted-foreground">Şehir</label>
                     <Select value={city} onValueChange={setCity}>
                       <SelectTrigger className="w-full">

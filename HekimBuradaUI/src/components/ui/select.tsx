@@ -23,7 +23,11 @@ function SelectTrigger({
     <SelectPrimitive.Trigger
       data-slot="select-trigger"
       className={cn(
-        "flex h-8 w-full items-center justify-between gap-2 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base outline-none data-placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 md:text-sm dark:bg-input/30",
+        // min-w-0: bu trigger bir grid/flex satırında (İl/İlçe, Uzmanlık Alanı/Diploma No gibi)
+        // kardeşiyle yan yana durduğunda, grid/flex item'ların varsayılan min-width:auto'su uzun
+        // metni kırpmak yerine SÜTUNU genişletiyordu (truncate'in hiç devreye girmemesinin sebebi
+        // buydu — bkz. SelectValue içindeki truncate sarmalayıcı).
+        "flex h-8 w-full min-w-0 items-center justify-between gap-2 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base outline-none data-placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 md:text-sm dark:bg-input/30",
         className
       )}
       {...props}
