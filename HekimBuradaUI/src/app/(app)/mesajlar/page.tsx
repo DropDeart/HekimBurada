@@ -147,6 +147,11 @@ function MesajlarContent() {
   /** Hazır yanıt çipleri mobilde varsayılan kapalı — 4 satıra bölünen dört uzun çip, mesaj kutusunu
    * aşağı itip ekranın çoğunu kaplıyordu; masaüstünde (sm+) zaten açık görünüyor. */
   const [quickRepliesOpen, setQuickRepliesOpen] = useState(false);
+  /** Bağlam paneli lg altında Sheet, lg ve üstünde sabit sidebar olarak gösteriliyor. Sheet'i
+   * masaüstünde hiç kurmamak gerekiyor: SheetContent'teki `lg:hidden` yalnızca panelin kendisini
+   * gizliyor, Radix'in tam ekranı kaplayan karartma katmanı (bg-black/50) ve body scroll kilidi
+   * masaüstünde de devrede kalıyor — sayfanın üzerinde sabit koyu bir perde bırakıyordu. */
+  const [isBelowLg, setIsBelowLg] = useState(false);
   const messagesScrollRef = useRef<HTMLDivElement>(null);
   const [deletingMessage, setDeletingMessage] = useState(false);
 
@@ -501,6 +506,18 @@ function MesajlarContent() {
     : [];
 
   useEffect(() => {
+    const mq = window.matchMedia("(max-width: 1023.98px)");
+    const apply = () => {
+      setIsBelowLg(mq.matches);
+      // Dar ekranda panel, kullanıcı "Detayı aç" demeden Sheet olarak açılıp sohbeti kapatmasın.
+      if (mq.matches) setContextOpen(false);
+    };
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, []);
+
+  useEffect(() => {
     // Sohbet açılınca ya da yeni mesaj gelince/gönderilince en son mesaj görünsün — önceden
     // scroll konumu hep en üstte kalıyor, son yazılanı görmek için aşağı kaydırmak gerekiyordu.
     const el = messagesScrollRef.current;
@@ -806,13 +823,16 @@ function MesajlarContent() {
                     >
                       <div
                         className={cn(
-                          "flex items-center gap-1.5",
+                          /* Genişlik sınırı baloncukta değil bu satırda: yüzdeli max-width'i, genişliği
+                             içeriğine göre belirlenen bir kapsayıcının içinde vermek döngüsel bir kısıt
+                             yaratıp baloncuğu en dar haline (harf harf satır) çökertiyordu. */
+                          "flex max-w-[85%] items-center gap-1.5 sm:max-w-[62%]",
                           item.message.senderId === myId ? "flex-row-reverse" : "flex-row"
                         )}
                       >
                         <div
                           className={cn(
-                            "max-w-[85%] min-w-0 rounded-xl border px-3.5 py-2.5 text-[13.5px] leading-relaxed whitespace-pre-line break-words hyphens-auto sm:max-w-[62%]",
+                            "min-w-0 rounded-xl border px-3.5 py-2.5 text-[13.5px] leading-relaxed break-words whitespace-pre-line",
                             item.message.senderId === myId ? "border-[#cdeedd] bg-brand-soft" : "border-border bg-white"
                           )}
                         >
@@ -982,65 +1002,67 @@ function MesajlarContent() {
               )}
             </aside>
 
-            <Sheet open={contextOpen} onOpenChange={setContextOpen}>
-              <SheetContent className="overflow-y-auto lg:hidden">
-                <SheetHeader>
-                  <SheetTitle>{otherLabel}</SheetTitle>
-                </SheetHeader>
+            {isBelowLg && (
+              <Sheet open={contextOpen} onOpenChange={setContextOpen}>
+                <SheetContent className="overflow-y-auto">
+                  <SheetHeader>
+                    <SheetTitle>{otherLabel}</SheetTitle>
+                  </SheetHeader>
 
-                <div className="flex items-center gap-3">
-                  <UserAvatar avatarUrl={otherUser?.avatarUrl} name={otherLabel} size={44} />
-                  <Link href={active.navPath} className="text-[12.5px] text-brand hover:opacity-80">
-                    {active.kind === "ilan" ? "İlanı aç" : "Talebi aç"}
-                  </Link>
-                </div>
-
-                <div className="border-t border-border pt-4">
-                  <div className="mb-2.5 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">Teklif geçmişi</div>
-                  <div className="flex flex-col gap-2">
-                    {revisions.length === 0 ? (
-                      <p className="text-xs text-muted-foreground">Geçmiş bulunamadı.</p>
-                    ) : (
-                      [...revisions].reverse().map((r, i) => (
-                        <div key={r.id} className="flex items-center gap-2 text-[12.5px]">
-                          <span className={cn("size-[7px] shrink-0 rounded-full", i === 0 ? "bg-brand" : "bg-muted-foreground/40")} />
-                          <span className={cn("flex-1", i === 0 ? "font-semibold" : "font-normal")}>{currency(r.amount)}</span>
-                          <span className="shrink-0 text-[11.5px] text-muted-foreground">{r.note ?? formatListTime(r.createdAt)}</span>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-
-                <div className="border-t border-border pt-4">
-                  <div className="mb-2.5 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
-                    {active.kind === "ilan" ? "İlan bilgisi" : "Talep bilgisi"}
-                  </div>
-                  {facts.map(([k, v]) => (
-                    <div key={k} className="flex gap-2.5 border-b border-border/60 py-1.5 text-[12.5px] last:border-b-0">
-                      <span className="w-[100px] shrink-0 text-muted-foreground">{k}</span>
-                      <span className="min-w-0 flex-1 font-medium break-words">{v}</span>
-                    </div>
-                  ))}
-                </div>
-
-                {active.status === "accepted" && (
-                  <div className="rounded-xl border border-[#cdeedd] bg-brand-soft p-3.5">
-                    <div className="mb-1 text-[13px] font-bold">Teklif kabul edildi</div>
-                    <div className="mb-3 text-[12.5px] leading-relaxed text-[#3c5a4c]">
-                      {active.side === "sent"
-                        ? "Sipariş/ödeme adımlarını tamamlamak için ilan sayfasını açın."
-                        : "Alıcının sipariş/ödeme bilgilerini ilan sayfasından görüntüleyip onaylayabilirsiniz."}
-                    </div>
-                    <Link href={active.navPath}>
-                      <button className="w-full rounded-lg bg-brand px-3 py-2 text-[13px] font-semibold text-white hover:opacity-90">
-                        {active.kind === "ilan" ? "İlanı Aç" : "Talebi Aç"}
-                      </button>
+                  <div className="flex items-center gap-3">
+                    <UserAvatar avatarUrl={otherUser?.avatarUrl} name={otherLabel} size={44} />
+                    <Link href={active.navPath} className="text-[12.5px] text-brand hover:opacity-80">
+                      {active.kind === "ilan" ? "İlanı aç" : "Talebi aç"}
                     </Link>
                   </div>
-                )}
-              </SheetContent>
-            </Sheet>
+
+                  <div className="border-t border-border pt-4">
+                    <div className="mb-2.5 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">Teklif geçmişi</div>
+                    <div className="flex flex-col gap-2">
+                      {revisions.length === 0 ? (
+                        <p className="text-xs text-muted-foreground">Geçmiş bulunamadı.</p>
+                      ) : (
+                        [...revisions].reverse().map((r, i) => (
+                          <div key={r.id} className="flex items-center gap-2 text-[12.5px]">
+                            <span className={cn("size-[7px] shrink-0 rounded-full", i === 0 ? "bg-brand" : "bg-muted-foreground/40")} />
+                            <span className={cn("flex-1", i === 0 ? "font-semibold" : "font-normal")}>{currency(r.amount)}</span>
+                            <span className="shrink-0 text-[11.5px] text-muted-foreground">{r.note ?? formatListTime(r.createdAt)}</span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="border-t border-border pt-4">
+                    <div className="mb-2.5 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+                      {active.kind === "ilan" ? "İlan bilgisi" : "Talep bilgisi"}
+                    </div>
+                    {facts.map(([k, v]) => (
+                      <div key={k} className="flex gap-2.5 border-b border-border/60 py-1.5 text-[12.5px] last:border-b-0">
+                        <span className="w-[100px] shrink-0 text-muted-foreground">{k}</span>
+                        <span className="min-w-0 flex-1 font-medium break-words">{v}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {active.status === "accepted" && (
+                    <div className="rounded-xl border border-[#cdeedd] bg-brand-soft p-3.5">
+                      <div className="mb-1 text-[13px] font-bold">Teklif kabul edildi</div>
+                      <div className="mb-3 text-[12.5px] leading-relaxed text-[#3c5a4c]">
+                        {active.side === "sent"
+                          ? "Sipariş/ödeme adımlarını tamamlamak için ilan sayfasını açın."
+                          : "Alıcının sipariş/ödeme bilgilerini ilan sayfasından görüntüleyip onaylayabilirsiniz."}
+                      </div>
+                      <Link href={active.navPath}>
+                        <button className="w-full rounded-lg bg-brand px-3 py-2 text-[13px] font-semibold text-white hover:opacity-90">
+                          {active.kind === "ilan" ? "İlanı Aç" : "Talebi Aç"}
+                        </button>
+                      </Link>
+                    </div>
+                  )}
+                </SheetContent>
+              </Sheet>
+            )}
           </>
         )}
       </div>
