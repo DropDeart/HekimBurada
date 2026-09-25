@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Gizlilik Politikası",
   description: "HekimBurada'da kişisel verilerinizin nasıl toplandığı, kullanıldığı ve korunduğu hakkında bilgi alın.",
+  alternates: { canonical: "/gizlilik-politikasi" },
 };
 
 export default function GizlilikPolitikasiPage() {

@@ -60,7 +60,9 @@ export async function generateMetadata(): Promise<Metadata> {
     title: { default: title, template: `%s | ${BRAND_NAME}` },
     description,
     icons: iconUrl ? { icon: iconUrl, apple: iconUrl } : undefined,
-    alternates: { canonical: "/" },
+    // canonical burada verilmiyor: kök layout'taki değer tüm alt sayfalara miras kalıp /ilanlar,
+    // /talepler vb.'yi ana sayfanın kopyası ilan ediyordu (Google bu yüzden dizine almıyordu).
+    // Her public sayfa kendi canonical'ını kendi metadata'sında veriyor.
     openGraph: {
       type: "website",
       locale: "tr_TR",

@@ -4,6 +4,7 @@ export const metadata: Metadata = {
   title: "Doktor Doğrulama Süreci",
   description:
     "HekimBurada'da hesabınızın nasıl doğrulandığını öğrenin: kayıt, e-posta doğrulama ve doktorluk belgesi onayı adımları.",
+  alternates: { canonical: "/dogrulama-sureci" },
 };
 
 export default function DogrulamaSureciPage() {

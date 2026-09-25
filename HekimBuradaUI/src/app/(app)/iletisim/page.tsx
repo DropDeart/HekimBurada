@@ -5,6 +5,7 @@ import { CONTACT_COLUMNS, CONTACT_EMAIL, OFFICE_ADDRESS } from "@/lib/staticCont
 export const metadata: Metadata = {
   title: "İletişim",
   description: `HekimBurada destek ve kurumsal iletişim bilgileri — ${CONTACT_EMAIL} üzerinden bize ulaşın.`,
+  alternates: { canonical: "/iletisim" },
 };
 
 export default function IletisimPage() {

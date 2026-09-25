@@ -4,6 +4,7 @@ export const metadata: Metadata = {
   title: "Hakkımızda",
   description:
     "HekimBurada, yalnızca doğrulanmış doktorların katılabildiği 2. el pazaryeri ve topluluk platformudur. Kimlik, diploma ve uzmanlık doğrulaması admin onayından geçer.",
+  alternates: { canonical: "/hakkimizda" },
 };
 
 export default function HakkimizdaPage() {

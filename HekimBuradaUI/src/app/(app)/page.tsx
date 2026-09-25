@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, Gift, Users } from "lucide-react";
@@ -30,6 +31,10 @@ import {
 
 /** Veri 5 dakikada bir tazelenir; sayfa bu süre boyunca CDN'den statik olarak servis edilir. */
 export const revalidate = 300;
+
+export const metadata: Metadata = {
+  alternates: { canonical: "/" },
+};
 
 function currency(n: number) {
   return `${n.toLocaleString("tr-TR")} ₺`;

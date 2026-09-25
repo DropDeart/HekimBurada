@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Kullanım Koşulları",
   description: "HekimBurada platformunu kullanırken uymanız gereken kurallar ve şartlar.",
+  alternates: { canonical: "/kullanim-kosullari" },
 };
 
 export default function KullanimKosullariPage() {
