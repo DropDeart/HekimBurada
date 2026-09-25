@@ -78,16 +78,19 @@ async function fetchOpenCommunityUrls(): Promise<MetadataRoute.Sitemap> {
  */
 async function fetchListingUrls(): Promise<MetadataRoute.Sitemap> {
   try {
-    const res = await fetch(`${MARKETPLACE_URL}/api/Listings?pageSize=1000`, {
-      next: { revalidate: 3600 },
-    });
-    if (!res.ok) return [];
-    const result = (await res.json()) as PagedResult<{
-      id: string;
-      status: string;
-      publishedAt: string | null;
-    }>;
-    return result.items
+    type ListingRow = { id: string; status: string; publishedAt: string | null };
+    const rows: ListingRow[] = [];
+    // Backend pageSize'ı 100'e kırpıyor; tek istekle 100'den fazla ilan gelmez, sayfa sayfa çekiliyor.
+    for (let page = 1; page <= 50; page++) {
+      const res = await fetch(`${MARKETPLACE_URL}/api/Listings?pageSize=100&page=${page}`, {
+        next: { revalidate: 3600 },
+      });
+      if (!res.ok) break;
+      const result = (await res.json()) as PagedResult<ListingRow> & { totalPages: number };
+      rows.push(...result.items);
+      if (page >= result.totalPages) break;
+    }
+    return rows
       .filter((l) => l.status === "active")
       .map((l) => ({
         url: `${SITE_URL}/ilanlar/${l.id}`,
@@ -100,9 +103,14 @@ async function fetchListingUrls(): Promise<MetadataRoute.Sitemap> {
   }
 }
 
+/** Sabit sayfaların lastmod'u: son deploy (build/ISR üretim) zamanı. Google changefreq/priority'yi
+ * yok sayıyor ama lastmod'a bakıyor; içerik değişikliği deploy ile geldiği için bu yeterince doğru. */
+const STATIC_LAST_MODIFIED = new Date();
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticEntries: MetadataRoute.Sitemap = STATIC_ROUTES.map((path) => ({
     url: `${SITE_URL}${path}`,
+    lastModified: STATIC_LAST_MODIFIED,
     changeFrequency: path === "" ? "daily" : "monthly",
     priority: path === "" ? 1 : 0.7,
   }));
